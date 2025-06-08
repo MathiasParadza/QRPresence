@@ -12,18 +12,11 @@ type Profile = {
   };
 };
 
-type AttendanceEntry = {
-  id: number;
-  session_date: string;
-  status: string;
-};
-
 const StudentView = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [attendanceHistory, setAttendanceHistory] = useState<AttendanceEntry[]>([]);
   const [todayStatus, setTodayStatus] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
-  const [formData, setFormData] = useState<Profile>({
+  const [formData, setFormData] = useState<Omit<Profile, 'user'>>({
     student_id: '',
     department: '',
     level: '',
@@ -47,19 +40,7 @@ const StudentView = () => {
       });
     } catch (error) {
       console.error('Error fetching student profile:', error);
-    }
-  };
-
-  const fetchAttendanceHistory = async () => {
-    try {
-      const res = await axios.get('/api/student/attendance-history/', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      setAttendanceHistory(res.data as AttendanceEntry[]);
-    } catch (err) {
-      console.error('Error loading attendance history');
+      toast.error('Failed to fetch profile.');
     }
   };
 
@@ -72,7 +53,7 @@ const StudentView = () => {
       });
       setTodayStatus(res.data.status);
     } catch (err) {
-      console.error("Error fetching today's attendance status");
+      console.error("Error fetching today's attendance status", err);
     }
   };
 
@@ -104,8 +85,13 @@ const StudentView = () => {
   };
 
   useEffect(() => {
+    if (!token) {
+      toast.error('No access token found. Please login again.');
+      window.location.href = '/login';
+      return;
+    }
+
     fetchProfile();
-    fetchAttendanceHistory();
     fetchTodayStatus();
   }, []);
 
@@ -160,21 +146,6 @@ const StudentView = () => {
             </div>
           </div>
         )}
-      </div>
-
-      <div style={{ marginTop: '2rem' }}>
-        <h2>Attendance History</h2>
-        <ul>
-          {attendanceHistory.length === 0 ? (
-            <li>No records found.</li>
-          ) : (
-            attendanceHistory.map((entry) => (
-              <li key={entry.id}>
-                {entry.session_date} - {entry.status}
-              </li>
-            ))
-          )}
-        </ul>
       </div>
 
       <div style={{ marginTop: '2rem' }}>

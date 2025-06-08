@@ -45,12 +45,22 @@ def mark_attendance(request):
             )
 
         # Create attendance record
-        Attendance.objects.create(
-            student=request.Student,
-            session=session,
-            latitude=latitude,
-            longitude=longitude
+       
+        try:
+            student = Student.objects.get(user=request.user)
+        except Student.DoesNotExist:
+            return Response(
+                {'error': 'Student profile not found'},
+                status=status.HTTP_404_NOT_FOUND
         )
+
+        Attendance.objects.create(
+         student=student,
+         session=session,
+         latitude=latitude,
+         longitude=longitude
+       )
+
 
         return Response(
             {'message': 'Attendance marked successfully'},

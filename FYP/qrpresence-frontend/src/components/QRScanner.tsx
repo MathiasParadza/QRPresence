@@ -175,8 +175,8 @@ const QRScanner: React.FC = () => {
           throw new Error('You must be in the classroom to mark attendance');
         }
   
-        const jwt = localStorage.getItem('access_token');
-        if (!jwt) {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
           throw new Error('User not authenticated');
         }
   
@@ -184,7 +184,7 @@ const QRScanner: React.FC = () => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${jwt}`,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             session_id: sessionId,

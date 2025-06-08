@@ -1779,3 +1779,9 @@ Traceback (most recent call last):
     raise self.RelatedObjectDoesNotExist(
 authentication.models.CustomUser.profile.RelatedObjectDoesNotExist: CustomUser has no profile.
 "GET /api/profile/ HTTP/1.1" 500 107506
+Internal Server Error: /api/generate-and-save-qr/
+"POST /api/generate-and-save-qr/ HTTP/1.1" 500 93
+Internal Server Error: /api/generate-and-save-qr/
+"POST /api/generate-and-save-qr/ HTTP/1.1" 500 93
+Internal Server Error: /api/mark/
+"POST /api/mark/ HTTP/1.1" 500 55
