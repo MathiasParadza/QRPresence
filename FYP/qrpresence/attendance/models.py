@@ -40,7 +40,6 @@ class AttendanceRecord(models.Model):
     session = models.ForeignKey(Session, on_delete=models.CASCADE)
     timestamp = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=20, choices=[('Present', 'Present'), ('Absent', 'Absent')], default='Present')  # 🛠 Capital P
-
 class QRCode(models.Model):
     session = models.ForeignKey(Session, on_delete=models.CASCADE)
     qr_image = models.ImageField(upload_to="qr_codes/")
@@ -59,6 +58,9 @@ class Attendance(models.Model):
     status = models.CharField(max_length=20, choices=[('Present', 'Present'), ('Absent', 'Absent')], default='Present')
     check_in_time = models.DateTimeField(default=now)
     check_out_time = models.DateTimeField(blank=True, null=True)
+    latitude = models.FloatField(null=True, blank=True)   
+    longitude = models.FloatField(null=True, blank=True)
+
 
     def __str__(self):
         return f"{self.student} - {self.session}"
