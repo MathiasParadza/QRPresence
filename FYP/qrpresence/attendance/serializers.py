@@ -30,3 +30,8 @@ class StudentSerializer(serializers.ModelSerializer):
         model = Student
         fields = ['id', 'student_id', 'course', 'year']  # Add fields as needed
         read_only_fields = ['id', 'user']
+
+class AttendanceMarkSerializer(serializers.Serializer):
+    session_id = serializers.CharField()
+    latitude = serializers.FloatField()
+    longitude = serializers.FloatField()
