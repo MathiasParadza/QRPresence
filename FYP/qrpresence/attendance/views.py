@@ -31,6 +31,7 @@ def mark_attendance(request):
 
     serializer = AttendanceMarkSerializer(data=request.data)
     if not serializer.is_valid():
+        print(serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     session_id = serializer.validated_data['session_id']
