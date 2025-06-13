@@ -1,4 +1,3 @@
-// src/components/QRScanner.tsx
 import React, { useState, useEffect } from 'react';
 import { useQRScanner } from '../hooks/useQRScanner';
 import { useAttendanceMarker } from '../hooks/useAttendanceMarker';
@@ -9,6 +8,7 @@ import 'react-toastify/dist/ReactToastify.css';
 
 const QRScanner: React.FC = () => {
   const navigate = useNavigate();
+
   const {
     videoRef,
     canvasRef,
@@ -22,7 +22,13 @@ const QRScanner: React.FC = () => {
     resetScanner
   } = useQRScanner();
 
-  const { markAttendance, loading, error } = useAttendanceMarker();
+  const {
+    markAttendance,
+    loading,
+    error,
+    attemptTokenRefresh
+  } = useAttendanceMarker();
+
   const [scanning, setScanning] = useState<boolean>(false);
   const [torchOn, setTorchOn] = useState<boolean>(false);
 
@@ -36,23 +42,47 @@ const QRScanner: React.FC = () => {
     progress: undefined,
   };
 
+  const validateToken = (token: string | null): boolean => {
+    return !!token && token.split('.').length === 3;
+  };
+
   const handleDetectedCode = async (text: string) => {
     setDecodedText(text);
     setScanActive(false);
     stopCamera();
-    
+
     toast.success(`🔍 QR Code detected!`, {
       ...toastConfig,
       autoClose: 2000
     });
 
+    const parts = text.split(':');
+    if (!(parts.length === 2 && parts[0] === 'attendance')) {
+      toast.error('⚠️ Invalid QR Code format. Expected "attendance:session_id"', toastConfig);
+      resetScanner();
+      setScanning(true);
+      return;
+    }
+
     try {
-      await markAttendance(text);
+      let token = localStorage.getItem('access_token');
+      if (!validateToken(token)) {
+        toast.info('🔄 Session expired. Attempting to refresh...', toastConfig);
+        const refreshed = await attemptTokenRefresh();
+        if (!refreshed) {
+          throw new Error('Session expired. Please login again.');
+        }
+        token = localStorage.getItem('access_token');
+      }
+
+      await markAttendance(text, token);
       toast.success('✅ Attendance marked successfully!', {
         ...toastConfig,
         autoClose: 3000
       });
-    } catch (err) {
+
+    } catch (err: any) {
+      toast.error(`❌ ${err.message || 'Failed to mark attendance'}`, toastConfig);
       resetScanner();
       setScanning(true);
     }
@@ -101,7 +131,6 @@ const QRScanner: React.FC = () => {
   return (
     <div style={styles.container}>
       <ToastContainer {...toastConfig} />
-      
       <h2 style={styles.title}>Scan QR to Mark Attendance</h2>
 
       {!scanning && !decodedText && (
@@ -123,24 +152,15 @@ const QRScanner: React.FC = () => {
 
       {scanning && (
         <>
-          <ScannerVisual 
-            videoRef={videoRef} 
-            scanning={scanning} 
-            torchOn={torchOn} 
-          />
+          <ScannerVisual videoRef={videoRef} scanning={scanning} torchOn={torchOn} />
           <canvas ref={canvasRef} style={{ display: 'none' }} />
-          
           <div style={styles.controls}>
-            <button
-              onClick={toggleTorch}
-              style={styles.controlButton}
-              disabled={loading}
-            >
+            <button onClick={toggleTorch} style={styles.controlButton} disabled={loading}>
               {torchOn ? '🔦 Torch Off' : '🔦 Torch On'}
             </button>
             <button
               onClick={handleStopScanning}
-              style={{...styles.controlButton, backgroundColor: '#dc2626'}}
+              style={{ ...styles.controlButton, backgroundColor: '#dc2626' }}
               disabled={loading}
             >
               Stop Scanner

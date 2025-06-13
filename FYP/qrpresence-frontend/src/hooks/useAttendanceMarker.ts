@@ -1,155 +1,133 @@
-import { useCallback, useState } from 'react';
-import { useAuth } from './useAuth'; // Assuming this provides getValidToken
-import { API_ENDPOINTS, SCANNER_CONFIG, QR_CODE_PATTERN } from '../utils/config';
+import { useState, useCallback } from 'react';
+import axios from 'axios';
+import { checkGeoLocation } from '../utils/geo'; // Ensure this returns { latitude, longitude } | null
 
-// Helper to extract error messages (from previous step)
-const getErrorMessage = (errorData: any): string => {
-  // ... (implementation from previous step)
-  if (typeof errorData === 'string') return errorData;
-  if (errorData && typeof errorData === 'object') {
-    if (errorData.detail) return String(errorData.detail);
-    if (errorData.message) return String(errorData.message);
-    const fieldErrors = Object.keys(errorData).map(key => {
-      const messages = Array.isArray(errorData[key]) ? errorData[key] : [errorData[key]];
-      return `${key}: ${messages.map(String).join(', ')}`;
-    });
-    if (fieldErrors.length > 0) return fieldErrors.join('; ');
-  }
-  return 'An unknown error occurred.';
+interface GeoCoordinates {
+  latitude: number;
+  longitude: number;
+}
+
+interface TokenRefreshResponse {
+  access: string;
+}
+
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://127.0.0.1:8000';
+
+const getAccessToken = () => localStorage.getItem('access_token');
+const getRefreshToken = () => localStorage.getItem('refresh_token');
+const storeAccessToken = (token: string) => localStorage.setItem('access_token', token);
+const clearTokens = () => {
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('refresh_token');
 };
-
-// Frontend Haversine function
-const haversine = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-  const R = 6371e3; // Earth radius in meters
-  const phi1 = lat1 * Math.PI / 180;
-  const phi2 = lat2 * Math.PI / 180;
-  const deltaPhi = (lat2 - lat1) * Math.PI / 180;
-  const deltaLambda = (lon2 - lon1) * Math.PI / 180;
-
-  const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-            Math.cos(phi1) * Math.cos(phi2) *
-            Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c; // Distance in meters
-};
-
-// Assume API_ENDPOINTS.GET_SESSION_DETAILS will be like: (sessionId: string) => `/api/sessions/${sessionId}/`
-// For now, let's define a placeholder if not in actual config
-const getSessionDetailsEndpoint = (sessionId: string) => `http://127.0.0.1:8000/api/sessions/${sessionId}/`;
-
 
 export const useAttendanceMarker = () => {
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { getValidToken } = useAuth();
 
-  const getPositionWithTimeout = useCallback(async (timeout = SCANNER_CONFIG.GEOLOCATION_TIMEOUT): Promise<GeolocationPosition> => {
-    // ... (implementation as before)
-    return new Promise((resolve, reject) => {
-      const geoTimeout = setTimeout(() => reject(new Error('Geolocation request timed out')), timeout);
-      navigator.geolocation.getCurrentPosition(
-        (position) => { clearTimeout(geoTimeout); resolve(position); },
-        (err) => { clearTimeout(geoTimeout); reject(new Error(`Geolocation error: ${err.message}`)); },
-        { enableHighAccuracy: true, maximumAge: 5000, timeout: timeout - 1000 }
-      );
-    });
+  const validateToken = useCallback((token: string | null): token is string => {
+    return typeof token === 'string' && token.split('.').length === 3;
   }, []);
 
-  // Updated checkGeoLocation
-  const checkGeoLocation = useCallback(async (
-    sessionId: string,
-    userLatitude: number,
-    userLongitude: number,
-    token: string
-  ): Promise<boolean> => {
+  const extractErrorMessage = (err: any): string => {
+    if (err && typeof err === 'object') {
+      if ('response' in err && err.response?.data?.detail) {
+        return err.response.data.detail;
+      }
+      if ('message' in err && typeof err.message === 'string') {
+        return err.message;
+      }
+    }
+
+    return 'An unknown error occurred.';
+  };
+
+  const attemptTokenRefresh = useCallback(async (): Promise<boolean> => {
+    setError(null);
     try {
-      // const endpoint = API_ENDPOINTS.GET_SESSION_DETAILS?.(sessionId) || getSessionDetailsEndpoint(sessionId);
-      // For this subtask, let's use the hardcoded formation getSessionDetailsEndpoint
-      const endpoint = getSessionDetailsEndpoint(sessionId);
+      const refreshToken = getRefreshToken();
+      if (!refreshToken) throw new Error('No refresh token found. Please log in again.');
 
-      const response = await fetch(endpoint, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: `Session details not found or error: ${response.status}` }));
-        throw new Error(getErrorMessage(errorData));
-      }
-
-      const sessionDetails = await response.json();
-
-      if (sessionDetails.gps_latitude == null || sessionDetails.gps_longitude == null || sessionDetails.allowed_radius == null) {
-        throw new Error('Session location data is incomplete or missing.');
-      }
-
-      const distance = haversine(
-        sessionDetails.gps_latitude,
-        sessionDetails.gps_longitude,
-        userLatitude,
-        userLongitude
+      const { data } = await axios.post<TokenRefreshResponse>(
+        `${API_BASE_URL}/api/token/refresh/`,
+        { refresh: refreshToken }
       );
 
-      if (distance > sessionDetails.allowed_radius) {
-        throw new Error(`You are ${distance.toFixed(0)}m away. You must be within ${sessionDetails.allowed_radius}m of the session (client check).`);
-      }
+      storeAccessToken(data.access);
       return true;
-    } catch (err) {
-      // Rethrow with a processed message if it's a custom error, or the original if it's already an Error instance
-      const message = err instanceof Error ? err.message : String(err);
-      // setError(message); // The main markAttendance function will call setError
-      throw new Error(message); // Propagate error to markAttendance
-    }
-  }, [getValidToken]); // Added getValidToken if it's used to fetch session details token
+    } catch (err: any) {
+      console.error('Token refresh failed:', err);
+      clearTokens();
 
-  const markAttendance = useCallback(async (qrData: string): Promise<void> => {
-    try {
+      const msg = extractErrorMessage(err);
+      setError(msg);
+      return false;
+    }
+  }, []);
+
+  const markAttendance = useCallback(
+    async (qrData: string, token?: string): Promise<boolean> => {
       setLoading(true);
       setError(null);
 
-      if (!QR_CODE_PATTERN.test(qrData)) {
-        throw new Error('Invalid QR Code format.');
-      }
-
-      const [, sessionId] = qrData.split(':');
-      const token = await getValidToken(); // Get token once
-
-      let position;
       try {
-        position = await getPositionWithTimeout();
-      } catch (geoError) {
-        throw geoError; // Re-throw to be caught by the outer catch
+        const geoResult = await checkGeoLocation();
+        if (!geoResult || typeof geoResult === 'boolean') {
+          throw new Error('Unable to get valid geolocation coordinates. Please enable location services.');
+        }
+        const coords = geoResult as GeoCoordinates;
+
+        let accessToken = token || getAccessToken();
+
+        if (!validateToken(accessToken)) {
+          const refreshed = await attemptTokenRefresh();
+          if (!refreshed) {
+            throw new Error('Authentication required. Please log in to mark attendance.');
+          }
+
+          accessToken = getAccessToken();
+          if (!validateToken(accessToken)) {
+            throw new Error('Failed to obtain a valid access token after refresh. Please log in.');
+          }
+        }
+
+        const response = await axios.post(
+          `${API_BASE_URL}/api/mark/`,
+          {
+            qr_data: qrData,
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (response.status < 200 || response.status >= 300) {
+          throw new Error('Attendance marking failed with an unexpected status.');
+        }
+
+        console.log('Attendance marked successfully:', response.data);
+        return true;
+      } catch (err: any) {
+        const msg = extractErrorMessage(err);
+        console.error('Attendance error:', msg);
+        setError(msg);
+        return false;
+      } finally {
+        setLoading(false);
       }
+    },
+    [attemptTokenRefresh, validateToken]
+  );
 
-      // Perform client-side geolocation check
-      await checkGeoLocation(sessionId, position.coords.latitude, position.coords.longitude, token);
-      // If checkGeoLocation throws an error, it will be caught by the main catch block.
-
-      const response = await fetch(API_ENDPOINTS.MARK_ATTENDANCE, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          session_id: sessionId,
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: `Failed to mark attendance: ${response.status}` }));
-        throw new Error(getErrorMessage(errorData));
-      }
-      // Success: No explicit data needed from response for now
-    } catch (err) {
-      const messageToDisplay = err instanceof Error ? err.message : String(err);
-      setError(messageToDisplay);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [getPositionWithTimeout, checkGeoLocation, getValidToken]); // Added checkGeoLocation to dependencies
-
-  return { markAttendance, loading, error };
+  return {
+    markAttendance,
+    attemptTokenRefresh,
+    loading,
+    error,
+  };
 };

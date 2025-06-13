@@ -1,6 +1,9 @@
 import { renderHook, act } from '@testing-library/react-hooks';
 import { useAttendanceMarker } from './useAttendanceMarker'; // Adjust path as needed
 import { API_ENDPOINTS, QR_CODE_PATTERN, SCANNER_CONFIG } from '../utils/config'; // Adjust path
+// import 'jest'; // Not needed for most setups, remove this line
+
+// Jest globals are available automatically in the test environment; no import needed.
 
 // Mock useAuth hook
 jest.mock('./useAuth', () => ({
