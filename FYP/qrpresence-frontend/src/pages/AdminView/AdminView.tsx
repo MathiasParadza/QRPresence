@@ -37,9 +37,10 @@ const AdminDashboard = () => {
         if (Array.isArray(response.data)) {
           setStats(response.data);
         } else if (typeof response.data === "object" && response.data !== null) {
-          const convertedStats = Object.keys(response.data).map((key) => ({
+          const dataObj = response.data as Record<string, number>;
+          const convertedStats = Object.keys(dataObj).map((key) => ({
             label: key,
-            value: response.data[key],
+            value: dataObj[key],
           }));
           setStats(convertedStats);
         }

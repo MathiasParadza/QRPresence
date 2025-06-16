@@ -1,6 +1,23 @@
 import { useState, useCallback } from 'react';
-import axios from 'axios';
-import { checkGeoLocation } from '../utils/geo'; // Ensure this returns { latitude, longitude } | null
+
+// Inline implementation of checkGeoLocation
+const checkGeoLocation = (): Promise<{ latitude: number; longitude: number } | false> => {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve(false);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+      },
+      () => resolve(false)
+    );
+  });
+};
 
 interface GeoCoordinates {
   latitude: number;
@@ -11,7 +28,7 @@ interface TokenRefreshResponse {
   access: string;
 }
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://127.0.0.1:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
 
 const getAccessToken = () => localStorage.getItem('access_token');
 const getRefreshToken = () => localStorage.getItem('refresh_token');
@@ -29,38 +46,45 @@ export const useAttendanceMarker = () => {
     return typeof token === 'string' && token.split('.').length === 3;
   }, []);
 
-  const extractErrorMessage = (err: any): string => {
-    if (err && typeof err === 'object') {
-      if ('response' in err && err.response?.data?.detail) {
-        return err.response.data.detail;
-      }
-      if ('message' in err && typeof err.message === 'string') {
-        return err.message;
-      }
+  const extractErrorMessage = async (response: Response, fallbackMsg: string) => {
+    try {
+      const data = await response.json();
+      if (data?.detail) return data.detail;
+      if (data?.message) return data.message;
+    } catch {
+      // Ignore JSON parse errors
     }
-
-    return 'An unknown error occurred.';
+    return fallbackMsg;
   };
 
   const attemptTokenRefresh = useCallback(async (): Promise<boolean> => {
     setError(null);
     try {
       const refreshToken = getRefreshToken();
-      if (!refreshToken) throw new Error('No refresh token found. Please log in again.');
+      if (!refreshToken) {
+        throw new Error('No refresh token found. Please log in again.');
+      }
 
-      const { data } = await axios.post<TokenRefreshResponse>(
-        `${API_BASE_URL}/api/token/refresh/`,
-        { refresh: refreshToken }
-      );
+      const response = await fetch(`${API_BASE_URL}/api/token/refresh/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refresh: refreshToken }),
+      });
 
+      if (!response.ok) {
+        const msg = await extractErrorMessage(response, 'Token refresh failed');
+        throw new Error(msg);
+      }
+
+      const data: TokenRefreshResponse = await response.json();
       storeAccessToken(data.access);
       return true;
-    } catch (err: any) {
+    } catch (err) {
       console.error('Token refresh failed:', err);
       clearTokens();
-
-      const msg = extractErrorMessage(err);
-      setError(msg);
+      setError(err instanceof Error ? err.message : 'Unknown error during token refresh');
       return false;
     }
   }, []);
@@ -75,45 +99,45 @@ export const useAttendanceMarker = () => {
         if (!geoResult || typeof geoResult === 'boolean') {
           throw new Error('Unable to get valid geolocation coordinates. Please enable location services.');
         }
+
         const coords = geoResult as GeoCoordinates;
 
-        let accessToken = token || getAccessToken();
+        let accessToken = token ?? getAccessToken();
 
         if (!validateToken(accessToken)) {
           const refreshed = await attemptTokenRefresh();
           if (!refreshed) {
             throw new Error('Authentication required. Please log in to mark attendance.');
           }
-
           accessToken = getAccessToken();
           if (!validateToken(accessToken)) {
             throw new Error('Failed to obtain a valid access token after refresh. Please log in.');
           }
         }
 
-        const response = await axios.post(
-          `${API_BASE_URL}/api/mark/`,
-          {
+        const response = await fetch(`${API_BASE_URL}/api/mark/`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
             qr_data: qrData,
             latitude: coords.latitude,
             longitude: coords.longitude,
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
+          }),
+        });
 
-        if (response.status < 200 || response.status >= 300) {
-          throw new Error('Attendance marking failed with an unexpected status.');
+        if (!response.ok) {
+          const msg = await extractErrorMessage(response, 'Attendance marking failed');
+          throw new Error(msg);
         }
 
-        console.log('Attendance marked successfully:', response.data);
+        const responseData = await response.json();
+        console.log('Attendance marked successfully:', responseData);
         return true;
-      } catch (err: any) {
-        const msg = extractErrorMessage(err);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Unknown error occurred';
         console.error('Attendance error:', msg);
         setError(msg);
         return false;

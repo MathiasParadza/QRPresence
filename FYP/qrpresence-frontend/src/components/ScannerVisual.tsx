@@ -1,13 +1,11 @@
 // src/components/ScannerVisual.tsx
 import React, { useRef, useEffect, useCallback } from 'react';  // Added useCallback import
 import { SCANNER_CONFIG } from '../utils/config';
-
 interface ScannerVisualProps {
-  videoRef: React.RefObject<HTMLVideoElement>;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
   scanning: boolean;
   torchOn: boolean;
 }
-
 export const ScannerVisual: React.FC<ScannerVisualProps> = ({ videoRef, scanning, torchOn }) => {
   const scannerLineRef = useRef<HTMLDivElement>(null);
   const scannerAnimationRef = useRef<number>(0);

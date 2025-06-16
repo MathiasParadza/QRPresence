@@ -75,7 +75,7 @@ const QRScanner: React.FC = () => {
         token = localStorage.getItem('access_token');
       }
 
-      await markAttendance(text, token);
+      await markAttendance(text, token ?? undefined);
       toast.success('✅ Attendance marked successfully!', {
         ...toastConfig,
         autoClose: 3000
