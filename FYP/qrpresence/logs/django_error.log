@@ -2321,3 +2321,9 @@ Internal Server Error: /api/generate-and-save-qr/
 "POST /api/generate-and-save-qr/ HTTP/1.1" 500 93
 Internal Server Error: /api/generate-and-save-qr/
 "POST /api/generate-and-save-qr/ HTTP/1.1" 500 93
+Internal Server Error: /api/generate-and-save-qr/
+"POST /api/generate-and-save-qr/ HTTP/1.1" 500 93
+Internal Server Error: /api/generate-and-save-qr/
+"POST /api/generate-and-save-qr/ HTTP/1.1" 500 93
+Internal Server Error: /api/generate-and-save-qr/
+"POST /api/generate-and-save-qr/ HTTP/1.1" 500 93

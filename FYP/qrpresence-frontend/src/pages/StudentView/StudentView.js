@@ -7,18 +7,27 @@ const StudentView = () => {
     const [profile, setProfile] = useState(null);
     const [todayStatus, setTodayStatus] = useState(null);
     const [editing, setEditing] = useState(false);
+    const [attendanceHistory, setAttendanceHistory] = useState([]);
     const [formData, setFormData] = useState({
         student_id: '',
         department: '',
         level: '',
     });
     const token = localStorage.getItem('access_token');
+    useEffect(() => {
+        if (!token) {
+            toast.error('No access token found. Please login again.');
+            window.location.href = '/login';
+            return;
+        }
+        fetchProfile();
+        fetchTodayStatus();
+        fetchAttendanceHistory();
+    }, []);
     const fetchProfile = async () => {
         try {
             const response = await axios.get('/api/student-profile/', {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
+                headers: { Authorization: `Bearer ${token}` },
             });
             const data = response.data;
             setProfile(data);
@@ -36,14 +45,24 @@ const StudentView = () => {
     const fetchTodayStatus = async () => {
         try {
             const res = await axios.get('/api/student/today-status/', {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
+                headers: { Authorization: `Bearer ${token}` },
             });
             setTodayStatus(res.data.status);
         }
         catch (err) {
             console.error("Error fetching today's attendance status", err);
+        }
+    };
+    const fetchAttendanceHistory = async () => {
+        try {
+            const res = await axios.get('/api/student/attendance-history/', {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const history = Array.isArray(res.data) ? res.data : [];
+            setAttendanceHistory(history);
+        }
+        catch (err) {
+            console.error('Failed to fetch attendance history', err);
         }
     };
     const handleInputChange = (e) => {
@@ -55,9 +74,7 @@ const StudentView = () => {
     const handleSave = async () => {
         try {
             await axios.put('/api/student-profile/', formData, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
+                headers: { Authorization: `Bearer ${token}` },
             });
             toast.success('Profile updated successfully');
             setEditing(false);
@@ -71,17 +88,28 @@ const StudentView = () => {
         localStorage.removeItem('access_token');
         window.location.href = '/login';
     };
-    useEffect(() => {
-        if (!token) {
-            toast.error('No access token found. Please login again.');
-            window.location.href = '/login';
-            return;
-        }
-        fetchProfile();
-        fetchTodayStatus();
-    }, []);
     if (!profile)
-        return _jsx("p", { children: "Loading student data..." });
-    return (_jsxs("div", { children: [_jsxs("h1", { children: ["Welcome, ", profile.user?.username || 'Student', "!"] }), _jsx("p", { children: "Your attendance is being tracked. Scan the QR code to mark your attendance." }), _jsx(QRScanner, {}), _jsxs("div", { style: { marginTop: '1rem' }, children: [_jsx("strong", { children: "Today's Attendance:" }), " ", todayStatus ?? 'Checking...'] }), _jsxs("div", { style: { marginTop: '2rem' }, children: [_jsx("h2", { children: "Profile" }), !editing ? (_jsxs("div", { children: [_jsxs("p", { children: [_jsx("strong", { children: "Student ID:" }), " ", profile.student_id] }), _jsxs("p", { children: [_jsx("strong", { children: "Department:" }), " ", profile.department] }), _jsxs("p", { children: [_jsx("strong", { children: "Level:" }), " ", profile.level] }), _jsx("button", { onClick: () => setEditing(true), children: "Edit Profile" })] })) : (_jsxs("div", { children: [_jsx("input", { type: "text", name: "student_id", value: formData.student_id, onChange: handleInputChange, placeholder: "Student ID" }), _jsx("input", { type: "text", name: "department", value: formData.department, onChange: handleInputChange, placeholder: "Department" }), _jsx("input", { type: "text", name: "level", value: formData.level, onChange: handleInputChange, placeholder: "Level" }), _jsxs("div", { children: [_jsx("button", { onClick: handleSave, children: "Save" }), _jsx("button", { onClick: () => setEditing(false), children: "Cancel" })] })] }))] }), _jsx("div", { style: { marginTop: '2rem' }, children: _jsx("button", { onClick: handleLogout, style: { color: 'red' }, children: "Logout" }) })] }));
+        return _jsx("p", { style: { padding: '1rem' }, children: "Loading student data..." });
+    return (_jsxs("div", { style: { padding: '1.5rem', backgroundColor: '#ffffff', minHeight: '100vh' }, children: [_jsxs("h1", { style: { color: '#6b21a8' }, children: ["Welcome, ", profile.user?.username || 'Student', "!"] }), _jsx("p", { style: { marginBottom: '1rem' }, children: "Your attendance is being tracked. Scan the QR code to mark your attendance." }), _jsx(QRScanner, {}), _jsxs("div", { style: { marginTop: '2rem', backgroundColor: '#f0fdf4', padding: '1rem', borderRadius: '0.5rem' }, children: [_jsx("h2", { style: { color: '#16a34a' }, children: "Today's Attendance" }), _jsx("p", { children: todayStatus ?? 'Checking...' })] }), _jsxs("div", { style: { marginTop: '2rem' }, children: [_jsx("h2", { style: { color: '#6b21a8' }, children: "Profile" }), !editing ? (_jsxs("div", { children: [_jsxs("p", { children: [_jsx("strong", { children: "Student ID:" }), " ", profile.student_id] }), _jsxs("p", { children: [_jsx("strong", { children: "Department:" }), " ", profile.department] }), _jsxs("p", { children: [_jsx("strong", { children: "Level:" }), " ", profile.level] }), _jsx("button", { onClick: () => setEditing(true), style: {
+                                    marginTop: '0.5rem',
+                                    backgroundColor: '#6b21a8',
+                                    color: 'white',
+                                    border: 'none',
+                                    padding: '0.5rem 1rem',
+                                    borderRadius: '0.25rem',
+                                    cursor: 'pointer'
+                                }, children: "Edit Profile" })] })) : (_jsxs("div", { children: [_jsx("input", { type: "text", name: "student_id", value: formData.student_id, onChange: handleInputChange, placeholder: "Student ID", style: { display: 'block', marginBottom: '0.5rem' } }), _jsx("input", { type: "text", name: "department", value: formData.department, onChange: handleInputChange, placeholder: "Department", style: { display: 'block', marginBottom: '0.5rem' } }), _jsx("input", { type: "text", name: "level", value: formData.level, onChange: handleInputChange, placeholder: "Level", style: { display: 'block', marginBottom: '0.5rem' } }), _jsxs("div", { children: [_jsx("button", { onClick: handleSave, style: { marginRight: '0.5rem' }, children: "Save" }), _jsx("button", { onClick: () => setEditing(false), children: "Cancel" })] })] }))] }), _jsxs("div", { style: { marginTop: '2rem' }, children: [_jsx("h2", { style: { color: '#6b21a8' }, children: "Attendance History" }), attendanceHistory.length > 0 ? (attendanceHistory.map((record) => (_jsxs("div", { style: {
+                            backgroundColor: '#f3e8ff',
+                            padding: '0.5rem 1rem',
+                            marginBottom: '0.5rem',
+                            borderRadius: '0.375rem'
+                        }, children: [_jsxs("p", { children: [_jsx("strong", { children: "Date:" }), " ", record.date] }), _jsxs("p", { children: [_jsx("strong", { children: "Status:" }), " ", record.status] })] }, record.id)))) : (_jsx("p", { children: "No attendance records found." }))] }), _jsx("div", { style: { marginTop: '2rem' }, children: _jsx("button", { onClick: handleLogout, style: {
+                        backgroundColor: '#dc2626',
+                        color: 'white',
+                        border: 'none',
+                        padding: '0.5rem 1rem',
+                        borderRadius: '0.25rem',
+                        cursor: 'pointer'
+                    }, children: "Logout" }) })] }));
 };
 export default StudentView;
