@@ -76,6 +76,8 @@ const AdminDashboard = () => {
       navigate("/login");
     }
   };
+  
+ 
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
@@ -105,6 +107,13 @@ const AdminDashboard = () => {
       {/* Management Sections */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <Card className="shadow-md">
+          <Button
+            className="bg-indigo-600 hover:bg-indigo-700 w-full mt-4"
+             onClick={() => window.open('http://127.0.0.1:8000/admin/', '_blank')}
+             >
+             Open Django Admin Panel
+          </Button>
+
           <h2 className="text-xl font-semibold mb-4">Manage Users</h2>
           <Button className="w-full mb-2" onClick={() => navigate("/students/new")}>
             Add New Student
