@@ -23,60 +23,65 @@ from .serializers import AttendanceMarkSerializer  # Import the serializer
 # Configure logger
 logger = logging.getLogger(__name__)
 
-
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def mark_attendance(request):
-    '''Mark attendance endpoint'''
-
-    serializer = AttendanceMarkSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True) # This will handle returning 400 if invalid, including geo check
-
-    validated_data = serializer.validated_data
-    session_id = validated_data['session_id']
-    latitude = validated_data['latitude']
-    longitude = validated_data['longitude']
-
-    # Session is validated by the serializer, so we can safely get it.
-    session = Session.objects.get(session_id=session_id)
-
+    """Mark attendance endpoint"""
     try:
-        student = Student.objects.get(user=request.user)
-    except Student.DoesNotExist:
-        return Response(
-            {'detail': 'Student profile not found for the logged-in user.'}, # Using 'detail' for DRF consistency
-            status=status.HTTP_404_NOT_FOUND
-        )
+        session_id = request.data.get('session_id')
+        latitude = request.data.get('latitude')
+        longitude = request.data.get('longitude')
 
-    # Prevent duplicate attendance
-    if Attendance.objects.filter(student=student, session=session).exists():
-        return Response(
-            {'detail': 'Attendance already marked for this session.'}, # Using 'detail'
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        # Validate required fields
+        if not all([session_id, latitude, longitude]):
+            return Response(
+                {'error': 'Missing required fields'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-    # Create attendance record
-    try:
+        # Get session
+        try:
+            session = Session.objects.get(session_id=session_id)
+        except Session.DoesNotExist:
+            return Response(
+                {'error': 'Session not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Get student object (linked to logged-in user)
+        try:
+            student = Student.objects.get(user=request.user)
+        except Student.DoesNotExist:
+            return Response(
+                {'error': 'Student profile not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Prevent duplicate attendance if needed
+        if Attendance.objects.filter(student=student, session=session).exists():
+            return Response(
+                {'message': 'Attendance already marked for this session'},
+                status=status.HTTP_200_OK
+            )
+
+        # Create attendance record
         Attendance.objects.create(
             student=student,
             session=session,
             latitude=latitude,
             longitude=longitude
-            # 'status' field in Attendance model defaults to 'Present'
         )
-    except Exception as e: # Catch potential errors during DB creation specifically
-        logger.error(f"Error creating attendance record for student {student.student_id} and session {session.session_id}: {str(e)}")
+
         return Response(
-            {'detail': 'An error occurred while saving attendance record.'},
+            {'message': 'Attendance marked successfully'},
+            status=status.HTTP_201_CREATED
+        )
+
+    except Exception as e:
+        return Response(
+            {'error': str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-
-    return Response(
-        {'detail': 'Attendance marked successfully.'}, # Using 'detail'
-        status=status.HTTP_201_CREATED
-    )
-
-
 # Correct Django view (Attendance report API)
 
 @api_view(['GET'])
