@@ -62,25 +62,16 @@ const LecturerView = () => {
               </div>
 
               <div className="bg-green-100 p-4 rounded-xl shadow-sm">
-                <h2 className="text-lg font-semibold text-green-800 mb-2">Create New Session</h2>
+                <h2 className="text-lg font-semibold text-green-800 mb-2">Sessions</h2>
                 <button
                   onClick={() => navigate('/create-session')}
                   className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium"
                 >
-                  📝 Create Session
+                  📚 Session Management
                 </button>
               </div>
 
-              <div className="bg-indigo-100 p-4 rounded-xl shadow-sm">
-                <h2 className="text-lg font-semibold text-indigo-800 mb-2">View All Sessions</h2>
-                <button
-                  onClick={() => navigate('/sessions')}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg font-medium"
-                >
-                  📚 View Sessions
-                </button>
-              </div>
-
+             
               <div className="bg-gray-100 p-4 rounded-xl shadow-sm">
                 <h2 className="text-lg font-semibold text-gray-800 mb-2">More Tools</h2>
                 <button
