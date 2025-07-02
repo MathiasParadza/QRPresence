@@ -45,16 +45,33 @@ const StudentView = () => {
 
   const fetchProfile = async () => {
     try {
-      const response = await axios.get<Profile>('/api/student-profile/', {
-        headers: { Authorization: `Bearer ${token}` },
+      const response = await fetch('/api/student-profile/', {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       });
-      const data = response.data;
-      setProfile(data);
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch profile');
+      }
+
+      const data = await response.json();
+
+      setProfile({
+        student_id: data.student_id?.toString() ?? '',
+        department: data.course ?? '',
+        level: '', // Not provided in API
+        user: { username: data.name ?? '' },
+      });
+
       setFormData({
-        student_id: data.student_id ?? '',
-        department: data.department ?? '',
-        level: data.level ?? '',
+        student_id: data.student_id?.toString() ?? '',
+        department: data.course ?? '',
+        level: '',
       });
+
     } catch (error) {
       console.error('Error fetching student profile:', error);
       toast.error('Failed to fetch profile.');
@@ -93,9 +110,14 @@ const StudentView = () => {
 
   const handleSave = async () => {
     try {
-      await axios.put('/api/student-profile/', formData, {
+      await axios.put('/api/student-profile/', {
+        student_id: formData.student_id,
+        course: formData.department,
+        // level is not used in backend per API structure
+      }, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
       toast.success('Profile updated successfully');
       setEditing(false);
       fetchProfile();
@@ -111,7 +133,6 @@ const StudentView = () => {
 
   if (!profile) return <p style={{ padding: '1rem' }}>Loading student data...</p>;
 
-  
   return (
     <div style={{ padding: '1.5rem', backgroundColor: '#ffffff', minHeight: '100vh' }}>
       <h1 style={{ color: '#6b21a8' }}>

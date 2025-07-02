@@ -26,15 +26,27 @@ const StudentView = () => {
     }, []);
     const fetchProfile = async () => {
         try {
-            const response = await axios.get('/api/student-profile/', {
-                headers: { Authorization: `Bearer ${token}` },
+            const response = await fetch('/api/student-profile/', {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
             });
-            const data = response.data;
-            setProfile(data);
+            if (!response.ok) {
+                throw new Error('Failed to fetch profile');
+            }
+            const data = await response.json();
+            setProfile({
+                student_id: data.student_id?.toString() ?? '',
+                department: data.course ?? '',
+                level: '', // Not provided in API
+                user: { username: data.name ?? '' },
+            });
             setFormData({
-                student_id: data.student_id ?? '',
-                department: data.department ?? '',
-                level: data.level ?? '',
+                student_id: data.student_id?.toString() ?? '',
+                department: data.course ?? '',
+                level: '',
             });
         }
         catch (error) {
@@ -73,7 +85,11 @@ const StudentView = () => {
     };
     const handleSave = async () => {
         try {
-            await axios.put('/api/student-profile/', formData, {
+            await axios.put('/api/student-profile/', {
+                student_id: formData.student_id,
+                course: formData.department,
+                // level is not used in backend per API structure
+            }, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             toast.success('Profile updated successfully');
