@@ -1,3 +1,4 @@
+from datetime import date
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -9,6 +10,7 @@ from django.http import JsonResponse
 from .models import Session, Attendance, QRCode, Student, Lecturer
 from .utils import haversine
 from .models import AttendanceRecord 
+from .serializers import StudentSerializer
 
 from django.utils import timezone
 from django.http import JsonResponse
@@ -214,3 +216,43 @@ class SessionDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Session.objects.all()
     serializer_class = SessionSerializer
     permission_classes = [IsAuthenticated]
+
+    
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def student_overview(request):
+    try:
+        student = Student.objects.select_related('user').get(user=request.user)
+    except Student.DoesNotExist:
+        return Response({'error': 'Student profile not found.'}, status=404)
+
+    today = date.today()
+
+    today_attendance = Attendance.objects.filter(
+        student=student,
+        session__timestamp__date=today
+    ).first()
+
+    today_status = today_attendance.status if today_attendance else "Absent"
+
+    attendance_history = Attendance.objects.filter(student=student) \
+        .select_related('session', 'session__course') \
+        .order_by('-session__timestamp')
+
+    history_data = []
+    for a in attendance_history:
+        session = a.session
+        course_name = getattr(session.course, 'name', 'N/A') if session.course else 'N/A'
+        timestamp = session.timestamp if session and session.timestamp else None
+
+        history_data.append({
+            'id': a.id,
+            'session_date': timestamp.date().isoformat() if timestamp else 'Unknown',
+            'status': a.status,
+            'course_name': course_name,
+        })
+
+    return Response({
+        'today_status': today_status,
+        'attendance_history': history_data
+    })
