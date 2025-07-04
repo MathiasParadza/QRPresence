@@ -17,7 +17,7 @@ class LecturerAdmin(admin.ModelAdmin):
 
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):
-    list_display = ('student_id', 'name', 'email', 'course')
+    list_display = ('student_id', 'name', 'email', 'program')  # Changed 'course' to 'program' based on the model
 
 @admin.register(Attendance)
 class AttendanceAdmin(admin.ModelAdmin):

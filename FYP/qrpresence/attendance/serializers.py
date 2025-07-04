@@ -36,7 +36,7 @@ class StudentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Student
         # Corrected fields based on Student model, assuming 'year' was a typo
-        fields = ['student_id', 'user', 'name', 'email', 'course']
+        fields = ['student_id', 'user', 'name', 'email', 'program']  # Changed 'course' to 'program' based on the model
         read_only_fields = ['student_id', 'user']
 
 class AttendanceMarkSerializer(serializers.Serializer):

@@ -12,7 +12,7 @@ const StudentView = () => {
     const [loading, setLoading] = useState(true);
     const [formData, setFormData] = useState({
         student_id: '',
-        course: '',
+        program: '',
     });
     const token = localStorage.getItem('access_token');
     const API_BASE_URL = 'http://localhost:8000';
@@ -72,13 +72,13 @@ const StudentView = () => {
             const data = await response.json();
             setProfile({
                 student_id: data.student_id?.toString() || '',
-                course: data.course || '',
+                program: data.program || '',
                 name: data.name || '',
                 email: data.email || '',
             });
             setFormData({
                 student_id: data.student_id?.toString() || '',
-                course: data.course || '',
+                program: data.program || '',
             });
         }
         catch (error) {
@@ -99,7 +99,7 @@ const StudentView = () => {
                 },
                 body: JSON.stringify({
                     student_id: formData.student_id,
-                    course: formData.course,
+                    program: formData.program,
                 }),
             });
             if (!response.ok) {
@@ -195,7 +195,7 @@ const StudentView = () => {
                                             padding: '1rem',
                                             borderRadius: '0.5rem',
                                             border: '1px solid #cbd5e1'
-                                        }, children: [_jsx("strong", { style: { color: '#475569' }, children: "Course:" }), _jsx("p", { style: { margin: '0.5rem 0 0 0', color: '#1e293b' }, children: profile.course })] })] }), _jsx("button", { onClick: () => setEditing(true), style: {
+                                        }, children: [_jsx("strong", { style: { color: '#475569' }, children: "program:" }), _jsx("p", { style: { margin: '0.5rem 0 0 0', color: '#1e293b' }, children: profile.program })] })] }), _jsx("button", { onClick: () => setEditing(true), style: {
                                     backgroundColor: '#6b21a8',
                                     color: '#ffffff',
                                     border: 'none',
@@ -224,7 +224,7 @@ const StudentView = () => {
                                                     marginBottom: '0.5rem',
                                                     color: '#475569',
                                                     fontWeight: '500'
-                                                }, children: "Course:" }), _jsx("input", { type: "text", name: "course", value: formData.course, onChange: handleInputChange, placeholder: "Enter Course", style: {
+                                                }, children: "Course:" }), _jsx("input", { type: "text", name: "course", value: formData.program, onChange: handleInputChange, placeholder: "Enter Course", style: {
                                                     width: '100%',
                                                     padding: '0.75rem',
                                                     border: '1px solid #cbd5e1',
@@ -321,11 +321,11 @@ const StudentView = () => {
                                 display: 'grid',
                                 gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
                                 gap: '1rem'
-                            }, children: [_jsxs("div", { children: [_jsx("strong", { style: { color: '#6b21a8' }, children: "Date:" }), _jsx("p", { style: { margin: '0.25rem 0 0 0', color: '#1e293b' }, children: new Date(record.session_date).toLocaleDateString() })] }), _jsxs("div", { children: [_jsx("strong", { style: { color: '#6b21a8' }, children: "Status:" }), _jsx("p", { style: {
+                            }, children: [_jsxs("div", { children: [_jsx("strong", { style: { color: '#6b21a8' }, children: "Date:" }), _jsx("p", { style: { margin: '0.25rem 0 0 0', color: '#1e293b' }, children: new Date(record.session_date).toLocaleDateString() })] }), _jsxs("div", { children: [_jsx("strong", { style: { color: '#6b21a8' }, children: "Time:" }), _jsx("p", { style: { margin: '0.25rem 0 0 0', color: '#1e293b' }, children: record.session_time })] }), _jsxs("div", { children: [_jsx("strong", { style: { color: '#6b21a8' }, children: "Status:" }), _jsx("p", { style: {
                                                 margin: '0.25rem 0 0 0',
                                                 color: record.status.toLowerCase() === 'present' ? '#16a34a' : '#dc2626',
                                                 fontWeight: '500'
-                                            }, children: record.status })] }), _jsxs("div", { children: [_jsx("strong", { style: { color: '#6b21a8' }, children: "Course:" }), _jsx("p", { style: { margin: '0.25rem 0 0 0', color: '#1e293b' }, children: record.course_name })] })] }, record.id))) })) : (_jsx("div", { style: {
+                                            }, children: record.status })] }), _jsxs("div", { children: [_jsx("strong", { style: { color: '#6b21a8' }, children: "Class:" }), _jsx("p", { style: { margin: '0.25rem 0 0 0', color: '#1e293b' }, children: record.class_name })] })] }, record.id))) })) : (_jsx("div", { style: {
                             backgroundColor: '#f8fafc',
                             padding: '2rem',
                             borderRadius: '0.75rem',

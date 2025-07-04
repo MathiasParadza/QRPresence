@@ -217,7 +217,7 @@ class SessionDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = SessionSerializer
     permission_classes = [IsAuthenticated]
 
-    
+ 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def student_overview(request):
@@ -231,25 +231,25 @@ def student_overview(request):
     today_attendance = Attendance.objects.filter(
         student=student,
         session__timestamp__date=today
-    ).first()
+    ).select_related('session').first()
 
     today_status = today_attendance.status if today_attendance else "Absent"
 
-    attendance_history = Attendance.objects.filter(student=student) \
-        .select_related('session', 'session__course') \
+    attendance_history = Attendance.objects.filter(student=student)\
+        .select_related('session')\
         .order_by('-session__timestamp')
 
     history_data = []
     for a in attendance_history:
         session = a.session
-        course_name = getattr(session.course, 'name', 'N/A') if session.course else 'N/A'
-        timestamp = session.timestamp if session and session.timestamp else None
+        timestamp = session.timestamp if session else None
 
         history_data.append({
             'id': a.id,
             'session_date': timestamp.date().isoformat() if timestamp else 'Unknown',
+            'session_time': timestamp.strftime("%H:%M") if timestamp else 'Unknown',
             'status': a.status,
-            'course_name': course_name,
+            'class_name': session.class_name if session else 'N/A',
         })
 
     return Response({

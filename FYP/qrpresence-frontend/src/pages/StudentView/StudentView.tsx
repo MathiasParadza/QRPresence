@@ -6,7 +6,7 @@ import defaultAvatar from '../../assets/avatar.png';
 
 interface Profile {
   student_id: string;
-  course: string;
+  program: string;
   name: string;
   email: string;
 }
@@ -14,9 +14,11 @@ interface Profile {
 type AttendanceRecord = {
   id: number;
   session_date: string;
+  session_time: string;
   status: string;
-  course_name: string;
+  class_name: string;
 };
+
 
 type AttendanceOverview = {
   today_status: string;
@@ -32,7 +34,7 @@ const StudentView = () => {
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
     student_id: '',
-    course: '',
+    program: '',
   });
 
   const token = localStorage.getItem('access_token');
@@ -99,13 +101,13 @@ const StudentView = () => {
       const data = await response.json();
       setProfile({
         student_id: data.student_id?.toString() || '',
-        course: data.course || '',
+        program: data.program || '',
         name: data.name || '',
         email: data.email || '',
       });
       setFormData({
         student_id: data.student_id?.toString() || '',
-        course: data.course || '',
+        program: data.program || '',
       });
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -127,7 +129,7 @@ const StudentView = () => {
         },
         body: JSON.stringify({
           student_id: formData.student_id,
-          course: formData.course,
+          program: formData.program,
         }),
       });
 
@@ -272,8 +274,8 @@ const StudentView = () => {
                   borderRadius: '0.5rem',
                   border: '1px solid #cbd5e1'
                 }}>
-                  <strong style={{ color: '#475569' }}>Course:</strong>
-                  <p style={{ margin: '0.5rem 0 0 0', color: '#1e293b' }}>{profile.course}</p>
+                  <strong style={{ color: '#475569' }}>program:</strong>
+                  <p style={{ margin: '0.5rem 0 0 0', color: '#1e293b' }}>{profile.program}</p>
                 </div>
               </div>
               <button 
@@ -337,7 +339,7 @@ const StudentView = () => {
                   <input
                     type="text"
                     name="course"
-                    value={formData.course}
+                    value={formData.program}
                     onChange={handleInputChange}
                     placeholder="Enter Course"
                     style={{ 
@@ -492,42 +494,49 @@ const StudentView = () => {
         {attendanceHistory.length > 0 ? (
           <div style={{ display: 'grid', gap: '1rem' }}>
             {attendanceHistory.map((record) => (
-              <div
-                key={record.id}
-                style={{
-                  backgroundColor: '#faf5ff',
-                  padding: '1.5rem',
-                  borderRadius: '0.75rem',
-                  border: '1px solid #e9d5ff',
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                  gap: '1rem'
-                }}
-              >
-                <div>
-                  <strong style={{ color: '#6b21a8' }}>Date:</strong>
-                  <p style={{ margin: '0.25rem 0 0 0', color: '#1e293b' }}>
-                    {new Date(record.session_date).toLocaleDateString()}
-                  </p>
-                </div>
-                <div>
-                  <strong style={{ color: '#6b21a8' }}>Status:</strong>
-                  <p style={{ 
-                    margin: '0.25rem 0 0 0',
-                    color: record.status.toLowerCase() === 'present' ? '#16a34a' : '#dc2626',
-                    fontWeight: '500'
-                  }}>
-                    {record.status}
-                  </p>
-                </div>
-                <div>
-                  <strong style={{ color: '#6b21a8' }}>Course:</strong>
-                  <p style={{ margin: '0.25rem 0 0 0', color: '#1e293b' }}>
-                    {record.course_name}
-                  </p>
-                </div>
-              </div>
-            ))}
+  <div
+    key={record.id}
+    style={{
+      backgroundColor: '#faf5ff',
+      padding: '1.5rem',
+      borderRadius: '0.75rem',
+      border: '1px solid #e9d5ff',
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+      gap: '1rem'
+    }}
+  >
+    <div>
+      <strong style={{ color: '#6b21a8' }}>Date:</strong>
+      <p style={{ margin: '0.25rem 0 0 0', color: '#1e293b' }}>
+        {new Date(record.session_date).toLocaleDateString()}
+      </p>
+    </div>
+    <div>
+      <strong style={{ color: '#6b21a8' }}>Time:</strong>
+      <p style={{ margin: '0.25rem 0 0 0', color: '#1e293b' }}>
+        {record.session_time}
+      </p>
+    </div>
+    <div>
+      <strong style={{ color: '#6b21a8' }}>Status:</strong>
+      <p style={{ 
+        margin: '0.25rem 0 0 0',
+        color: record.status.toLowerCase() === 'present' ? '#16a34a' : '#dc2626',
+        fontWeight: '500'
+      }}>
+        {record.status}
+      </p>
+    </div>
+    <div>
+      <strong style={{ color: '#6b21a8' }}>Class:</strong>
+      <p style={{ margin: '0.25rem 0 0 0', color: '#1e293b' }}>
+        {record.class_name}
+      </p>
+    </div>
+  </div>
+))}
+
           </div>
         ) : (
           <div style={{
