@@ -224,7 +224,7 @@ const StudentView = () => {
                                                     marginBottom: '0.5rem',
                                                     color: '#475569',
                                                     fontWeight: '500'
-                                                }, children: "Course:" }), _jsx("input", { type: "text", name: "course", value: formData.program, onChange: handleInputChange, placeholder: "Enter Course", style: {
+                                                }, children: "program:" }), _jsx("input", { type: "text", name: "program", value: formData.program, onChange: handleInputChange, placeholder: "program", style: {
                                                     width: '100%',
                                                     padding: '0.75rem',
                                                     border: '1px solid #cbd5e1',

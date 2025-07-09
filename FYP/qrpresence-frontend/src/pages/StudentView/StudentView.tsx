@@ -1,5 +1,4 @@
 import { useEffect, useState, ChangeEvent } from 'react';
-import axios from 'axios';
 import QRScanner from '../../components/QRScanner';
 import { toast } from 'react-toastify';
 import defaultAvatar from '../../assets/avatar.png';
@@ -334,14 +333,14 @@ const StudentView = () => {
                     color: '#475569',
                     fontWeight: '500'
                   }}>
-                    Course:
+                    program:
                   </label>
                   <input
                     type="text"
-                    name="course"
+                    name="program"
                     value={formData.program}
                     onChange={handleInputChange}
-                    placeholder="Enter Course"
+                    placeholder="program"
                     style={{ 
                       width: '100%',
                       padding: '0.75rem',
