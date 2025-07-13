@@ -8,9 +8,15 @@ from django.core.files.base import ContentFile
 import base64
 from .models import Session, Attendance, QRCode, Student, Lecturer, AttendanceRecord
 from .utils import haversine
-from .serializers import StudentSerializer, AttendanceMarkSerializer, SessionSerializer
+from .serializers import StudentSerializer, AttendanceMarkSerializer, SessionSerializer,AttendanceSerializer
 from rest_framework import status, generics, serializers
 import logging
+from django.http import HttpResponse
+from rest_framework.views import APIView
+import csv
+from django.db.models import Q
+
+
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -196,3 +202,53 @@ def student_overview(request):
         'today_status': today_status,
         'attendance_history': history_data
     })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def lecturer_attendance_records(request):
+    # Allow only lecturers
+    if getattr(request.user, 'role', None) != 'lecturer':
+        return Response({'error': 'Permission denied'}, status=403)
+
+    # Optional filters via query params (e.g. ?search=xyz&status=present)
+    search = request.query_params.get('search', None)
+    status_filter = request.query_params.get('status', None)
+
+    queryset = Attendance.objects.all()
+
+    if search:
+        queryset = queryset.filter(
+            Q(student__user__username__icontains=search) |
+            Q(session__class_name__icontains=search)
+        )
+    if status_filter:
+        queryset = queryset.filter(status=status_filter)
+
+    # Serialize the queryset
+    serializer = AttendanceSerializer(queryset, many=True)
+
+    return Response(serializer.data)
+
+class ExportAttendanceCSVView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Query attendance records, e.g., all or filtered by lecturer
+        attendance_qs = Attendance.objects.all()
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename=attendance_report.csv'
+
+        writer = csv.writer(response)
+        writer.writerow(['Student ID', 'Session', 'Status', 'Check-in', 'Check-out'])
+        for obj in attendance_qs:
+            writer.writerow([
+                obj.student.student_id,
+                obj.session.class_name,
+                obj.status,
+                obj.check_in_time,
+                obj.check_out_time,
+            ])
+
+        return response

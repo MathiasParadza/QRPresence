@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Session, Student, Lecturer # Added Lecturer import
+from .models import Session, Student, Lecturer, Attendance # Added Lecturer import
 from .utils import haversine # Assuming haversine is in .utils
 
 
@@ -80,3 +80,13 @@ class AttendanceMarkSerializer(serializers.Serializer):
             )
 
         return data
+    
+
+class AttendanceSerializer(serializers.ModelSerializer):
+    student_id = serializers.CharField(source='student.student_id')
+    username = serializers.CharField(source='student.user.username')
+    session_name = serializers.CharField(source='session.class_name')
+
+    class Meta:
+        model = Attendance
+        fields = ['student_id', 'username', 'session_name', 'status', 'check_in_time', 'check_out_time']

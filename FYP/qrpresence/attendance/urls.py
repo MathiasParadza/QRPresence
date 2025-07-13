@@ -4,6 +4,7 @@ from .views import SessionListCreateView, SessionDetailAPIView
 from .views import admin_stats
 from .views import missed_sessions_heatmap
 from .views import student_overview 
+from .views import ExportAttendanceCSVView
 
 
 urlpatterns = [

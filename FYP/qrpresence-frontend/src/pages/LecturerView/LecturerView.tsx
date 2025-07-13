@@ -5,9 +5,10 @@ import axios from 'axios';
 
 interface AttendanceRecord {
   student_id: string;
-  session_id: string;
-  timestamp: string;
+  session_name: string; // changed from session_id to session_name for clarity
   status: string;
+  check_in_time: string;
+  check_out_time: string | null;
 }
 
 interface AttendanceResponse {
@@ -74,6 +75,31 @@ const LecturerView = () => {
     navigate('/login');
   };
 
+  const exportCsv = () => {
+  const token = localStorage.getItem('access_token');
+  fetch('http://127.0.0.1:8000/api/attendance/export-csv/', { // use your full backend URL
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+    .then(res => res.blob())
+    .then(blob => {
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'attendance_report.csv');
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    })
+    .catch(error => {
+      console.error('Export CSV failed:', error);
+      alert('Failed to export CSV.');
+    });
+};
+
+
   return (
     <div className="min-h-screen bg-white flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-5xl bg-purple-50 shadow-xl rounded-2xl p-8">
@@ -108,6 +134,10 @@ const LecturerView = () => {
             >
               Statistics
             </TabsTrigger>
+            <button onClick={exportCsv} className="bg-blue-600 text-white px-4 py-2 rounded">
+             Export Attendance CSV
+            </button>
+
           </TabsList>
 
           {/* Actions Tab */}
@@ -179,8 +209,9 @@ const LecturerView = () => {
                     <thead className="bg-purple-200 sticky top-0">
                       <tr>
                         <th className="border border-gray-300 px-4 py-2 text-left">Student ID</th>
-                        <th className="border border-gray-300 px-4 py-2 text-left">Session ID</th>
-                        <th className="border border-gray-300 px-4 py-2 text-left">Timestamp</th>
+                        <th className="border border-gray-300 px-4 py-2 text-left">Session</th>
+                        <th className="border border-gray-300 px-4 py-2 text-left">Check In</th>
+                        <th className="border border-gray-300 px-4 py-2 text-left">Check Out</th>
                         <th className="border border-gray-300 px-4 py-2 text-left">Status</th>
                       </tr>
                     </thead>
@@ -192,15 +223,16 @@ const LecturerView = () => {
                             className={idx % 2 === 0 ? 'bg-white' : 'bg-purple-50'}
                           >
                             <td className="border border-gray-300 px-4 py-2">{record.student_id}</td>
-                            <td className="border border-gray-300 px-4 py-2">{record.session_id}</td>
-                            <td className="border border-gray-300 px-4 py-2">{new Date(record.timestamp).toLocaleString()}</td>
+                            <td className="border border-gray-300 px-4 py-2">{record.session_name}</td>
+                            <td className="border border-gray-300 px-4 py-2">{new Date(record.check_in_time).toLocaleString()}</td>
+                            <td className="border border-gray-300 px-4 py-2">{record.check_out_time ? new Date(record.check_out_time).toLocaleString() : '-'}</td>
                             <td className="border border-gray-300 px-4 py-2">{record.status}</td>
                           </tr>
                         ))
                       ) : (
                         <tr>
                           <td
-                            colSpan={4}
+                            colSpan={5}
                             className="text-center p-4 text-gray-500"
                           >
                             No attendance records found.
