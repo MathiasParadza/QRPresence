@@ -6,21 +6,11 @@ from authentication.permissions import IsLecturer
 from django.utils.timezone import now
 from django.core.files.base import ContentFile
 import base64
-from django.http import JsonResponse
-from .models import Session, Attendance, QRCode, Student, Lecturer
+from .models import Session, Attendance, QRCode, Student, Lecturer, AttendanceRecord
 from .utils import haversine
-from .models import AttendanceRecord 
-from .serializers import StudentSerializer
-
-from django.utils import timezone
-from django.http import JsonResponse
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from .models import Session, Attendance,Student
-from .utils import haversine  # Ensure you have this distance calculation function
-from rest_framework import status
+from .serializers import StudentSerializer, AttendanceMarkSerializer, SessionSerializer
+from rest_framework import status, generics, serializers
 import logging
-from .serializers import AttendanceMarkSerializer  # Import the serializer
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -28,45 +18,27 @@ logger = logging.getLogger(__name__)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def mark_attendance(request):
-    """Mark attendance endpoint"""
     try:
         session_id = request.data.get('session_id')
         latitude = request.data.get('latitude')
         longitude = request.data.get('longitude')
 
-        # Validate required fields
         if not all([session_id, latitude, longitude]):
-            return Response(
-                {'error': 'Missing required fields'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Get session
         try:
             session = Session.objects.get(session_id=session_id)
         except Session.DoesNotExist:
-            return Response(
-                {'error': 'Session not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({'error': 'Session not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Get student object (linked to logged-in user)
         try:
             student = Student.objects.get(user=request.user)
         except Student.DoesNotExist:
-            return Response(
-                {'error': 'Student profile not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({'error': 'Student profile not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Prevent duplicate attendance if needed
         if Attendance.objects.filter(student=student, session=session).exists():
-            return Response(
-                {'message': 'Attendance already marked for this session'},
-                status=status.HTTP_200_OK
-            )
+            return Response({'message': 'Attendance already marked for this session'}, status=status.HTTP_200_OK)
 
-        # Create attendance record
         Attendance.objects.create(
             student=student,
             session=session,
@@ -74,106 +46,79 @@ def mark_attendance(request):
             longitude=longitude
         )
 
-        return Response(
-            {'message': 'Attendance marked successfully'},
-            status=status.HTTP_201_CREATED
-        )
+        return Response({'message': 'Attendance marked successfully'}, status=status.HTTP_201_CREATED)
 
     except Exception as e:
-        return Response(
-            {'error': str(e)},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-# Correct Django view (Attendance report API)
+        logger.exception("Error marking attendance")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def attendance_record(request):
-    if request.user.role != 'lecturer':
+    if getattr(request.user, 'role', None) != 'lecturer':
         return Response({'error': 'Permission denied'}, status=403)
-    
+
     report = list(AttendanceRecord.objects.values('student_id', 'session_id', 'timestamp', 'status'))
     return Response({'attendance_record': report})
-
-
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def generate_and_save_qr(request):
-    # Check if the user is a lecturer
-    if request.user.role != 'lecturer':
+    if getattr(request.user, 'role', None) != 'lecturer':
         return Response({'error': 'Permission denied. Lecturer access only.'}, status=403)
 
-    # Extract session name and QR image data from request
-    session_name = request.data.get('session_name')
+    session_id = request.data.get('session_id')
     qr_image_data = request.data.get('qr_image')
 
-    # Validate that both fields are provided
-    if not session_name or not qr_image_data:
-        return Response({'error': 'Missing session_name or qr_image'}, status=400)
+    if not session_id or not qr_image_data:
+        return Response({'error': 'Missing session_id or qr_image'}, status=400)
 
     try:
-        # Decode the base64 image data
+        session = Session.objects.get(session_id=session_id)
         format, imgstr = qr_image_data.split(';base64,')
-        ext = format.split('/')[-1]  # Extract file extension (e.g., png, jpg)
-        img_data = ContentFile(base64.b64decode(imgstr), name=f"{session_name}.{ext}")
+        ext = format.split('/')[-1]
+        img_data = ContentFile(base64.b64decode(imgstr), name=f"qr_{session_id}.{ext}")
 
-        # Save QR code image to the database
-        qr_code_instance = QRCode(session_name=session_name)
-        qr_code_instance.qr_image.save(f"qr_{session_name}.{ext}", img_data, save=True)
+        qr_code_instance = QRCode(session=session)
+        qr_code_instance.qr_image.save(f"qr_{session_id}.{ext}", img_data, save=True)
 
         return Response({
+            'success': True,
             'message': 'QR code generated and saved successfully.',
             'qr_url': qr_code_instance.qr_image.url
         })
-    
+
+    except Session.DoesNotExist:
+        return Response({'error': 'Invalid session ID.'}, status=404)
     except Exception as e:
+        logger.exception("QR generation failed")
         return Response({'error': f'Failed to save QR code: {str(e)}'}, status=500)
-    
-    #sessions
-from rest_framework import generics
-from .models import Session
-from .serializers import SessionSerializer
-from rest_framework import serializers
 
 class SessionListCreateView(generics.ListCreateAPIView):
     serializer_class = SessionSerializer
     permission_classes = [IsAuthenticated, IsLecturer]
 
     def get_queryset(self):
-        """
-        This ensures lecturers only see their own sessions.
-        """
         try:
             lecturer = Lecturer.objects.get(user=self.request.user)
             return Session.objects.filter(lecturer=lecturer)
         except Lecturer.DoesNotExist:
-            return Session.objects.none()  # Return empty queryset if Lecturer is missing
+            return Session.objects.none()
 
     def perform_create(self, serializer):
-        """
-        Automatically attach the logged-in lecturer when creating a session.
-        """
         try:
             lecturer = Lecturer.objects.get(user=self.request.user)
             serializer.save(lecturer=lecturer)
         except Lecturer.DoesNotExist:
             raise serializers.ValidationError("Lecturer profile not found for the logged-in user.")
-        
-#admin stats
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def admin_stats(request):
-    """
-    Return statistics for the Admin Dashboard
-    """
-    # Fetch stats
     total_students = Student.objects.count()
     total_lecturers = Lecturer.objects.count()
     total_sessions = Session.objects.count()
     active_sessions = Session.objects.filter(is_active=True).count()
-    
-    # Calculate attendance rate
     total_attendances = Attendance.objects.count()
     total_possible_attendances = total_sessions * total_students if total_sessions > 0 else 0
     attendance_rate = (total_attendances / total_possible_attendances) * 100 if total_possible_attendances > 0 else 0
@@ -187,12 +132,9 @@ def admin_stats(request):
     ]
     return Response(stats)
 
-
-#missed sessions data
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def missed_sessions_heatmap(request):
-    # 🔥 Dummy data for now
     data = [
         {"session": "Math101", "missed": 20},
         {"session": "History201", "missed": 35},
@@ -202,7 +144,6 @@ def missed_sessions_heatmap(request):
     ]
     return Response(data)
 
-#Validatate student id
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def validate_student(request, student_id):
@@ -211,13 +152,12 @@ def validate_student(request, student_id):
         return Response({'exists': exists})
     except Exception as e:
         return Response({'error': str(e)}, status=500)
-    
+
 class SessionDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Session.objects.all()
     serializer_class = SessionSerializer
     permission_classes = [IsAuthenticated]
 
- 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def student_overview(request):

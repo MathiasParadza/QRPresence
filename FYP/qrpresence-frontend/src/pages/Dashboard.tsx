@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import LoadingSpinner from '../components/LoadingSpinner'; // Import the LoadingSpinner component
+import LoadingSpinner from '../components/LoadingSpinner';
+import LecturerView from '@/pages/LecturerView/LecturerView';
+import AdminView from '@/pages/AdminView/AdminView';
+import StudentView from '@/pages/StudentView/StudentView';
 
 interface User {
   name: string;
@@ -12,7 +15,7 @@ const getAccessToken = () => localStorage.getItem('access_token');
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true); // State to track loading
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -27,36 +30,34 @@ const Dashboard = () => {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => {
-        const fetchedUser = res.data;
-        setUser(fetchedUser);
-        setLoading(false); // Set loading to false after fetching data
-
-        // Redirect immediately based on role
-        if (fetchedUser.role === 'lecturer') {
-          navigate('/LecturerView');
-        } else if (fetchedUser.role === 'student') {
-          navigate('/StudentView');
-        } else if (fetchedUser.role === 'admin') {
-          navigate('/AdminView');
-        }
+        setUser(res.data);
+        setLoading(false);
       })
       .catch(() => {
         localStorage.removeItem('access_token');
         navigate('/login');
+        setLoading(false);
       });
   }, [navigate]);
 
-  return (
-    <div className="p-4">
-      {loading ? (
-        <LoadingSpinner /> // Display the loading spinner while loading
-      ) : (
-        <div>
-          <h1 className="text-2xl font-bold">Welcome, {user?.name}</h1>
-        </div>
-      )}
-    </div>
-  );
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+
+  if (!user) {
+    return null; // or some fallback UI
+  }
+
+  switch (user.role) {
+    case 'lecturer':
+      return <LecturerView />;
+    case 'admin':
+      return <AdminView />;
+    case 'student':
+      return <StudentView />;
+    default:
+      return <div>Unauthorized role</div>;
+  }
 };
 
 export default Dashboard;

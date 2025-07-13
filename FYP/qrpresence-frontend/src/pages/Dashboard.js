@@ -1,12 +1,15 @@
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { jsx as _jsx } from "react/jsx-runtime";
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import LoadingSpinner from '../components/LoadingSpinner'; // Import the LoadingSpinner component
+import LoadingSpinner from '../components/LoadingSpinner';
+import LecturerView from '@/pages/LecturerView/LecturerView';
+import AdminView from '@/pages/AdminView/AdminView';
+import StudentView from '@/pages/StudentView/StudentView';
 const getAccessToken = () => localStorage.getItem('access_token');
 const Dashboard = () => {
     const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true); // State to track loading
+    const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
     useEffect(() => {
         const token = getAccessToken();
@@ -19,26 +22,30 @@ const Dashboard = () => {
             headers: { Authorization: `Bearer ${token}` },
         })
             .then((res) => {
-            const fetchedUser = res.data;
-            setUser(fetchedUser);
-            setLoading(false); // Set loading to false after fetching data
-            // Redirect immediately based on role
-            if (fetchedUser.role === 'lecturer') {
-                navigate('/LecturerView');
-            }
-            else if (fetchedUser.role === 'student') {
-                navigate('/StudentView');
-            }
-            else if (fetchedUser.role === 'admin') {
-                navigate('/AdminView');
-            }
+            setUser(res.data);
+            setLoading(false);
         })
             .catch(() => {
             localStorage.removeItem('access_token');
             navigate('/login');
+            setLoading(false);
         });
     }, [navigate]);
-    return (_jsx("div", { className: "p-4", children: loading ? (_jsx(LoadingSpinner, {}) // Display the loading spinner while loading
-        ) : (_jsx("div", { children: _jsxs("h1", { className: "text-2xl font-bold", children: ["Welcome, ", user?.name] }) })) }));
+    if (loading) {
+        return _jsx(LoadingSpinner, {});
+    }
+    if (!user) {
+        return null; // or some fallback UI
+    }
+    switch (user.role) {
+        case 'lecturer':
+            return _jsx(LecturerView, {});
+        case 'admin':
+            return _jsx(AdminView, {});
+        case 'student':
+            return _jsx(StudentView, {});
+        default:
+            return _jsx("div", { children: "Unauthorized role" });
+    }
 };
 export default Dashboard;

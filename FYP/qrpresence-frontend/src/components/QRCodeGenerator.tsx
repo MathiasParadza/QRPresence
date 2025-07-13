@@ -2,13 +2,13 @@ import { useState, useRef } from 'react';
 import QRCode from 'qrcode';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const QRCodeGenerator = () => {
   const [sessionId, setSessionId] = useState('');
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const navigate = useNavigate();
 
@@ -18,12 +18,11 @@ const QRCodeGenerator = () => {
 
     try {
       if (!sessionId) {
-        setToastMessage('Session ID is required.');
-        setToastType('error');
+        toast.error('Session ID is required.');
         return;
       }
 
-      const token = `attendance:${sessionId.trim()}`;
+      const token = sessionId.trim();
       const url = await QRCode.toDataURL(token);
       setQrCodeUrl(url);
 
@@ -33,14 +32,15 @@ const QRCodeGenerator = () => {
 
       await saveQRCodeToServer(url, sessionId.trim());
 
-      setToastMessage('QR Code generated and saved successfully!');
-      setToastType('success');
-
-      // Navigate to LecturerView with QR code URL
+      toast.success('QR Code generated and saved successfully!');
       navigate('/LecturerView', { state: { qrCodeUrl: url } });
-    } catch (error: any) {
-      setToastMessage(error.message || 'Something went wrong. Please try again.');
-      setToastType('error');
+
+    } catch (error: unknown) {
+      let message = 'Something went wrong. Please try again.';
+      if (error instanceof Error) {
+        message = error.message;
+      }
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -49,8 +49,7 @@ const QRCodeGenerator = () => {
   const saveQRCodeToServer = async (imageData: string, sessionId: string) => {
     const token = localStorage.getItem('access_token');
     if (!token) {
-      setToastMessage('User not authenticated.');
-      setToastType('error');
+      toast.error('User not authenticated.');
       return;
     }
 
@@ -61,7 +60,10 @@ const QRCodeGenerator = () => {
 
       const response = await axios.post<ApiResponse>(
         'http://127.0.0.1:8000/api/generate-and-save-qr/',
-        { session_name: `Session ${sessionId}`, qr_image: imageData },
+        {
+          session_id: sessionId.trim(),
+          qr_image: imageData,
+        },
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -72,9 +74,8 @@ const QRCodeGenerator = () => {
       if (!response.data.success) {
         throw new Error('Failed to save QR code');
       }
-    } catch (error) {
-      setToastMessage('Could not save QR code to server.');
-      setToastType('error');
+    } catch {
+      toast.error('Could not save QR code to server.');
     }
   };
 
@@ -104,19 +105,8 @@ const QRCodeGenerator = () => {
         </>
       )}
 
-      {toastMessage && (
-        <div
-          className={`mt-4 p-4 rounded ${
-            toastType === 'success'
-              ? 'bg-green-100 text-green-800'
-              : toastType === 'error'
-              ? 'bg-red-100 text-red-800'
-              : 'bg-blue-100 text-blue-800'
-          }`}
-        >
-          {toastMessage}
-        </div>
-      )}
+      {/* Toast Notification Container */}
+      <ToastContainer position="top-right" autoClose={3000} />
     </div>
   );
 };

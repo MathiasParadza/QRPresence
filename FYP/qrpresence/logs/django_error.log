@@ -4485,3 +4485,11 @@ Traceback (most recent call last):
     raise ImproperlyConfigured(
 django.core.exceptions.ImproperlyConfigured: Field name `course` is not valid for model `Student` in `attendance.serializers.StudentSerializer`.
 "GET /api/student-profile/ HTTP/1.1" 500 143550
+Internal Server Error: /api/generate-and-save-qr/
+"POST /api/generate-and-save-qr/ HTTP/1.1" 500 93
+Internal Server Error: /api/generate-and-save-qr/
+"POST /api/generate-and-save-qr/ HTTP/1.1" 500 83
+Internal Server Error: /api/generate-and-save-qr/
+"POST /api/generate-and-save-qr/ HTTP/1.1" 500 83
+Internal Server Error: /api/generate-and-save-qr/
+"POST /api/generate-and-save-qr/ HTTP/1.1" 500 83

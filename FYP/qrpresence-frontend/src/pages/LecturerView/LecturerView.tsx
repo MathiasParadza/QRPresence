@@ -1,17 +1,65 @@
- import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react'; 
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import axios from 'axios';
+
+interface AttendanceRecord {
+  student_id: string;
+  session_id: string;
+  timestamp: string;
+  status: string;
+}
+
+interface AttendanceResponse {
+  attendance_record: AttendanceRecord[];
+}
 
 const LecturerView = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
 
+  // Attendance report state
+  const [attendanceReport, setAttendanceReport] = useState<AttendanceRecord[]>([]);
+  const [loadingReport, setLoadingReport] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     if (location.state && location.state.qrCodeUrl) {
       setQrCodeUrl(location.state.qrCodeUrl);
     }
   }, [location.state]);
+
+  // Fetch attendance records for stats tab
+  useEffect(() => {
+    const fetchAttendanceRecord = async () => {
+      setLoadingReport(true);
+      setError(null);
+
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        setError('No access token found');
+        setLoadingReport(false);
+        return;
+      }
+
+      try {
+        const response = await axios.get<AttendanceResponse>('http://127.0.0.1:8000/api/report/', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        setAttendanceReport(response.data.attendance_record);
+      } catch (err: unknown) {
+        console.error("Failed to load attendance report:", err);
+        setError('Failed to load attendance report.');
+      } finally {
+        setLoadingReport(false);
+      }
+    };
+
+    fetchAttendanceRecord();
+  }, []);
 
   const downloadQRCode = () => {
     if (!qrCodeUrl) return;
@@ -21,10 +69,23 @@ const LecturerView = () => {
     link.click();
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('access_token');
+    navigate('/login');
+  };
+
   return (
     <div className="min-h-screen bg-white flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-5xl bg-purple-50 shadow-xl rounded-2xl p-8">
-        <h1 className="text-4xl font-bold text-purple-700 text-center mb-3">Lecturer Dashboard</h1>
+        <div className="flex justify-between items-center mb-3">
+          <h1 className="text-4xl font-bold text-purple-700 text-center flex-1">Lecturer Dashboard</h1>
+          <button
+            onClick={handleLogout}
+            className="ml-4 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold"
+          >
+            Logout
+          </button>
+        </div>
         <p className="text-center text-gray-700 mb-8">Manage your sessions and track attendance.</p>
 
         <Tabs defaultValue="actions" className="w-full">
@@ -49,6 +110,7 @@ const LecturerView = () => {
             </TabsTrigger>
           </TabsList>
 
+          {/* Actions Tab */}
           <TabsContent value="actions">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-purple-100 p-4 rounded-xl shadow-sm">
@@ -71,7 +133,6 @@ const LecturerView = () => {
                 </button>
               </div>
 
-             
               <div className="bg-gray-100 p-4 rounded-xl shadow-sm">
                 <h2 className="text-lg font-semibold text-gray-800 mb-2">More Tools</h2>
                 <button
@@ -84,6 +145,7 @@ const LecturerView = () => {
             </div>
           </TabsContent>
 
+          {/* QR Code Tab */}
           <TabsContent value="qrcode">
             {qrCodeUrl ? (
               <div className="text-center mt-4">
@@ -105,9 +167,50 @@ const LecturerView = () => {
             )}
           </TabsContent>
 
+          {/* Statistics Tab */}
           <TabsContent value="stats">
-            <div className="text-center text-gray-600 py-6">
-              📊 Attendance statistics and session reports will appear here.
+            <div className="text-gray-700">
+              <h2 className="text-2xl font-semibold mb-4">Attendance Records</h2>
+              {loadingReport && <p>Loading attendance records...</p>}
+              {error && <p className="text-red-600">{error}</p>}
+              {!loadingReport && !error && (
+                <div className="overflow-x-auto max-h-96">
+                  <table className="min-w-full border border-gray-300 rounded-lg overflow-hidden">
+                    <thead className="bg-purple-200 sticky top-0">
+                      <tr>
+                        <th className="border border-gray-300 px-4 py-2 text-left">Student ID</th>
+                        <th className="border border-gray-300 px-4 py-2 text-left">Session ID</th>
+                        <th className="border border-gray-300 px-4 py-2 text-left">Timestamp</th>
+                        <th className="border border-gray-300 px-4 py-2 text-left">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {attendanceReport.length > 0 ? (
+                        attendanceReport.map((record, idx) => (
+                          <tr
+                            key={idx}
+                            className={idx % 2 === 0 ? 'bg-white' : 'bg-purple-50'}
+                          >
+                            <td className="border border-gray-300 px-4 py-2">{record.student_id}</td>
+                            <td className="border border-gray-300 px-4 py-2">{record.session_id}</td>
+                            <td className="border border-gray-300 px-4 py-2">{new Date(record.timestamp).toLocaleString()}</td>
+                            <td className="border border-gray-300 px-4 py-2">{record.status}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td
+                            colSpan={4}
+                            className="text-center p-4 text-gray-500"
+                          >
+                            No attendance records found.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>

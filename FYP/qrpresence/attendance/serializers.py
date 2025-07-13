@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Session, Student # Make sure Student is imported if needed elsewhere, not strictly for this serializer
+from .models import Session, Student, Lecturer # Added Lecturer import
 from .utils import haversine # Assuming haversine is in .utils
 
 
@@ -38,6 +38,12 @@ class StudentSerializer(serializers.ModelSerializer):
         # Corrected fields based on Student model, assuming 'year' was a typo
         fields = ['student_id', 'user', 'name', 'email', 'program']  # Changed 'course' to 'program' based on the model
         read_only_fields = ['student_id', 'user']
+
+class LecturerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Lecturer
+        fields = ['lecturer_id', 'name', 'email', 'department', 'is_admin']  # include is_admin
+
 
 class AttendanceMarkSerializer(serializers.Serializer):
     session_id = serializers.CharField()
