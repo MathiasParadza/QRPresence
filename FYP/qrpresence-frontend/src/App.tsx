@@ -1,5 +1,3 @@
-// src/App.tsx
-
 import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import axios from "axios";
@@ -14,6 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import ErrorBoundary from "./components/ErrorBoundary"; 
 import QRCodeGenerator from "./components/QRCodeGenerator";
 import CreateSession from "./pages/LecturerView/CreateSession";
+import SessionList from "./pages/LecturerView/SessionList"; // ✅ NEW
 import LoadingSpinner from "./components/LoadingSpinner"; 
 import { User } from "./types/user";
 
@@ -61,12 +60,33 @@ const App = () => {
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login setUser={setUser} />} />
         <Route path="/generate-qr" element={<QRCodeGenerator />} />
-        <Route path="/create-session" element={<CreateSession />} />
+
+        {/* Session Management Routes (Lecturer only) */}
+        <Route
+          path="/create-session"
+          element={
+            user && user.role === "lecturer" ? (
+              <CreateSession />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+        <Route
+          path="/sessions"
+          element={
+            user && user.role === "lecturer" ? (
+              <SessionList />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
 
         {/* Dashboard Route */}
         <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
 
-        {/* Role-based routes */}
+        {/* Role-based views */}
         <Route
           path="/lecturerview"
           element={

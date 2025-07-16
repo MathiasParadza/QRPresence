@@ -171,15 +171,22 @@ const LecturerView: React.FC = () => {
                   </button>
                 </div>
                 
-                <div className="bg-green-50 border border-green-200 rounded-xl p-6 shadow-sm">
-                  <h2 className="text-lg font-semibold text-green-800 mb-4">Sessions</h2>
-                  <button
-                    onClick={() => navigate('/create-session')}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-medium transition-colors duration-200"
-                  >
-                    📚 Session Management
+               <div className="bg-green-50 border border-green-200 rounded-xl p-6 shadow-sm space-y-4">
+                <h2 className="text-lg font-semibold text-green-800">Session Management</h2>
+                <button
+                  onClick={() => navigate('/create-session')}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-medium transition-colors duration-200"
+                >
+                  🔧 Create Session
+                 </button>
+                 <button
+                   onClick={() => navigate('/sessions')}
+                   className="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-medium transition-colors duration-200"
+               >
+                    📋 View Sessions
                   </button>
                 </div>
+
                 
                 <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 shadow-sm">
                   <h2 className="text-lg font-semibold text-gray-800 mb-4">More Tools</h2>
