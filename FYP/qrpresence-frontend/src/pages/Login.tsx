@@ -43,7 +43,7 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
       setUser(userRes.data);
       toast.success("Login successful!");
       navigate("/dashboard");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Login failed", error);
       toast.error("Login failed. Please check your credentials.");
     } finally {

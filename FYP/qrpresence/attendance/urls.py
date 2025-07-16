@@ -1,11 +1,17 @@
 from django.urls import path
+from django.urls import path, include
 from . import views 
 from .views import SessionListCreateView, SessionDetailAPIView
 from .views import admin_stats
 from .views import missed_sessions_heatmap
 from .views import student_overview 
-from .views import ExportAttendanceCSVView
+from rest_framework.routers import DefaultRouter
+from .views import LecturerAttendanceViewSet
 
+
+
+router = DefaultRouter()
+router.register(r'lecturer-attendance', LecturerAttendanceViewSet, basename='lecturer-attendance')
 
 urlpatterns = [
     path('mark/', views.mark_attendance, name='mark_attendance'),  
@@ -17,4 +23,5 @@ urlpatterns = [
     path('validate-student/<str:student_id>/', views.validate_student, name='validate_student'),
     path('sessions/<int:pk>/', SessionDetailAPIView.as_view(), name='session-detail'),
     path('student/overview/', student_overview, name='student-overview'),
+    path('lecturer/', include(router.urls)),
 ]

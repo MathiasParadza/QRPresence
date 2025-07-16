@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from .models import Session, Student, Lecturer, Attendance # Added Lecturer import
 from .utils import haversine # Assuming haversine is in .utils
+from django.contrib.auth import get_user_model
+
 
 
 class SessionSerializer(serializers.ModelSerializer):
@@ -82,11 +84,27 @@ class AttendanceMarkSerializer(serializers.Serializer):
         return data
     
 
-class AttendanceSerializer(serializers.ModelSerializer):
-    student_id = serializers.CharField(source='student.student_id')
-    username = serializers.CharField(source='student.user.username')
-    session_name = serializers.CharField(source='session.class_name')
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = get_user_model()
+        fields = ['username']
 
+class StudentNestedSerializer(serializers.ModelSerializer):
+    user = UserSerializer()
+    
+    class Meta:
+        model = Student
+        fields = ['student_id', 'user']
+
+class SessionNestedSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Session
+        fields = ['id', 'class_name']  # Added id for filtering
+
+class AttendanceLecturerViewSerializer(serializers.ModelSerializer):
+    student = StudentNestedSerializer()
+    session = SessionNestedSerializer()
+    
     class Meta:
         model = Attendance
-        fields = ['student_id', 'username', 'session_name', 'status', 'check_in_time', 'check_out_time']
+        fields = ['id', 'student', 'session', 'status', 'check_in_time', 'check_out_time', 'latitude', 'longitude']

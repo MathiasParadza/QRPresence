@@ -1,20 +1,28 @@
 from datetime import date
+from django.utils import timezone
+from datetime import timedelta
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from django_filters.rest_framework import DjangoFilterBackend # type: ignore
 from authentication.permissions import IsLecturer
 from django.utils.timezone import now
 from django.core.files.base import ContentFile
 import base64
 from .models import Session, Attendance, QRCode, Student, Lecturer, AttendanceRecord
 from .utils import haversine
-from .serializers import StudentSerializer, AttendanceMarkSerializer, SessionSerializer,AttendanceSerializer
+from .serializers import StudentSerializer, AttendanceMarkSerializer, SessionSerializer,AttendanceLecturerViewSerializer
 from rest_framework import status, generics, serializers
 import logging
 from django.http import HttpResponse
 from rest_framework.views import APIView
 import csv
 from django.db.models import Q
+from rest_framework import viewsets, filters, status
+from rest_framework.decorators import action
+from django_filters.rest_framework import DjangoFilterBackend, FilterSet, DateFromToRangeFilter, ChoiceFilter
+from .filters import AttendanceFilter
+
 
 
 
@@ -204,51 +212,46 @@ def student_overview(request):
     })
 
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def lecturer_attendance_records(request):
-    # Allow only lecturers
-    if getattr(request.user, 'role', None) != 'lecturer':
-        return Response({'error': 'Permission denied'}, status=403)
+class AttendanceRecordFilter(FilterSet):
+    STATUS_CHOICES = [
+        ('Present', 'Present'),
+        ('Absent', 'Absent'),
+    ]
 
-    # Optional filters via query params (e.g. ?search=xyz&status=present)
-    search = request.query_params.get('search', None)
-    status_filter = request.query_params.get('status', None)
+    status = ChoiceFilter(choices=STATUS_CHOICES)
 
-    queryset = Attendance.objects.all()
+    class Meta:
+        model = AttendanceRecord
+        fields = ['status', 'session', 'student']
 
-    if search:
-        queryset = queryset.filter(
-            Q(student__user__username__icontains=search) |
-            Q(session__class_name__icontains=search)
-        )
-    if status_filter:
-        queryset = queryset.filter(status=status_filter)
 
-    # Serialize the queryset
-    serializer = AttendanceSerializer(queryset, many=True)
+class LecturerAttendanceViewSet(viewsets.ModelViewSet):
+    serializer_class = AttendanceLecturerViewSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = AttendanceFilter
+    
+    def get_queryset(self):
+        queryset = Attendance.objects.filter(
+            session__lecturer=self.request.user.lecturer
+        ).select_related('student__user', 'session')
+        
+        return queryset
 
-    return Response(serializer.data)
-
-class ExportAttendanceCSVView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        # Query attendance records, e.g., all or filtered by lecturer
-        attendance_qs = Attendance.objects.all()
-
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename=attendance_report.csv'
-
-        writer = csv.writer(response)
-        writer.writerow(['Student ID', 'Session', 'Status', 'Check-in', 'Check-out'])
-        for obj in attendance_qs:
-            writer.writerow([
-                obj.student.student_id,
-                obj.session.class_name,
-                obj.status,
-                obj.check_in_time,
-                obj.check_out_time,
-            ])
-
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        # Get counts for the dashboard/filter UI
+        response = super().list(request, *args, **kwargs)
+        response.data['counts'] = {
+            'all': queryset.count(),
+            'present': queryset.filter(status='Present').count(),
+            'absent': queryset.filter(status='Absent').count(),
+            'by_date': {
+                'today': queryset.filter(check_in_time__date=timezone.now().date()).count(),
+                'week': queryset.filter(check_in_time__date__gte=timezone.now().date() - timedelta(days=7)).count(),
+                'month': queryset.filter(check_in_time__month=timezone.now().month).count(),
+                'year': queryset.filter(check_in_time__year=timezone.now().year).count(),
+            }
+        }
+        
         return response

@@ -1,29 +1,43 @@
-import React, { useEffect, useState } from 'react'; 
+import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import axios from 'axios';
 
 interface AttendanceRecord {
-  student_id: string;
-  session_name: string; // changed from session_id to session_name for clarity
+  id: number;
+  student?: {
+    student_id?: string;
+    user?: {
+      username?: string;
+    };
+  };
+  session?: {
+    class_name?: string;
+  };
   status: string;
   check_in_time: string;
   check_out_time: string | null;
 }
 
-interface AttendanceResponse {
-  attendance_record: AttendanceRecord[];
+interface PaginatedResponse {
+  results: AttendanceRecord[];
+  count: number;
+  next: string | null;
+  previous: string | null;
 }
 
-const LecturerView = () => {
+const LecturerView: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
-
-  // Attendance report state
   const [attendanceReport, setAttendanceReport] = useState<AttendanceRecord[]>([]);
-  const [loadingReport, setLoadingReport] = useState(false);
+  const [loadingReport, setLoadingReport] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [ordering, setOrdering] = useState<string>('check_in_time');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [totalPages, setTotalPages] = useState<number>(1);
 
   useEffect(() => {
     if (location.state && location.state.qrCodeUrl) {
@@ -31,9 +45,8 @@ const LecturerView = () => {
     }
   }, [location.state]);
 
-  // Fetch attendance records for stats tab
   useEffect(() => {
-    const fetchAttendanceRecord = async () => {
+    const fetchAttendanceRecord = async (): Promise<void> => {
       setLoadingReport(true);
       setError(null);
 
@@ -45,14 +58,21 @@ const LecturerView = () => {
       }
 
       try {
-        const response = await axios.get<AttendanceResponse>('http://127.0.0.1:8000/api/report/', {
+        const response = await axios.get<PaginatedResponse>('http://127.0.0.1:8000/api/lecturer/lecturer-attendance/', {
           headers: {
             Authorization: `Bearer ${token}`,
           },
+          params: {
+            page: currentPage,
+            search: searchTerm || undefined,
+            status: statusFilter || undefined,
+            ordering: ordering || undefined,
+          },
         });
-        setAttendanceReport(response.data.attendance_record);
-      } catch (err: unknown) {
-        console.error("Failed to load attendance report:", err);
+        setAttendanceReport(response.data.results);
+        setTotalPages(Math.ceil(response.data.count / 10));
+      } catch (err) {
+        console.error('Failed to load attendance report:', err);
         setError('Failed to load attendance report.');
       } finally {
         setLoadingReport(false);
@@ -60,9 +80,28 @@ const LecturerView = () => {
     };
 
     fetchAttendanceRecord();
-  }, []);
+  }, [searchTerm, statusFilter, ordering, currentPage]);
 
-  const downloadQRCode = () => {
+  const exportCsv = (): void => {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      alert('No access token found');
+      return;
+    }
+
+    const query = new URLSearchParams();
+    if (searchTerm) query.append('search', searchTerm);
+    if (statusFilter) query.append('status', statusFilter);
+    if (ordering) query.append('ordering', ordering);
+
+    const url = `http://127.0.0.1:8000/api/lecturer/lecturer-attendance/export-csv/?${query.toString()}`;
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('target', '_blank');
+    link.click();
+  };
+
+  const downloadQRCode = (): void => {
     if (!qrCodeUrl) return;
     const link = document.createElement('a');
     link.href = qrCodeUrl;
@@ -70,182 +109,274 @@ const LecturerView = () => {
     link.click();
   };
 
-  const handleLogout = () => {
+  const handleLogout = (): void => {
     localStorage.removeItem('access_token');
     navigate('/login');
   };
 
-  const exportCsv = () => {
-  const token = localStorage.getItem('access_token');
-  fetch('http://127.0.0.1:8000/api/attendance/export-csv/', { // use your full backend URL
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  })
-    .then(res => res.blob())
-    .then(blob => {
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', 'attendance_report.csv');
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode?.removeChild(link);
-    })
-    .catch(error => {
-      console.error('Export CSV failed:', error);
-      alert('Failed to export CSV.');
-    });
-};
-
+  const toggleOrdering = (field: string): void => {
+    setOrdering((prev) => (prev === field ? `-${field}` : field));
+  };
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-5xl bg-purple-50 shadow-xl rounded-2xl p-8">
-        <div className="flex justify-between items-center mb-3">
-          <h1 className="text-4xl font-bold text-purple-700 text-center flex-1">Lecturer Dashboard</h1>
-          <button
-            onClick={handleLogout}
-            className="ml-4 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold"
-          >
-            Logout
-          </button>
-        </div>
-        <p className="text-center text-gray-700 mb-8">Manage your sessions and track attendance.</p>
-
-        <Tabs defaultValue="actions" className="w-full">
-          <TabsList className="grid grid-cols-3 gap-2 bg-white border border-purple-200 rounded-xl p-2 mb-6 shadow-sm">
-            <TabsTrigger
-              value="actions"
-              className="data-[state=active]:bg-purple-600 data-[state=active]:text-white transition rounded-lg py-2"
+    <div className="min-h-screen bg-gray-100 py-8 px-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="bg-white shadow-lg rounded-xl p-6 mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <h1 className="text-3xl font-bold text-purple-700">Lecturer Dashboard</h1>
+            <button
+              onClick={handleLogout}
+              className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors duration-200 self-start sm:self-auto"
             >
-              Actions
-            </TabsTrigger>
-            <TabsTrigger
-              value="qrcode"
-              className="data-[state=active]:bg-purple-600 data-[state=active]:text-white transition rounded-lg py-2"
-            >
-              Latest QR
-            </TabsTrigger>
-            <TabsTrigger
-              value="stats"
-              className="data-[state=active]:bg-purple-600 data-[state=active]:text-white transition rounded-lg py-2"
-            >
-              Statistics
-            </TabsTrigger>
-            <button onClick={exportCsv} className="bg-blue-600 text-white px-4 py-2 rounded">
-             Export Attendance CSV
+              Logout
             </button>
+          </div>
+        </div>
 
-          </TabsList>
+        {/* Main Content */}
+        <div className="bg-white shadow-lg rounded-xl p-6">
+          <Tabs defaultValue="actions" className="w-full">
+            <TabsList className="grid grid-cols-3 gap-2 bg-gray-50 border border-gray-200 rounded-xl p-2 mb-8">
+              <TabsTrigger 
+                value="actions" 
+                className="data-[state=active]:bg-purple-600 data-[state=active]:text-white bg-white text-gray-700 hover:bg-gray-100 transition-all duration-200 rounded-lg py-3 font-medium"
+              >
+                Actions
+              </TabsTrigger>
+              <TabsTrigger 
+                value="qrcode" 
+                className="data-[state=active]:bg-purple-600 data-[state=active]:text-white bg-white text-gray-700 hover:bg-gray-100 transition-all duration-200 rounded-lg py-3 font-medium"
+              >
+                Latest QR
+              </TabsTrigger>
+              <TabsTrigger 
+                value="stats" 
+                className="data-[state=active]:bg-purple-600 data-[state=active]:text-white bg-white text-gray-700 hover:bg-gray-100 transition-all duration-200 rounded-lg py-3 font-medium"
+              >
+                Statistics
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Actions Tab */}
-          <TabsContent value="actions">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-purple-100 p-4 rounded-xl shadow-sm">
-                <h2 className="text-lg font-semibold text-purple-800 mb-2">Generate Attendance QR</h2>
-                <button
-                  onClick={() => navigate('/generate-qr')}
-                  className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg font-medium"
-                >
-                  📷 Generate QR
-                </button>
+            {/* Actions Tab */}
+            <TabsContent value="actions">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="bg-purple-50 border border-purple-200 rounded-xl p-6 shadow-sm">
+                  <h2 className="text-lg font-semibold text-purple-800 mb-4">Generate Attendance QR</h2>
+                  <button
+                    onClick={() => navigate('/generate-qr')}
+                    className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg font-medium transition-colors duration-200"
+                  >
+                    📷 Generate QR
+                  </button>
+                </div>
+                
+                <div className="bg-green-50 border border-green-200 rounded-xl p-6 shadow-sm">
+                  <h2 className="text-lg font-semibold text-green-800 mb-4">Sessions</h2>
+                  <button
+                    onClick={() => navigate('/create-session')}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-medium transition-colors duration-200"
+                  >
+                    📚 Session Management
+                  </button>
+                </div>
+                
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 shadow-sm">
+                  <h2 className="text-lg font-semibold text-gray-800 mb-4">More Tools</h2>
+                  <button
+                    onClick={() => navigate('/more-placeholder')}
+                    className="w-full bg-gray-600 hover:bg-gray-700 text-white py-3 rounded-lg font-medium transition-colors duration-200"
+                  >
+                    🔧 Coming Soon
+                  </button>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* QR Code Tab */}
+            <TabsContent value="qrcode">
+              <div className="text-center">
+                {qrCodeUrl ? (
+                  <div className="space-y-6">
+                    <h2 className="text-2xl font-semibold text-purple-700">Latest Attendance QR Code</h2>
+                    <div className="flex justify-center">
+                      <img 
+                        src={qrCodeUrl} 
+                        alt="Latest QR Code" 
+                        className="w-64 h-64 border-4 border-green-400 rounded-xl shadow-lg"
+                      />
+                    </div>
+                    <button 
+                      onClick={downloadQRCode} 
+                      className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-semibold transition-colors duration-200"
+                    >
+                      ⬇️ Download QR Code
+                    </button>
+                  </div>
+                ) : (
+                  <div className="py-16">
+                    <p className="text-gray-600 text-lg">No QR Code available yet.</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            {/* Statistics Tab */}
+            <TabsContent value="stats">
+              {/* Filters */}
+              <div className="bg-gray-50 rounded-xl p-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <label htmlFor="search" className="block text-sm font-medium text-gray-700">
+                      Search
+                    </label>
+                    <input
+                      id="search"
+                      type="text"
+                      placeholder="Search by student or session..."
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700">
+                      Status Filter
+                    </label>
+                    <select
+                      id="status-filter"
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                    >
+                      <option value="">All Statuses</option>
+                      <option value="present">Present</option>
+                      <option value="absent">Absent</option>
+                      <option value="late">Late</option>
+                    </select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Export
+                    </label>
+                    <button
+                      onClick={exportCsv}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors duration-200"
+                    >
+                      ⬇️ Export CSV
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              <div className="bg-green-100 p-4 rounded-xl shadow-sm">
-                <h2 className="text-lg font-semibold text-green-800 mb-2">Sessions</h2>
-                <button
-                  onClick={() => navigate('/create-session')}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium"
-                >
-                  📚 Session Management
-                </button>
-              </div>
-
-              <div className="bg-gray-100 p-4 rounded-xl shadow-sm">
-                <h2 className="text-lg font-semibold text-gray-800 mb-2">More Tools</h2>
-                <button
-                  onClick={() => navigate('/more-placeholder')}
-                  className="w-full bg-gray-600 hover:bg-gray-700 text-white py-2 rounded-lg font-medium"
-                >
-                  🔧 Coming Soon
-                </button>
-              </div>
-            </div>
-          </TabsContent>
-
-          {/* QR Code Tab */}
-          <TabsContent value="qrcode">
-            {qrCodeUrl ? (
-              <div className="text-center mt-4">
-                <h2 className="text-xl font-semibold text-purple-700 mb-4">Latest Attendance QR Code</h2>
-                <img
-                  src={qrCodeUrl}
-                  alt="Latest QR Code"
-                  className="w-64 h-64 mx-auto border-4 border-green-400 rounded-xl"
-                />
-                <button
-                  onClick={downloadQRCode}
-                  className="mt-4 bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold"
-                >
-                  ⬇️ Download QR Code
-                </button>
-              </div>
-            ) : (
-              <p className="text-center text-gray-600 mt-4">No QR Code available yet.</p>
-            )}
-          </TabsContent>
-
-          {/* Statistics Tab */}
-          <TabsContent value="stats">
-            <div className="text-gray-700">
-              <h2 className="text-2xl font-semibold mb-4">Attendance Records</h2>
-              {loadingReport && <p>Loading attendance records...</p>}
-              {error && <p className="text-red-600">{error}</p>}
-              {!loadingReport && !error && (
-                <div className="overflow-x-auto max-h-96">
-                  <table className="min-w-full border border-gray-300 rounded-lg overflow-hidden">
-                    <thead className="bg-purple-200 sticky top-0">
-                      <tr>
-                        <th className="border border-gray-300 px-4 py-2 text-left">Student ID</th>
-                        <th className="border border-gray-300 px-4 py-2 text-left">Session</th>
-                        <th className="border border-gray-300 px-4 py-2 text-left">Check In</th>
-                        <th className="border border-gray-300 px-4 py-2 text-left">Check Out</th>
-                        <th className="border border-gray-300 px-4 py-2 text-left">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {attendanceReport.length > 0 ? (
-                        attendanceReport.map((record, idx) => (
-                          <tr
-                            key={idx}
-                            className={idx % 2 === 0 ? 'bg-white' : 'bg-purple-50'}
-                          >
-                            <td className="border border-gray-300 px-4 py-2">{record.student_id}</td>
-                            <td className="border border-gray-300 px-4 py-2">{record.session_name}</td>
-                            <td className="border border-gray-300 px-4 py-2">{new Date(record.check_in_time).toLocaleString()}</td>
-                            <td className="border border-gray-300 px-4 py-2">{record.check_out_time ? new Date(record.check_out_time).toLocaleString() : '-'}</td>
-                            <td className="border border-gray-300 px-4 py-2">{record.status}</td>
-                          </tr>
-                        ))
-                      ) : (
+              {/* Table */}
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                {loadingReport ? (
+                  <div className="p-8 text-center">
+                    <p className="text-gray-600">Loading attendance records...</p>
+                  </div>
+                ) : error ? (
+                  <div className="p-8 text-center">
+                    <p className="text-red-600">{error}</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-purple-100 border-b border-purple-200">
                         <tr>
-                          <td
-                            colSpan={5}
-                            className="text-center p-4 text-gray-500"
+                          <th className="text-left px-6 py-4 font-semibold text-purple-800">Student</th>
+                          <th className="text-left px-6 py-4 font-semibold text-purple-800">Student ID</th>
+                          <th className="text-left px-6 py-4 font-semibold text-purple-800">Session</th>
+                          <th 
+                            className="text-left px-6 py-4 font-semibold text-purple-800 cursor-pointer hover:bg-purple-200 transition-colors"
+                            onClick={() => toggleOrdering('check_in_time')}
                           >
-                            No attendance records found.
-                          </td>
+                            Check In {ordering === 'check_in_time' ? '↑' : ordering === '-check_in_time' ? '↓' : ''}
+                          </th>
+                          <th 
+                            className="text-left px-6 py-4 font-semibold text-purple-800 cursor-pointer hover:bg-purple-200 transition-colors"
+                            onClick={() => toggleOrdering('check_out_time')}
+                          >
+                            Check Out {ordering === 'check_out_time' ? '↑' : ordering === '-check_out_time' ? '↓' : ''}
+                          </th>
+                          <th 
+                            className="text-left px-6 py-4 font-semibold text-purple-800 cursor-pointer hover:bg-purple-200 transition-colors"
+                            onClick={() => toggleOrdering('status')}
+                          >
+                            Status {ordering === 'status' ? '↑' : ordering === '-status' ? '↓' : ''}
+                          </th>
                         </tr>
-                      )}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {attendanceReport.length > 0 ? (
+                          attendanceReport.map((record, idx) => (
+                            <tr 
+                              key={`${record.id}-${record.check_in_time}`} 
+                              className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                            >
+                              <td className="px-6 py-4 text-gray-900">{record.student?.user?.username || 'N/A'}</td>
+                              <td className="px-6 py-4 text-gray-900">{record.student?.student_id || 'N/A'}</td>
+                              <td className="px-6 py-4 text-gray-900">{record.session?.class_name || 'N/A'}</td>
+                              <td className="px-6 py-4 text-gray-900">
+                                {record.check_in_time ? new Date(record.check_in_time).toLocaleString() : '-'}
+                              </td>
+                              <td className="px-6 py-4 text-gray-900">
+                                {record.check_out_time ? new Date(record.check_out_time).toLocaleString() : '-'}
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full capitalize ${
+                                  record.status === 'present' ? 'bg-green-100 text-green-800' :
+                                  record.status === 'absent' ? 'bg-red-100 text-red-800' :
+                                  record.status === 'late' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {record.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                              No attendance records found.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-4">
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg font-medium transition-colors duration-200"
+                  >
+                    Previous
+                  </button>
+                  
+                  <span className="text-gray-600 font-medium">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg font-medium transition-colors duration-200"
+                  >
+                    Next
+                  </button>
                 </div>
               )}
-            </div>
-          </TabsContent>
-        </Tabs>
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </div>
   );
