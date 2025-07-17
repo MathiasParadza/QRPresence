@@ -180,7 +180,7 @@ const LecturerView: React.FC = () => {
                   🔧 Create Session
                  </button>
                  <button
-                   onClick={() => navigate('/sessions')}
+                   onClick={() => navigate('/session-list')}
                    className="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-medium transition-colors duration-200"
                >
                     📋 View Sessions

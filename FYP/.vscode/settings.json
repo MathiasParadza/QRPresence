@@ -6,5 +6,8 @@
   "python.analysis.autoSearchPaths": true,
   "python.analysis.useLibraryCodeForTypes": true,
   "python.analysis.diagnosticMode": "workspace",
-  "python.analysis.indexing": true
+  "python.analysis.indexing": true,
+  "cSpell.words": [
+    "lecturerview"
+  ]
 }

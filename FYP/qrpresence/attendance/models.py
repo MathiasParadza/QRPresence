@@ -32,9 +32,11 @@ class Session(models.Model):
     gps_longitude = models.FloatField()
     allowed_radius = models.IntegerField(default=100)
     timestamp = models.DateTimeField(auto_now_add=True)
-
+    
     def __str__(self):
         return f"{self.class_name} ({self.session_id}) - {self.timestamp}"
+    class Meta:
+        ordering = ['-timestamp']
     
 class AttendanceRecord(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
@@ -65,3 +67,5 @@ class Attendance(models.Model):
 
     def __str__(self):
         return f"{self.student} - {self.session}"
+    class Meta:
+        ordering = ['-check_in_time']

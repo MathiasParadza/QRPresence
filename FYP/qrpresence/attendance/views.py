@@ -115,7 +115,7 @@ class SessionListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         try:
             lecturer = Lecturer.objects.get(user=self.request.user)
-            return Session.objects.filter(lecturer=lecturer)
+            return Session.objects.filter(lecturer=lecturer).order_by('-timestamp')  # 👈 add ordering
         except Lecturer.DoesNotExist:
             return Session.objects.none()
 
@@ -231,9 +231,10 @@ class LecturerAttendanceViewSet(viewsets.ModelViewSet):
     filterset_class = AttendanceFilter
     
     def get_queryset(self):
-        queryset = Attendance.objects.filter(
-            session__lecturer=self.request.user.lecturer
-        ).select_related('student__user', 'session')
+        return Attendance.objects.filter(
+        session__lecturer=self.request.user.lecturer
+    ).select_related('student__user', 'session').order_by('-check_in_time')  # 👈 add ordering
+
         
         return queryset
 

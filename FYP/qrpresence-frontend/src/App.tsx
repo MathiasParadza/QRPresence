@@ -12,9 +12,12 @@ import Dashboard from "./pages/Dashboard";
 import ErrorBoundary from "./components/ErrorBoundary"; 
 import QRCodeGenerator from "./components/QRCodeGenerator";
 import CreateSession from "./pages/LecturerView/CreateSession";
-import SessionList from "./pages/LecturerView/SessionList"; // ✅ NEW
+import SessionList from "./pages/LecturerView/SessionList";
+import SessionEdit from "./pages/LecturerView/SessionEdit";
+ // ✅ NEW
 import LoadingSpinner from "./components/LoadingSpinner"; 
 import { User } from "./types/user";
+
 
 const App = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -73,7 +76,7 @@ const App = () => {
           }
         />
         <Route
-          path="/sessions"
+          path="/session-list"
           element={
             user && user.role === "lecturer" ? (
               <SessionList />
@@ -82,6 +85,17 @@ const App = () => {
             )
           }
         />
+        <Route
+          path="/lecturer/sessions/edit/:id"
+          element={
+            user && user.role === "lecturer" ? (
+              <SessionEdit />
+            ) : (
+              <Navigate to="/login" />
+            )
+           }
+        />
+
 
         {/* Dashboard Route */}
         <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
