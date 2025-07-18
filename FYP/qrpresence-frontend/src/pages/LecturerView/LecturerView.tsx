@@ -189,13 +189,14 @@ const LecturerView: React.FC = () => {
 
                 
                 <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 shadow-sm">
-                  <h2 className="text-lg font-semibold text-gray-800 mb-4">More Tools</h2>
-                  <button
-                    onClick={() => navigate('/more-placeholder')}
-                    className="w-full bg-gray-600 hover:bg-gray-700 text-white py-3 rounded-lg font-medium transition-colors duration-200"
-                  >
-                    🔧 Coming Soon
-                  </button>
+                  <h2 className="text-lg font-semibold text-gray-800 mb-4">Students Management</h2>
+                 <button
+                   onClick={() => navigate('/student-manager')}
+                   className="w-full bg-green-400 hover:bg-green-500 text-white py-3 rounded-lg font-medium transition-colors duration-200"
+               >
+                   🎓 Manage Students
+                 </button>
+
                 </div>
               </div>
             </TabsContent>

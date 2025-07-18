@@ -5,7 +5,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend # type: ignore
-from authentication.permissions import IsLecturer
+from authentication.permissions import IsLecturer,IsLecturerOrAdmin
 from django.utils.timezone import now
 from django.core.files.base import ContentFile
 import base64
@@ -22,6 +22,7 @@ from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from django_filters.rest_framework import DjangoFilterBackend, FilterSet, DateFromToRangeFilter, ChoiceFilter
 from .filters import AttendanceFilter
+ 
 
 
 
@@ -256,3 +257,14 @@ class LecturerAttendanceViewSet(viewsets.ModelViewSet):
         }
         
         return response
+
+
+class StudentListCreateAPIView(generics.ListCreateAPIView):
+    queryset = Student.objects.all().order_by('student_id')  
+    serializer_class = StudentSerializer
+    permission_classes = [IsAuthenticated, IsLecturerOrAdmin]
+
+class StudentDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Student.objects.all()
+    serializer_class = StudentSerializer
+    permission_classes = [IsAuthenticated, IsLecturerOrAdmin]   

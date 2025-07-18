@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import Session, Student, Lecturer, Attendance # Added Lecturer import
 from .utils import haversine # Assuming haversine is in .utils
 from django.contrib.auth import get_user_model
+from authentication.serializers import UserSerializer
 
 
 
@@ -34,13 +35,17 @@ class SessionSerializer(serializers.ModelSerializer):
 #student serializer
 # from .models import Student # Already imported above
 
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = get_user_model()
+        fields = ['username']
+
 class StudentSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+
     class Meta:
         model = Student
-        # Corrected fields based on Student model, assuming 'year' was a typo
-        fields = ['student_id', 'user', 'name', 'email', 'program']  # Changed 'course' to 'program' based on the model
-        read_only_fields = ['student_id', 'user']
-
+        fields = ['student_id', 'user', 'name', 'email', 'program']
 class LecturerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lecturer

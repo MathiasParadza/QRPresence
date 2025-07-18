@@ -7,3 +7,12 @@ class IsLecturer(BasePermission):
 class IsStudent(BasePermission):
     def has_permission(self, request, view):
         return request.user.is_authenticated and getattr(request.user, 'role', '') == 'student'
+    
+
+
+class IsLecturerOrAdmin(BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and (
+            request.user.role == 'lecturer' or request.user.role == 'admin'
+        )
+

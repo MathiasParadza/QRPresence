@@ -7,11 +7,13 @@ from .views import missed_sessions_heatmap
 from .views import student_overview 
 from rest_framework.routers import DefaultRouter
 from .views import LecturerAttendanceViewSet
+from .views import StudentListCreateAPIView, StudentDetailAPIView
 
 
 
 router = DefaultRouter()
 router.register(r'lecturer-attendance', LecturerAttendanceViewSet, basename='lecturer-attendance')
+
 
 urlpatterns = [
     path('mark/', views.mark_attendance, name='mark_attendance'),  
@@ -24,4 +26,6 @@ urlpatterns = [
     path('sessions/<int:pk>/', SessionDetailAPIView.as_view(), name='session-detail'),
     path('student/overview/', student_overview, name='student-overview'),
     path('lecturer/', include(router.urls)),
+    path('students/', StudentListCreateAPIView.as_view(), name='student-list'),
+    path('students/<int:pk>/', StudentDetailAPIView.as_view(), name='student-detail'),
 ]

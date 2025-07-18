@@ -14,7 +14,7 @@ import QRCodeGenerator from "./components/QRCodeGenerator";
 import CreateSession from "./pages/LecturerView/CreateSession";
 import SessionList from "./pages/LecturerView/SessionList";
 import SessionEdit from "./pages/LecturerView/SessionEdit";
- // ✅ NEW
+import StudentManager from './pages/LecturerView/StudentManager';
 import LoadingSpinner from "./components/LoadingSpinner"; 
 import { User } from "./types/user";
 
@@ -94,6 +94,16 @@ const App = () => {
               <Navigate to="/login" />
             )
            }
+        />
+        <Route
+         path="/student-manager"
+         element={
+           user && user.role === "lecturer" ? (
+            <StudentManager />
+           ) : (
+             <Navigate to="/login" />
+           )
+          }
         />
 
 
