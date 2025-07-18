@@ -1,20 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import Button from '@/components/ui/button';
-import { Pencil, Trash2, Plus } from 'lucide-react';
-import { Dialog } from '@headlessui/react';
 import { toast } from 'react-toastify';
+import Dialog from '@/components/ui/Dialog';
+import Input from '@/components/ui/Input';
+import Button from '@/components/ui/button';
+import { Pencil, Trash2 } from 'lucide-react';
+import api from '@/utils/api';
 
 interface User {
-  username?: string;
+  username: string;
 }
 
 interface Student {
-  student_id: string;
-  user?: User;
-  name?: string;
-  email?: string;
-  program?: string;
+  student_id: number;
+  user: User;
+  name: string;
+  email: string;
+  program: string;
 }
 
 interface PaginatedResponse {
@@ -26,291 +27,366 @@ interface PaginatedResponse {
 
 const StudentManager: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
-  const [nextPage, setNextPage] = useState<string | null>(null);
-  const [prevPage, setPrevPage] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [currentUrl, setCurrentUrl] = useState('/api/students/');
+  const [next, setNext] = useState<string | null>(null);
+  const [previous, setPrevious] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [programFilter, setProgramFilter] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editStudent, setEditStudent] = useState<Student | null>(null);
-  const [isCreateMode, setIsCreateMode] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const token = localStorage.getItem('access_token');
-
-  const fetchStudents = React.useCallback(async (url: string) => {
+  const fetchStudents = React.useCallback(async (url: string = '/api/students/') => {
     setLoading(true);
     try {
-      const res = await axios.get<PaginatedResponse>(url, {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await api.get<PaginatedResponse>(url, {
+        params: {
+          search: search?.trim() || undefined,
+          program: programFilter?.trim() || undefined,
+        },
       });
-      setStudents(res.data.results);
-      setNextPage(res.data.next);
-      setPrevPage(res.data.previous);
-    } catch (err) {
-      console.error('Error fetching students:', err);
+      setStudents(res.data.results || []);
+      setNext(res.data.next);
+      setPrevious(res.data.previous);
+    } catch (error) {
+      console.error('Error fetching students:', error);
       toast.error('Failed to fetch students');
       setStudents([]);
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [search, programFilter]);
 
   useEffect(() => {
-    let url = currentUrl;
-    if (search || programFilter) {
-      const params = new URLSearchParams();
-      if (search) params.append('search', search);
-      if (programFilter) params.append('program', programFilter);
-      url = `/api/students/?${params.toString()}`;
-    }
-    fetchStudents(url);
-  }, [currentUrl, search, programFilter, fetchStudents]);
+    fetchStudents();
+  }, [search, programFilter, fetchStudents]);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this student?')) return;
+  const handleCreate = async () => {
+    if (!editStudent?.student_id) {
+      toast.error('Student ID required');
+      return;
+    }
+    
+    setIsSubmitting(true);
     try {
-      await axios.delete(`/api/students/${id}/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      toast.success('Student deleted');
-      fetchStudents(currentUrl);
-    } catch (err) {
-      console.error(err);
+      await api.post('/api/students/', editStudent);
+      toast.success('Student created successfully');
+      setIsDialogOpen(false);
+      setEditStudent(null);
+      fetchStudents();
+    } catch (error) {
+      console.error('Create error:', error);
+      toast.error('Failed to create student');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!editStudent?.student_id) return;
+    
+    setIsSubmitting(true);
+    try {
+      await api.put(`/api/students/${editStudent.student_id}/`, editStudent);
+      toast.success('Student updated successfully');
+      setIsDialogOpen(false);
+      setEditStudent(null);
+      fetchStudents();
+    } catch (error) {
+      console.error('Update error:', error);
+      toast.error('Failed to update student');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (student_id: number) => {
+    if (!confirm('Are you sure you want to delete this student?')) return;
+    
+    try {
+      await api.delete(`/api/students/${student_id}/`);
+      toast.success('Student deleted successfully');
+      fetchStudents();
+    } catch (error) {
+      console.error('Delete error:', error);
       toast.error('Failed to delete student');
     }
   };
 
-  const handleEdit = (student: Student) => {
-    setEditStudent(student);
-    setIsCreateMode(false);
-    setIsDialogOpen(true);
-  };
-
-  const handleUpdate = async () => {
-    if (!editStudent) return;
+  const exportCsv = async () => {
     try {
-      await axios.put(`/api/students/${editStudent.student_id}/`, editStudent, {
-        headers: { Authorization: `Bearer ${token}` },
+      const response = await api.get('/api/students/export-csv/', {
+        responseType: 'blob'
       });
-      toast.success('Student updated');
-      fetchStudents(currentUrl);
-      setIsDialogOpen(false);
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to update student');
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'students.csv');
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export CSV');
     }
   };
 
-  const handleCreate = async () => {
-    if (!editStudent) return;
-    try {
-      await axios.post('/api/students/', editStudent, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      toast.success('Student created');
-      fetchStudents('/api/students/');
-      setIsDialogOpen(false);
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to create student');
-    }
-  };
-
-  const exportToCSV = () => {
-    const headers = ['Student ID', 'Username', 'Name', 'Email', 'Program'];
-    const rows = students.map((s) => [
-      s.student_id,
-      s.user?.username || '',
-      s.name || '',
-      s.email || '',
-      s.program || '',
-    ]);
-    const csv = [headers, ...rows].map((row) => row.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'students.csv';
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const openCreateModal = () => {
-    setIsCreateMode(true);
-    setEditStudent({
-      student_id: '',
+  const openEditModal = (student: Student | null = null) => {
+    setEditStudent(student || {
+      student_id: 0,
+      user: { username: '' },
       name: '',
       email: '',
-      program: '',
-      user: { username: '' },
+      program: ''
     });
     setIsDialogOpen(true);
   };
 
-  return (
-    <div className="p-4 bg-white rounded shadow">
-      <h2 className="text-xl font-bold mb-4">Student Manager</h2>
+  const closeModal = () => {
+    setIsDialogOpen(false);
+    setEditStudent(null);
+  };
 
-      <div className="mb-4 flex flex-col md:flex-row md:items-center justify-between gap-2">
-        <div className="flex gap-2 w-full md:w-2/3">
-          <input
-            type="text"
-            placeholder="Search..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="border rounded px-2 py-1 w-full"
-          />
-          <label htmlFor="programFilter" className="sr-only">
-            Filter by program
-          </label>
-          <select
-            id="programFilter"
-            aria-label="Filter by program"
-            value={programFilter}
-            onChange={(e) => setProgramFilter(e.target.value)}
-            className="border rounded px-2 py-1"
-          >
-            <option value="">All Programs</option>
-            <option value="CS">CS</option>
-            <option value="IT">IT</option>
-            <option value="ENG">ENG</option>
-            <option value="BBA">BBA</option>
-          </select>
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={openCreateModal} className="flex items-center gap-1">
-            <Plus size={16} /> Add Student
-          </Button>
-          <Button onClick={exportToCSV}>Export CSV</Button>
-        </div>
+  const isCreateMode = !editStudent?.student_id;
+
+  return (
+    <div className="p-4">
+      <h2 className="text-2xl font-bold mb-4">Manage Students</h2>
+
+      <div className="flex flex-wrap gap-2 mb-4">
+        <Input
+          placeholder="Search by username or name"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 min-w-[200px]"
+        />
+        <select
+          value={programFilter}
+          onChange={(e) => setProgramFilter(e.target.value)}
+          className="border rounded px-2 py-1 bg-white"
+          aria-label="Filter by program"
+        >
+          <option value="">All Programs</option>
+          <option value="Computer Science">Computer Science</option>
+          <option value="Information Tech">Information Tech</option>
+          <option value="Engineering">Engineering</option>
+          <option value="Networking and information security">Networking</option>
+        </select>
+        <Button onClick={exportCsv} disabled={loading}>
+          Export CSV
+        </Button>
+        <Button onClick={() => openEditModal()} disabled={loading}>
+          Add Student
+        </Button>
       </div>
 
-      {loading ? (
-        <p>Loading...</p>
-      ) : students.length === 0 ? (
-        <p>No students found.</p>
-      ) : (
-        <table className="w-full border-collapse mb-4">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border px-2 py-1 text-left">ID</th>
-              <th className="border px-2 py-1 text-left">Username</th>
-              <th className="border px-2 py-1 text-left">Name</th>
-              <th className="border px-2 py-1 text-left">Email</th>
-              <th className="border px-2 py-1 text-left">Program</th>
-              <th className="border px-2 py-1 text-left">Actions</th>
+      <div className="overflow-x-auto bg-white rounded-lg shadow">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Student ID
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Username
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Name
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Email
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Program
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
             </tr>
           </thead>
-          <tbody>
-            {students.map((student) => (
-              <tr key={student.student_id}>
-                <td className="border px-2 py-1">{student.student_id}</td>
-                <td className="border px-2 py-1">{student.user?.username ?? '—'}</td>
-                <td className="border px-2 py-1">{student.name ?? '—'}</td>
-                <td className="border px-2 py-1">{student.email ?? '—'}</td>
-                <td className="border px-2 py-1">{student.program ?? '—'}</td>
-                <td className="border px-2 py-1 flex gap-2">
-                  <button
-                    onClick={() => handleEdit(student)}
-                    className="text-blue-600 hover:underline"
-                    aria-label="Edit student"
-                    title="Edit student"
-                  >
-                    <Pencil size={16} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(student.student_id)}
-                    className="text-red-600 hover:underline"
-                    title="Delete student"
-                    aria-label="Delete student"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {loading ? (
+              <tr>
+                <td colSpan={6} className="px-6 py-4 text-center">
+                  Loading students...
                 </td>
               </tr>
-            ))}
+            ) : students.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-6 py-4 text-center">
+                  No students found
+                </td>
+              </tr>
+            ) : (
+              students.map((student) => (
+                <tr key={student.student_id}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {student.student_id}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {student.user.username}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {student.name}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {student.email}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {student.program}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="ghost"
+                        onClick={() => openEditModal(student)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={() => handleDelete(student.student_id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
-      )}
-
-      <div className="flex justify-between">
-        <Button
-          onClick={() => prevPage && setCurrentUrl(prevPage)}
-          disabled={!prevPage}
-          className="bg-gray-300 hover:bg-gray-400 text-black rounded disabled:opacity-50"
-        >
-          Previous
-        </Button>
-        <Button
-          onClick={() => nextPage && setCurrentUrl(nextPage)}
-          disabled={!nextPage}
-          className="bg-gray-300 hover:bg-gray-400 text-black rounded disabled:opacity-50"
-        >
-          Next
-        </Button>
       </div>
 
-      {/* Create/Edit Modal */}
-      <Dialog open={isDialogOpen} onClose={() => setIsDialogOpen(false)} className="fixed z-10 inset-0 overflow-y-auto">
-        <div className="flex items-center justify-center min-h-screen">
-          <Dialog.Panel className="bg-white p-6 rounded shadow w-full max-w-md">
-            <Dialog.Title className="text-lg font-semibold mb-4">
-              {isCreateMode ? 'Add Student' : 'Edit Student'}
-            </Dialog.Title>
-            <div className="mb-2">
-              <label className="block text-sm font-medium">Username</label>
-              <input
-                type="text"
-                placeholder="Enter username"
-                value={editStudent?.user?.username || ''}
-                onChange={(e) =>
-                  setEditStudent((prev) =>
-                    prev ? { ...prev, user: { ...prev.user, username: e.target.value } } : null
-                  )
-                }
-                className="border w-full rounded px-2 py-1"
-              />
-            </div>
-            <div className="mb-2">
-              <label className="block text-sm font-medium">Name</label>
-              <input
-                type="text"
-                placeholder="Enter name"
-                value={editStudent?.name || ''}
-                onChange={(e) => setEditStudent((prev) => (prev ? { ...prev, name: e.target.value } : null))}
-                className="border w-full rounded px-2 py-1"
-              />
-            </div>
-            <div className="mb-2">
-              <label className="block text-sm font-medium">Email</label>
-              <input
-                type="email"
-                placeholder="Enter email"
-                value={editStudent?.email || ''}
-                onChange={(e) => setEditStudent((prev) => (prev ? { ...prev, email: e.target.value } : null))}
-                className="border w-full rounded px-2 py-1"
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium">Program</label>
-              <input
-                type="text"
-                placeholder="Enter program"
-                value={editStudent?.program || ''}
-                onChange={(e) => setEditStudent((prev) => (prev ? { ...prev, program: e.target.value } : null))}
-                className="border w-full rounded px-2 py-1"
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button onClick={() => setIsDialogOpen(false)} className="bg-gray-200 text-black">
-                Cancel
-              </Button>
-              <Button onClick={isCreateMode ? handleCreate : handleUpdate}>
-                {isCreateMode ? 'Create' : 'Update'}
-              </Button>
-            </div>
-          </Dialog.Panel>
+      {(next || previous) && (
+        <div className="flex justify-between mt-4">
+          <Button
+            onClick={() => previous && fetchStudents(previous)}
+            disabled={!previous || loading}
+          >
+            Previous
+          </Button>
+          <Button
+            onClick={() => next && fetchStudents(next)}
+            disabled={!next || loading}
+          >
+            Next
+          </Button>
+        </div>
+      )}
+
+      <Dialog isOpen={isDialogOpen} onClose={closeModal}>
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">
+            {isCreateMode ? 'Add Student' : 'Edit Student'}
+          </h3>
+          <div className="space-y-2">
+            <Input
+              label="Student ID"
+              placeholder="Enter student ID"
+              type="number"
+              value={editStudent?.student_id || ''}
+              onChange={(e) =>
+                setEditStudent((prev) => ({
+                  ...(prev || {
+                    student_id: 0,
+                    user: { username: '' },
+                    name: '',
+                    email: '',
+                    program: '',
+                  }),
+                  student_id: Number(e.target.value),
+                }))
+              }
+              required
+            />
+            <Input
+              label="Username"
+              placeholder="Enter username"
+              value={editStudent?.user.username || ''}
+              onChange={(e) =>
+                setEditStudent((prev) => ({
+                  ...(prev || {
+                    student_id: 0,
+                    user: { username: '' },
+                    name: '',
+                    email: '',
+                    program: '',
+                  }),
+                  user: { username: e.target.value },
+                }))
+              }
+              required
+            />
+            <Input
+              label="Name"
+              placeholder="Enter full name"
+              value={editStudent?.name || ''}
+              onChange={(e) =>
+                setEditStudent((prev) => ({
+                  ...(prev || {
+                    student_id: 0,
+                    user: { username: '' },
+                    name: '',
+                    email: '',
+                    program: '',
+                  }),
+                  name: e.target.value,
+                }))
+              }
+            />
+            <Input
+              label="Email"
+              placeholder="Enter email"
+              type="email"
+              value={editStudent?.email || ''}
+              onChange={(e) =>
+                setEditStudent((prev) => ({
+                  ...(prev || {
+                    student_id: 0,
+                    user: { username: '' },
+                    name: '',
+                    email: '',
+                    program: '',
+                  }),
+                  email: e.target.value,
+                }))
+              }
+            />
+            <Input
+              label="Program"
+              placeholder="Enter program"
+              value={editStudent?.program || ''}
+              onChange={(e) =>
+                setEditStudent((prev) => ({
+                  ...(prev || {
+                    student_id: 0,
+                    user: { username: '' },
+                    name: '',
+                    email: '',
+                    program: '',
+                  }),
+                  program: e.target.value,
+                }))
+              }
+            />
+          </div>
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button variant="outline" onClick={closeModal}>
+              Cancel
+            </Button>
+            <Button
+              onClick={isCreateMode ? handleCreate : handleUpdate}
+              disabled={isSubmitting}
+            >
+              {isSubmitting
+                ? 'Processing...'
+                : isCreateMode
+                ? 'Create'
+                : 'Update'}
+            </Button>
+          </div>
         </div>
       </Dialog>
     </div>

@@ -6,7 +6,7 @@ interface ButtonProps {
   className?: string;
   type?: "button" | "submit" | "reset";
   disabled?: boolean;
-  variant?: "default" | "secondary" | "destructive"; // ✅ new
+  variant?: "default" | "secondary" | "destructive" | "outline" | "ghost"; // ✅ new
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -23,6 +23,8 @@ const Button: React.FC<ButtonProps> = ({
     default: "bg-blue-500 hover:bg-blue-600 focus:ring-blue-300",
     secondary: "bg-gray-500 hover:bg-gray-600 focus:ring-gray-300",
     destructive: "bg-red-600 hover:bg-red-700 focus:ring-red-300",
+    outline: "bg-transparent border-2 border-blue-500 text-blue-500 hover:bg-blue-50 focus:ring-blue-300",
+    ghost: "bg-transparent text-blue-500 hover:bg-blue-100 focus:ring-blue-300",
   };
 
   return (
