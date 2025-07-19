@@ -8,6 +8,7 @@ from .views import student_overview
 from rest_framework.routers import DefaultRouter
 from .views import LecturerAttendanceViewSet
 from .views import StudentListCreateAPIView, StudentDetailAPIView
+from .views import export_students_csv
 
 
 
@@ -28,4 +29,5 @@ urlpatterns = [
     path('lecturer/', include(router.urls)),
     path('students/', StudentListCreateAPIView.as_view(), name='student-list'),
     path('students/<int:pk>/', StudentDetailAPIView.as_view(), name='student-detail'),
+    path('students/export-csv/', export_students_csv, name='export-students-csv'),
 ]

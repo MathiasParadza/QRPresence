@@ -32,13 +32,6 @@ class SessionSerializer(serializers.ModelSerializer):
              raise serializers.ValidationError("Session ID must be unique.")
         return value
 
-#student serializer
-# from .models import Student # Already imported above
-
-class UserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = get_user_model()
-        fields = ['username']
 
 class StudentSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
@@ -93,6 +86,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = get_user_model()
         fields = ['username']
+        ref_name = 'LocalUserSerializer'  
 
 class StudentNestedSerializer(serializers.ModelSerializer):
     user = UserSerializer()

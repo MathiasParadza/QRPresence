@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { ArrowLeft } from 'lucide-react';
 
 const QRCodeGenerator = () => {
   const [sessionId, setSessionId] = useState('');
@@ -81,6 +82,14 @@ const QRCodeGenerator = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
+      <button
+        type="button"
+        onClick={() => navigate("/lecturerview")}
+        className="flex items-center gap-2 px-4 py-2 mb-4 bg-gray-200 text-gray-800 rounded hover:bg-blue-50 hover:text-blue-700 transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Back to Dashboard
+      </button>
       <h1 className="text-2xl font-bold mb-4">Attendance QR Code Generator</h1>
 
       <input

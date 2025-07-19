@@ -268,3 +268,16 @@ class StudentDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Student.objects.all()
     serializer_class = StudentSerializer
     permission_classes = [IsAuthenticated, IsLecturerOrAdmin]   
+
+
+def export_students_csv(request):
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="students.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(['Student ID', 'Name', 'Email', 'Program'])
+
+    for student in Student.objects.all():
+        writer.writerow([student.student_id, student.name, student.email, student.program])
+
+    return response

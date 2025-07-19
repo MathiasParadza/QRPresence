@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, ArrowLeft } from "lucide-react";
 
 interface Session {
   id: number;
@@ -163,6 +163,14 @@ const SessionList: React.FC = () => {
       <div className="flex-1 px-6 py-6 overflow-hidden flex flex-col">
         {/* Header */}
         <div className="mb-6 flex-shrink-0">
+           <Button
+                          variant="secondary"
+                          onClick={() => navigate("/lecturerview")}
+                          className="hover:bg-blue-50 hover:text-blue-700"
+                        >
+                          <ArrowLeft className="w-4 h-4" />
+                          Back to Dashboard
+                        </Button>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Session Management</h1>
           <p className="text-gray-600">Manage your class sessions and attendance tracking</p>
         </div>
