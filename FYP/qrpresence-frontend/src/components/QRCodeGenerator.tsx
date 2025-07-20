@@ -85,12 +85,12 @@ const QRCodeGenerator = () => {
       <button
         type="button"
         onClick={() => navigate("/lecturerview")}
-        className="flex items-center gap-2 px-4 py-2 mb-4 bg-gray-200 text-gray-800 rounded hover:bg-blue-50 hover:text-blue-700 transition-colors"
+        className="flex items-center gap-2 px-4 py-2 mb-4 bg-gray-200 text-gray-800 rounded hover:bg-purple-50 hover:text-purple-700 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to Dashboard
       </button>
-      <h1 className="text-2xl font-bold mb-4">Attendance QR Code Generator</h1>
+      <h1 className="text-2xl font-bold mb-4 text-purple-600">Attendance QR Code Generator</h1>
 
       <input
         type="text"
@@ -102,7 +102,7 @@ const QRCodeGenerator = () => {
 
       <button
         onClick={generateQRCode}
-        className={`${isLoading ? 'bg-blue-300' : 'bg-blue-500 hover:bg-blue-600'} text-white px-6 py-2 rounded mb-4`}
+        className={`${isLoading ? 'bg-purple-300' : 'bg-purple-500 hover:bg-gray-400'} text-white px-6 py-2 rounded mb-4`}
         disabled={isLoading}
       >
         {isLoading ? 'Generating...' : 'Generate QR Code'}
