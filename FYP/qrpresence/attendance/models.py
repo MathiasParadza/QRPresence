@@ -5,9 +5,9 @@ from django.conf import settings
 class Lecturer(models.Model):
     lecturer_id = models.AutoField(primary_key=True)
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
-    name = models.CharField(max_length=100)
-    email = models.EmailField(unique=True)
-    department = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, null=True, blank=True)
+    email = models.EmailField(unique=True, blank=True, null=True)
+    department = models.CharField(max_length=100, blank=True, null=True)
     is_admin = models.BooleanField(default=False)  # 👈 Add this field
 
     def __str__(self):
@@ -17,7 +17,7 @@ class Student(models.Model):
     student_id = models.AutoField(primary_key=True)
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     name = models.CharField(max_length=100)
-    email = models.EmailField(unique=True)
+    email = models.EmailField(unique=True, blank=False, null=False)
     program = models.CharField(max_length=100)
 
     def __str__(self):

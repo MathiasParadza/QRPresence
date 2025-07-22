@@ -39,6 +39,25 @@ class StudentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Student
         fields = ['student_id', 'user', 'name', 'email', 'program']
+        extra_kwargs = {
+            'email': {'required': True, 'allow_blank': False}
+        }
+
+    def validate_email(self, value):
+        if not value:
+            raise serializers.ValidationError("Email is required.")
+
+    # Exclude the current instance when checking for duplicates (important for updates)
+        student_qs = Student.objects.filter(email=value)
+        if self.instance:
+            student_qs = student_qs.exclude(pk=self.instance.pk)
+
+        if student_qs.exists():
+            raise serializers.ValidationError("A student with this email already exists.")
+
+        return value
+
+
 class LecturerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lecturer

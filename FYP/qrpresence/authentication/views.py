@@ -3,12 +3,13 @@ from django.contrib.auth.tokens import default_token_generator
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .serializers import UserSerializer
-from .models import UserProfile
+from .models import UserProfile, CustomUser
+from django.db import transaction
 
 
 # JWT login view (extend if needed)
@@ -112,32 +113,53 @@ def current_user(request):
     serializer = UserSerializer(request.user)
     return Response(serializer.data)
 
-#register user view
-from rest_framework import status, permissions
-class RegisterUserView(APIView):
-    """
-    A view to register a new user (CustomUser).
-    """
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def register(request):
+    data = request.data
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
+    role = data.get('role')
+    student_id = data.get('student_id')
 
-    permission_classes = [permissions.AllowAny]  # Anyone can access this endpoint
+    if CustomUser.objects.filter(username=username).exists():
+        return Response({'username': ['A user with that username already exists.']}, status=400)
+    if CustomUser.objects.filter(email=email).exists():
+        return Response({'email': ['A user with that email already exists.']}, status=400)
 
-    def post(self, request):
-        """
-        Register a new user by taking username, email, password, and role.
-        """
-        serializer = UserSerializer(data=request.data)
-        
-        if serializer.is_valid():
-            user = serializer.save()  # Save the user
-            return Response(
-                {"message": "User registered successfully", "user_id": user.id},
-                status=status.HTTP_201_CREATED
+    if role == 'student':
+        if not student_id:
+            return Response({'student_id': ['Student ID is required.']}, status=400)
+
+        if Student.objects.filter(student_id=student_id).exists():
+            return Response({'student_id': ['Student ID already exists.']}, status=400)
+
+        with transaction.atomic():
+            user = CustomUser.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+                role='student'
             )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+            Student.objects.create(user=user, student_id=student_id, email=email)
+        return Response({'message': 'Student registered successfully'}, status=201)
+
+    elif role == 'lecturer':
+        with transaction.atomic():
+            user = CustomUser.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+                role='lecturer'
+            )
+            Lecturer.objects.create(user=user, email=email)
+        return Response({'message': 'Lecturer registered successfully'}, status=201)
+
+    return Response({'error': 'Invalid role'}, status=400)
 # Student Profile Update View
     
-from attendance.models import Student
+from attendance.models import Student, Lecturer
 from attendance.serializers import StudentSerializer  
 from rest_framework.permissions import IsAuthenticated
 

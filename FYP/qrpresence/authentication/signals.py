@@ -13,3 +13,12 @@ def create_user_profile(sender, instance, created, **kwargs):
 def create_student_profile(sender, instance, created, **kwargs):
     if created and instance.role == 'student':
         Student.objects.get_or_create(user=instance)
+
+
+@receiver(post_save, sender=CustomUser)
+def create_lecturer_profile(sender, instance, created, **kwargs):
+    from attendance.models import Lecturer  
+
+    if instance.role == 'lecturer':
+        if not hasattr(instance, 'lecturer'):
+            Lecturer.objects.create(user=instance)

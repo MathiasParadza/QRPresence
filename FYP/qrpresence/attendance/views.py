@@ -260,10 +260,18 @@ class LecturerAttendanceViewSet(viewsets.ModelViewSet):
 
 
 class StudentListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Student.objects.all().order_by('student_id')  
+    queryset = Student.objects.all().order_by('student_id')
     serializer_class = StudentSerializer
     permission_classes = [IsAuthenticated, IsLecturerOrAdmin]
 
+    def perform_create(self, serializer):
+        email = serializer.validated_data.get('email')
+        if not email:
+            raise serializers.ValidationError({"email": "Email is required."})
+        if Student.objects.filter(email=email).exists():
+            raise serializers.ValidationError({"email": "Student with this email already exists."})
+        serializer.save()
+        
 class StudentDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Student.objects.all()
     serializer_class = StudentSerializer

@@ -23,7 +23,7 @@ const QRCodeGenerator = () => {
         return;
       }
 
-      const token = sessionId.trim();
+      const token = `attendance:${sessionId.trim()}`;
       const url = await QRCode.toDataURL(token);
       setQrCodeUrl(url);
 

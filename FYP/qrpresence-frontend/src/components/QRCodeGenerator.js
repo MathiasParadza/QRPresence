@@ -21,7 +21,7 @@ const QRCodeGenerator = () => {
                 toast.error('Session ID is required.');
                 return;
             }
-            const token = sessionId.trim();
+            const token = `attendance:${sessionId.trim()}`;
             const url = await QRCode.toDataURL(token);
             setQrCodeUrl(url);
             if (canvasRef.current) {
