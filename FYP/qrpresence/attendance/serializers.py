@@ -31,6 +31,12 @@ class SessionSerializer(serializers.ModelSerializer):
         if self.instance and self.instance.session_id != value and Session.objects.filter(session_id=value).exists(): # Check on update if changed
              raise serializers.ValidationError("Session ID must be unique.")
         return value
+    
+    def get_qr_code_url(self, obj):
+        request = self.context.get('request')
+        if obj.qr_code and request:
+            return request.build_absolute_uri(obj.qr_code.url)
+        return None
 
 
 class StudentSerializer(serializers.ModelSerializer):

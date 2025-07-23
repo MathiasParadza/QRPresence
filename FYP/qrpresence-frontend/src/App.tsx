@@ -2,7 +2,7 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-d
 import { useState, useEffect } from "react";
 import axios from "axios";
 
-import AdminView from './pages/AdminView/AdminView'; 
+
 import HomePage from './pages/HomePage';
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -17,6 +17,7 @@ import SessionEdit from "./pages/LecturerView/SessionEdit";
 import StudentManager from './pages/LecturerView/StudentManager';
 import LoadingSpinner from "./components/LoadingSpinner"; 
 import { User } from "./types/user";
+import AIChatAssistant from '@/components/AIChatAssistant';
 
 
 const App = () => {
@@ -134,13 +135,9 @@ const App = () => {
           }
         />
         <Route
-          path="/adminview"
+          path="/ai-assistant"
           element={
-            user && user.role === "admin" ? (
-              <AdminView />
-            ) : (
-              <Navigate to="/login" />
-            )
+            user ? <AIChatAssistant /> : <Navigate to="/login" />
           }
         />
 

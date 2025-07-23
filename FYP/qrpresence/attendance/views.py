@@ -22,6 +22,12 @@ from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from django_filters.rest_framework import DjangoFilterBackend, FilterSet, DateFromToRangeFilter, ChoiceFilter
 from .filters import AttendanceFilter
+from attendance.utils import analytics
+from .utils import get_absent_students
+from .utils import AnalyticsAgent
+
+from attendance.utils import ai_agent 
+from attendance.ai_chat.llm_agent import answer_natural_language_query
  
 
 
@@ -289,3 +295,61 @@ def export_students_csv(request):
         writer.writerow([student.student_id, student.name, student.email, student.program])
 
     return response
+
+class AbsentStudentsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, session_id):
+        try:
+            session = Session.objects.get(session_id=session_id)
+        except Session.DoesNotExist:
+            return Response({"error": "Session not found."}, status=404)
+
+        absent_students = get_absent_students(session.id)
+        serializer = StudentSerializer(absent_students, many=True)
+        return Response(serializer.data)
+    
+class SessionAbsenteesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, session_id):
+        try:
+            session = Session.objects.get(id=session_id)
+            absentees = AnalyticsAgent.get_absent_students(session)
+            data = [{'student_id': s.student_id, 'name': s.name} for s in absentees]
+            return Response(data)
+        except Session.DoesNotExist:
+            return Response({"error": "Session not found"}, status=404)
+
+
+from attendance.ai_chat.llm_agent import answer_natural_language_query
+
+class AttendanceAIChatView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        query = request.data.get("query", "")
+        if not query:
+            return Response({"error": "Query is required."}, status=400)
+        
+        try:
+            answer = answer_natural_language_query(query)
+            return Response({"answer": answer})
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+        
+from django.conf import settings
+from django.http import JsonResponse
+import os
+def get_qr_codes(request):
+    qr_dir = os.path.join(settings.MEDIA_ROOT, 'qr_codes')
+    if not os.path.exists(qr_dir):
+        return JsonResponse({"qr_codes": []})
+
+    files = sorted(
+        os.listdir(qr_dir),
+        key=lambda x: os.path.getmtime(os.path.join(qr_dir, x)),
+        reverse=True
+    )
+    qr_urls = [request.build_absolute_uri(os.path.join(settings.MEDIA_URL, 'qr_codes', f)) for f in files]
+    return JsonResponse({"qr_codes": qr_urls})

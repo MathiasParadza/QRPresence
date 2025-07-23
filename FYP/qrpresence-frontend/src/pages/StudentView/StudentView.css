@@ -1,0 +1,466 @@
+/* StudentView.css - Fixed and Improved */
+
+/* Layout styles */
+.student-view-container {
+  padding: 1.5rem;
+  background-color: #f8fafc;
+  min-height: 100vh;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.loading-container {
+  padding: 2rem;
+  text-align: center;
+  background-color: #f8fafc;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-content {
+  background-color: #ffffff;
+  padding: 2rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  color: #6b21a8;
+}
+
+.loading-text {
+  font-size: 1.125rem;
+  margin: 0;
+}
+
+/* Header styles */
+.header-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  background-color: #ffffff;
+  padding: 1rem 1.5rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+.header-container > div {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.header-title {
+  color: #6b21a8;
+  margin: 0;
+  font-size: 1.875rem;
+  font-weight: 700;
+}
+
+.avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid #6b21a8;
+  transition: transform 0.2s ease;
+  object-fit: cover;
+}
+
+.avatar:hover {
+  transform: scale(1.1);
+}
+
+.logout-button {
+  background-color: #dc2626;
+  color: #ffffff;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.logout-button:hover {
+  background-color: #b91c1c;
+}
+
+/* Profile section */
+.profile-container {
+  background-color: #ffffff;
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+}
+
+.profile-title {
+  color: #6b21a8;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.profile-edit-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.profile-field {
+  background-color: #f1f5f9;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid #cbd5e1;
+}
+
+.profile-label {
+  color: #475569;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.profile-value {
+  margin: 0;
+  color: #1e293b;
+  font-size: 1rem;
+}
+
+.edit-button {
+  background-color: #6b21a8;
+  color: #ffffff;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+  align-self: flex-start;
+}
+
+.edit-button:hover {
+  background-color: #581c87;
+}
+
+/* Profile edit form */
+.profile-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.profile-edit-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.profile-edit-fields > div {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Form styles */
+.form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #475569;
+  font-weight: 500;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  background-color: #ffffff;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #6b21a8;
+  box-shadow: 0 0 0 3px rgba(107, 33, 168, 0.1);
+}
+
+.form-buttons {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.save-button {
+  background-color: #16a34a;
+  color: #ffffff;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.save-button:hover {
+  background-color: #15803d;
+}
+
+.cancel-button {
+  background-color: #64748b;
+  color: #ffffff;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.cancel-button:hover {
+  background-color: #475569;
+}
+
+/* Instructions */
+.instructions-container {
+  background-color: #ffffff;
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+}
+
+.instructions-text {
+  margin: 0;
+  color: #475569;
+  font-size: 1.125rem;
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* QR Scanner section */
+.qr-scanner-container {
+  background-color: #ffffff;
+  padding: 1rem 2rem;
+  border-radius: 0.75rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+  text-align: center;
+  max-width: 100%;
+  width: 100%;
+}
+
+.qr-scanner-title {
+  color: #6b21a8;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+/* Attendance status */
+.attendance-status-container {
+  background-color: #f0fdf4;
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  margin-bottom: 2rem;
+  border: 1px solid #bbf7d0;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+.attendance-status-title {
+  color: #16a34a;
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.attendance-status-content {
+  background-color: #ffffff;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid #bbf7d0;
+  text-align: center;
+}
+
+.attendance-status-text {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-present {
+  color: #16a34a;
+}
+
+.status-absent {
+  color: #dc2626;
+}
+
+.status-default {
+  color: #64748b;
+}
+
+/* Attendance history */
+.attendance-history-container {
+  background-color: #ffffff;
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+}
+
+.attendance-history-title {
+  color: #6b21a8;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.attendance-history-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.attendance-record {
+  background-color: #faf5ff;
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e9d5ff;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.attendance-record:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 12px -2px rgba(0, 0, 0, 0.1);
+}
+
+.attendance-record > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.record-label {
+  color: #6b21a8;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  margin-bottom: 0.25rem;
+}
+
+.record-value {
+  margin: 0;
+  color: #1e293b;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.record-value.status-present {
+  color: #16a34a;
+  font-weight: 600;
+}
+
+.record-value.status-absent {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.no-records {
+  background-color: #f8fafc;
+  padding: 2rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  text-align: center;
+}
+
+.no-records-text {
+  margin: 0;
+  color: #64748b;
+  font-size: 1.125rem;
+  font-style: italic;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .student-view-container {
+    padding: 1rem;
+  }
+  
+  .header-container {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+  
+  .header-title {
+    font-size: 1.5rem;
+  }
+  
+  .profile-grid,
+  .profile-edit-fields {
+    grid-template-columns: 1fr;
+  }
+  
+  .attendance-record {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  
+  .form-buttons {
+    flex-direction: column;
+  }
+  
+  .save-button,
+  .cancel-button,
+  .edit-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .student-view-container {
+    padding: 0.75rem;
+  }
+  
+  .header-container,
+  .profile-container,
+  .instructions-container,
+  .qr-scanner-container,
+  .attendance-status-container,
+  .attendance-history-container {
+    padding: 1rem;
+  }
+  
+  .header-title {
+    font-size: 1.25rem;
+  }
+  
+  .profile-title,
+  .qr-scanner-title,
+  .attendance-status-title,
+  .attendance-history-title {
+    font-size: 1.25rem;
+  }
+}

@@ -1,16 +1,27 @@
 import React, { useState } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
+interface FormData {
+  username: string;
+  email: string;
+  password: string;
+  role: "student" | "lecturer";
+  student_id: string;
+  name: string;
+  program: string;
+}
+
 const Register = () => {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     username: "",
     email: "",
     password: "",
     role: "student",
     student_id: "",
+    name: "",
+    program: "",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -22,12 +33,13 @@ const Register = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const validateForm = () => {
-    const { username, email, password, role, student_id } = formData;
+  const validateForm = (): string | null => {
+    const { username, email, password, role, student_id, name, program } = formData;
 
-    if (!username || !email || !password || (role === "student" && !student_id)) {
-      return "Please fill in all required fields.";
-    }
+    if (!username.trim()) return "Username is required.";
+    if (!email.trim()) return "Email is required.";
+    if (!password) return "Password is required.";
+    if (!name.trim()) return "Full name is required.";
 
     if (!/\S+@\S+\.\S+/.test(email)) {
       return "Please enter a valid email address.";
@@ -37,12 +49,19 @@ const Register = () => {
       return "Password must be at least 6 characters long.";
     }
 
+    if (role === "student") {
+      if (!student_id.trim()) return "Student ID is required.";
+      if (!/^\d+$/.test(student_id)) return "Student ID must contain only numbers.";
+      if (!program.trim()) return "Program is required for students.";
+    }
+
     return null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
     const validationError = validateForm();
     if (validationError) {
       setError(validationError);
@@ -50,34 +69,70 @@ const Register = () => {
       return;
     }
 
-    const dataToSend = {
-      username: formData.username,
-      email: formData.email,
+    const dataToSend: {
+      username: string;
+      email: string;
+      password: string;
+      role: "student" | "lecturer";
+      name: string;
+      student_id?: string;
+      program?: string;
+    } = {
+      username: formData.username.trim(),
+      email: formData.email.trim(),
       password: formData.password,
       role: formData.role,
-      ...(formData.role === "student" && { student_id: formData.student_id }),
+      name: formData.name.trim(),
+      ...(formData.role === "student" && {
+        student_id: formData.student_id.trim(),
+        program: formData.program.trim(),
+      }),
     };
 
     try {
       setLoading(true);
-      await axios.post("http://127.0.0.1:8000/api/register/", dataToSend);
-      toast.success("Registration successful! Please login.");
-      navigate("/login");
-    } catch (err: unknown) {
-      let errorMessage = "Registration failed. Please try again.";
+      const response = await fetch("http://127.0.0.1:8000/api/register/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(dataToSend),
+      });
 
-      if (err && typeof err === "object" && "response" in err) {
-        const response = (err as { response?: { data?: Record<string, string[]> } }).response;
-        const data = response?.data as Record<string, string[]>;
+      const responseData = await response.json();
 
-        if (typeof data === "object") {
-          const firstError = Object.values(data)?.[0]?.[0];
-          errorMessage = firstError || errorMessage;
+      if (response.ok) {
+        toast.success(
+          formData.role === "student"
+            ? "Student registration successful! Please login."
+            : "Lecturer registration successful! Please login."
+        );
+        navigate("/login");
+      } else {
+        let errorMessage = "Registration failed. Please try again.";
+
+        if (typeof responseData === "object") {
+          const fieldErrors = Object.values(responseData).flat();
+          if (fieldErrors.length > 0) {
+            errorMessage = Array.isArray(fieldErrors[0])
+              ? fieldErrors[0][0]
+              : fieldErrors[0];
+          } else if (responseData.detail) {
+            errorMessage = responseData.detail;
+          }
+        } else if (typeof responseData === "string") {
+          errorMessage = responseData;
         }
-      }
 
-      setError(errorMessage);
-      toast.error(errorMessage);
+        console.error("Registration error:", responseData);
+        setError(errorMessage);
+        toast.error(errorMessage);
+      }
+    } catch (err) {
+      const error = err as Error;
+      console.error("Network error:", error);
+      setError("Network error. Please check your connection.");
+      toast.error("Network error. Please check your connection.");
     } finally {
       setLoading(false);
     }
@@ -103,6 +158,7 @@ const Register = () => {
           className="mb-4 w-full p-2 border rounded"
           required
         />
+
         <input
           type="email"
           name="email"
@@ -112,6 +168,17 @@ const Register = () => {
           className="mb-4 w-full p-2 border rounded"
           required
         />
+
+        <input
+          type="text"
+          name="name"
+          placeholder="Full Name"
+          value={formData.name}
+          onChange={handleChange}
+          className="mb-4 w-full p-2 border rounded"
+          required
+        />
+
         <input
           type="password"
           name="password"
@@ -137,15 +204,27 @@ const Register = () => {
         </select>
 
         {formData.role === "student" && (
-          <input
-            type="text"
-            name="student_id"
-            placeholder="Student ID"
-            value={formData.student_id}
-            onChange={handleChange}
-            className="mb-4 w-full p-2 border rounded"
-            required
-          />
+          <>
+            <input
+              type="text"
+              name="student_id"
+              placeholder="Student ID"
+              value={formData.student_id}
+              onChange={handleChange}
+              className="mb-4 w-full p-2 border rounded"
+              required
+            />
+
+            <input
+              type="text"
+              name="program"
+              placeholder="Program"
+              value={formData.program}
+              onChange={handleChange}
+              className="mb-4 w-full p-2 border rounded"
+              required
+            />
+          </>
         )}
 
         <button

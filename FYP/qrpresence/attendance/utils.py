@@ -75,3 +75,91 @@ def admin_required(view_func):
             return JsonResponse({'error': 'Admin access only'}, status=403)
         return view_func(request, *args, **kwargs)
     return _wrapped_view
+
+
+from attendance.models import ClassSession,Attendance, Student
+
+def get_absent_students(session_id):
+    try:
+        session = ClassSession.objects.get(id=session_id)
+    except ClassSession.DoesNotExist:
+        return None  # or raise an exception if you want
+
+    enrolled_students = session.course.students.all()
+    present_students = Student.objects.filter(attendance__session=session)
+    absent_students = enrolled_students.exclude(id__in=present_students.values_list('id', flat=True))
+    return absent_students
+
+
+from attendance.models import Session, Attendance, Student
+
+def get_absent_students(session_id):
+    """
+    Returns a queryset of students who are enrolled but absent for the given session.
+    Assumes you add a way to link students to courses/sessions (or all students are enrolled).
+    """
+    try:
+        session = Session.objects.get(session_id=session_id)
+    except Session.DoesNotExist:
+        return None  # or raise an exception if preferred
+
+    # TODO: Replace this with your actual logic to get enrolled students for session/course
+    enrolled_students = Student.objects.all()  # placeholder for enrolled students for the session
+
+    # Students who have attendance marked as present in this session
+    present_student_ids = Attendance.objects.filter(session=session, status='Present').values_list('student__student_id', flat=True)
+
+    # Absent students = enrolled - present
+    absent_students = enrolled_students.exclude(student_id__in=present_student_ids)
+
+    return absent_students
+
+
+
+
+from attendance.models import Attendance, Student, Session, Course
+from datetime import timedelta
+from django.utils import timezone
+
+class AnalyticsAgent:
+    @staticmethod
+    def get_absent_students(session):
+        enrolled = session.course.students.all()
+        present = Student.objects.filter(attendance__session=session)
+        return enrolled.exclude(id__in=present.values_list('id', flat=True))
+
+    @staticmethod
+    def get_student_attendance_summary(student):
+        total_sessions = Session.objects.filter(course__in=student.courses.all()).count()
+        attended = Attendance.objects.filter(student=student).count()
+        percentage = (attended / total_sessions * 100) if total_sessions else 0
+        return {
+            'student_id': student.student_id,
+            'attended': attended,
+            'total_sessions': total_sessions,
+            'attendance_percentage': round(percentage, 2)
+        }
+
+    @staticmethod
+    def get_course_attendance_rate(course):
+        sessions = course.session_set.all()
+        students = course.students.count()
+        total_possible = sessions.count() * students
+        attended_total = Attendance.objects.filter(session__in=sessions).count()
+        rate = (attended_total / total_possible * 100) if total_possible else 0
+        return round(rate, 2)
+
+    @staticmethod
+    def get_low_attendance_students(course, threshold=75):
+        students = course.students.all()
+        flagged = []
+        for student in students:
+            total = course.session_set.count()
+            attended = Attendance.objects.filter(student=student, session__course=course).count()
+            percentage = (attended / total * 100) if total else 0
+            if percentage < threshold:
+                flagged.append({
+                    'student_id': student.student_id,
+                    'percentage': round(percentage, 2)
+                })
+        return flagged

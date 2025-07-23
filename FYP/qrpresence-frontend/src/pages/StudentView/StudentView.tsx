@@ -1,7 +1,8 @@
-import { useEffect, useState, ChangeEvent } from 'react';
+import React, { useEffect, useState, ChangeEvent } from 'react';
 import QRScanner from '../../components/QRScanner';
 import { toast } from 'react-toastify';
 import defaultAvatar from '../../assets/avatar.png';
+import './StudentView.css';
 
 interface Profile {
   student_id: string;
@@ -17,7 +18,6 @@ type AttendanceRecord = {
   status: string;
   class_name: string;
 };
-
 
 type AttendanceOverview = {
   today_status: string;
@@ -45,7 +45,7 @@ const StudentView = () => {
       window.location.href = '/login';
       return;
     }
-
+    
     const fetchAll = async () => {
       try {
         await fetchProfile();
@@ -58,7 +58,8 @@ const StudentView = () => {
     };
 
     fetchAll();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   const fetchOverview = async () => {
     try {
@@ -146,167 +147,79 @@ const StudentView = () => {
     }
   };
 
+  function handleLogout(): void {
+    localStorage.removeItem('access_token');
+    window.location.href = '/login';
+  }
+
   if (loading) {
     return (
-      <div style={{ 
-        padding: '2rem', 
-        textAlign: 'center',
-        backgroundColor: '#f8fafc',
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <div style={{
-          backgroundColor: '#ffffff',
-          padding: '2rem',
-          borderRadius: '0.75rem',
-          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-          color: '#6b21a8'
-        }}>
-          <p style={{ fontSize: '1.125rem', margin: 0 }}>Loading student data...</p>
+      <div className="loading-container">
+        <div className="loading-content">
+          <p className="loading-text">Loading student data...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ 
-      padding: '1.5rem', 
-      backgroundColor: '#f8fafc', 
-      minHeight: '100vh',
-      fontFamily: 'system-ui, -apple-system, sans-serif'
-    }}>
+    <div className="student-view-container">
       {/* Header with Avatar */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        marginBottom: '2rem',
-        backgroundColor: '#ffffff',
-        padding: '1rem 1.5rem',
-        borderRadius: '0.75rem',
-        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
-      }}>
-        <h1 style={{ 
-          color: '#6b21a8', 
-          margin: 0,
-          fontSize: '1.875rem',
-          fontWeight: '700'
-        }}>
-          Welcome, {profile?.name || 'Student'}!
-        </h1>
-        <img
-          src={defaultAvatar}
-          alt="Avatar"
-          style={{ 
-            width: '48px', 
-            height: '48px', 
-            borderRadius: '50%', 
-            cursor: 'pointer',
-            border: '3px solid #6b21a8',
-            transition: 'transform 0.2s ease'
-          }}
-          onClick={() => setShowProfile((prev) => !prev)}
-          onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-          onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-        />
+      <div className="header-container">
+        <h1 className="header-title">Welcome, {profile?.name || 'Student'}!</h1>
+        <div>
+          <img
+            src={defaultAvatar}
+            alt="Avatar"
+            className="avatar"
+            onClick={() => setShowProfile((prev) => !prev)}
+          />
+          <button 
+            onClick={handleLogout}
+            className="logout-button"
+          >
+            Logout
+          </button>
+        </div>
       </div>
 
       {/* Profile Section */}
       {showProfile && profile && (
-        <div style={{ 
-          backgroundColor: '#ffffff', 
-          padding: '1.5rem', 
-          borderRadius: '0.75rem', 
-          marginBottom: '2rem',
-          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-          border: '1px solid #e2e8f0'
-        }}>
-          <h2 style={{ 
-            color: '#6b21a8', 
-            marginTop: 0,
-            marginBottom: '1.5rem',
-            fontSize: '1.5rem',
-            fontWeight: '600'
-          }}>
-            Profile Information
-          </h2>
+        <div className="profile-container">
+          <h2 className="profile-title">Profile Information</h2>
           
           {!editing ? (
-            <div style={{ display: 'grid', gap: '1rem' }}>
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-                gap: '1rem'
-              }}>
-                <div style={{ 
-                  backgroundColor: '#f1f5f9', 
-                  padding: '1rem', 
-                  borderRadius: '0.5rem',
-                  border: '1px solid #cbd5e1'
-                }}>
-                  <strong style={{ color: '#475569' }}>Name:</strong>
-                  <p style={{ margin: '0.5rem 0 0 0', color: '#1e293b' }}>{profile.name}</p>
+            <div className="profile-edit-view">
+              <div className="profile-grid">
+                <div className="profile-field">
+                  <strong className="profile-label">Name:</strong>
+                  <p className="profile-value">{profile.name}</p>
                 </div>
-                <div style={{ 
-                  backgroundColor: '#f1f5f9', 
-                  padding: '1rem', 
-                  borderRadius: '0.5rem',
-                  border: '1px solid #cbd5e1'
-                }}>
-                  <strong style={{ color: '#475569' }}>Email:</strong>
-                  <p style={{ margin: '0.5rem 0 0 0', color: '#1e293b' }}>{profile.email}</p>
+                <div className="profile-field">
+                  <strong className="profile-label">Email:</strong>
+                  <p className="profile-value">{profile.email}</p>
                 </div>
-                <div style={{ 
-                  backgroundColor: '#f1f5f9', 
-                  padding: '1rem', 
-                  borderRadius: '0.5rem',
-                  border: '1px solid #cbd5e1'
-                }}>
-                  <strong style={{ color: '#475569' }}>Student ID:</strong>
-                  <p style={{ margin: '0.5rem 0 0 0', color: '#1e293b' }}>{profile.student_id}</p>
+                <div className="profile-field">
+                  <strong className="profile-label">Student ID:</strong>
+                  <p className="profile-value">{profile.student_id}</p>
                 </div>
-                <div style={{ 
-                  backgroundColor: '#f1f5f9', 
-                  padding: '1rem', 
-                  borderRadius: '0.5rem',
-                  border: '1px solid #cbd5e1'
-                }}>
-                  <strong style={{ color: '#475569' }}>program:</strong>
-                  <p style={{ margin: '0.5rem 0 0 0', color: '#1e293b' }}>{profile.program}</p>
+                <div className="profile-field">
+                  <strong className="profile-label">Program:</strong>
+                  <p className="profile-value">{profile.program}</p>
                 </div>
               </div>
               <button 
                 onClick={() => setEditing(true)} 
-                style={{ 
-                  backgroundColor: '#6b21a8',
-                  color: '#ffffff',
-                  border: 'none',
-                  padding: '0.75rem 1.5rem',
-                  borderRadius: '0.5rem',
-                  cursor: 'pointer',
-                  fontSize: '1rem',
-                  fontWeight: '500',
-                  transition: 'background-color 0.2s ease',
-                  alignSelf: 'flex-start'
-                }}
-                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#581c87'}
-                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#6b21a8'}
+                className="edit-button"
               >
                 Edit Profile
               </button>
             </div>
           ) : (
-            <div style={{ display: 'grid', gap: '1rem' }}>
-              <div style={{ display: 'grid', gap: '1rem' }}>
+            <div className="profile-edit-form">
+              <div className="profile-edit-fields">
                 <div>
-                  <label style={{ 
-                    display: 'block', 
-                    marginBottom: '0.5rem',
-                    color: '#475569',
-                    fontWeight: '500'
-                  }}>
+                  <label className="form-label">
                     Student ID:
                   </label>
                   <input
@@ -315,78 +228,33 @@ const StudentView = () => {
                     value={formData.student_id}
                     onChange={handleInputChange}
                     placeholder="Enter Student ID"
-                    style={{ 
-                      width: '100%',
-                      padding: '0.75rem',
-                      border: '1px solid #cbd5e1',
-                      borderRadius: '0.5rem',
-                      fontSize: '1rem',
-                      backgroundColor: '#ffffff',
-                      boxSizing: 'border-box'
-                    }}
+                    className="form-input"
                   />
                 </div>
                 <div>
-                  <label style={{ 
-                    display: 'block', 
-                    marginBottom: '0.5rem',
-                    color: '#475569',
-                    fontWeight: '500'
-                  }}>
-                    program:
+                  <label className="form-label">
+                    Program:
                   </label>
                   <input
                     type="text"
                     name="program"
                     value={formData.program}
                     onChange={handleInputChange}
-                    placeholder="program"
-                    style={{ 
-                      width: '100%',
-                      padding: '0.75rem',
-                      border: '1px solid #cbd5e1',
-                      borderRadius: '0.5rem',
-                      fontSize: '1rem',
-                      backgroundColor: '#ffffff',
-                      boxSizing: 'border-box'
-                    }}
+                    placeholder="Program"
+                    className="form-input"
                   />
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '1rem' }}>
+              <div className="form-buttons">
                 <button 
                   onClick={handleSave}
-                  style={{ 
-                    backgroundColor: '#16a34a',
-                    color: '#ffffff',
-                    border: 'none',
-                    padding: '0.75rem 1.5rem',
-                    borderRadius: '0.5rem',
-                    cursor: 'pointer',
-                    fontSize: '1rem',
-                    fontWeight: '500',
-                    transition: 'background-color 0.2s ease'
-                  }}
-                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#15803d'}
-                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#16a34a'}
+                  className="save-button"
                 >
                   Save Changes
                 </button>
                 <button 
                   onClick={() => setEditing(false)}
-                  style={{ 
-                    backgroundColor: '#64748b',
-                    color: '#ffffff',
-                    border: 'none',
-                    padding: '0.75rem 1.5rem',
-                    borderRadius: '0.5rem',
-                    cursor: 'pointer',
-                    fontSize: '1rem',
-                    fontWeight: '500',
-                    transition: 'background-color 0.2s ease'
-                  }}
-                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#475569'}
-                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#64748b'}
+                  className="cancel-button"
                 >
                   Cancel
                 </button>
@@ -397,160 +265,68 @@ const StudentView = () => {
       )}
 
       {/* Instructions */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        padding: '1.5rem',
-        borderRadius: '0.75rem',
-        marginBottom: '2rem',
-        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-        border: '1px solid #e2e8f0'
-      }}>
-        <p style={{ 
-          margin: 0,
-          color: '#475569',
-          fontSize: '1.125rem',
-          textAlign: 'center'
-        }}>
+      <div className="instructions-container">
+        <p className="instructions-text">
           Your attendance is being tracked. Scan the QR code below to mark your attendance.
         </p>
       </div>
 
       {/* QR Scanner */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        padding: '2rem',
-        borderRadius: '0.75rem',
-        marginBottom: '2rem',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-        border: '1px solid #e2e8f0',
-        textAlign: 'center'
-      }}>
-        <h2 style={{ 
-          color: '#6b21a8', 
-          marginTop: 0,
-          marginBottom: '1.5rem',
-          fontSize: '1.5rem',
-          fontWeight: '600'
-        }}>
-          QR Code Scanner
-        </h2>
+      <div className="qr-scanner-container">
+        <h2 className="qr-scanner-title">QR Code Scanner</h2>
         <QRScanner />
       </div>
 
       {/* Today's Attendance */}
-      <div style={{ 
-        backgroundColor: '#f0fdf4', 
-        padding: '1.5rem', 
-        borderRadius: '0.75rem',
-        marginBottom: '2rem',
-        border: '1px solid #bbf7d0',
-        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
-      }}>
-        <h2 style={{ 
-          color: '#16a34a', 
-          marginTop: 0,
-          marginBottom: '1rem',
-          fontSize: '1.5rem',
-          fontWeight: '600'
-        }}>
-          Today's Attendance Status
-        </h2>
-        <div style={{
-          backgroundColor: '#ffffff',
-          padding: '1rem',
-          borderRadius: '0.5rem',
-          border: '1px solid #bbf7d0'
-        }}>
-          <p style={{ 
-            margin: 0,
-            fontSize: '1.125rem',
-            color: todayStatus ? '#16a34a' : '#64748b',
-            fontWeight: '500'
-          }}>
+      <div className="attendance-status-container">
+        <h2 className="attendance-status-title">Today's Attendance Status</h2>
+        <div className="attendance-status-content">
+          <p className={`attendance-status-text ${todayStatus ? 
+            (todayStatus.toLowerCase() === 'present' ? 'status-present' : 'status-absent') : 
+            'status-default'}`}>
             {todayStatus || 'No attendance recorded for today'}
           </p>
         </div>
       </div>
 
       {/* Attendance History */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        padding: '1.5rem',
-        borderRadius: '0.75rem',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-        border: '1px solid #e2e8f0'
-      }}>
-        <h2 style={{ 
-          color: '#6b21a8', 
-          marginTop: 0,
-          marginBottom: '1.5rem',
-          fontSize: '1.5rem',
-          fontWeight: '600'
-        }}>
-          Attendance History
-        </h2>
+      <div className="attendance-history-container">
+        <h2 className="attendance-history-title">Attendance History</h2>
         
         {attendanceHistory.length > 0 ? (
-          <div style={{ display: 'grid', gap: '1rem' }}>
+          <div className="attendance-history-grid">
             {attendanceHistory.map((record) => (
-  <div
-    key={record.id}
-    style={{
-      backgroundColor: '#faf5ff',
-      padding: '1.5rem',
-      borderRadius: '0.75rem',
-      border: '1px solid #e9d5ff',
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-      gap: '1rem'
-    }}
-  >
-    <div>
-      <strong style={{ color: '#6b21a8' }}>Date:</strong>
-      <p style={{ margin: '0.25rem 0 0 0', color: '#1e293b' }}>
-        {new Date(record.session_date).toLocaleDateString()}
-      </p>
-    </div>
-    <div>
-      <strong style={{ color: '#6b21a8' }}>Time:</strong>
-      <p style={{ margin: '0.25rem 0 0 0', color: '#1e293b' }}>
-        {record.session_time}
-      </p>
-    </div>
-    <div>
-      <strong style={{ color: '#6b21a8' }}>Status:</strong>
-      <p style={{ 
-        margin: '0.25rem 0 0 0',
-        color: record.status.toLowerCase() === 'present' ? '#16a34a' : '#dc2626',
-        fontWeight: '500'
-      }}>
-        {record.status}
-      </p>
-    </div>
-    <div>
-      <strong style={{ color: '#6b21a8' }}>Class:</strong>
-      <p style={{ margin: '0.25rem 0 0 0', color: '#1e293b' }}>
-        {record.class_name}
-      </p>
-    </div>
-  </div>
-))}
-
+              <div key={record.id} className="attendance-record">
+                <div>
+                  <strong className="record-label">Date:</strong>
+                  <p className="record-value">
+                    {new Date(record.session_date).toLocaleDateString()}
+                  </p>
+                </div>
+                <div>
+                  <strong className="record-label">Time:</strong>
+                  <p className="record-value">
+                    {record.session_time}
+                  </p>
+                </div>
+                <div>
+                  <strong className="record-label">Status:</strong>
+                  <p className={`record-value ${record.status.toLowerCase() === 'present' ? 'status-present' : 'status-absent'}`}>
+                    {record.status}
+                  </p>
+                </div>
+                <div>
+                  <strong className="record-label">Class:</strong>
+                  <p className="record-value">
+                    {record.class_name}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
-          <div style={{
-            backgroundColor: '#f8fafc',
-            padding: '2rem',
-            borderRadius: '0.75rem',
-            border: '1px solid #e2e8f0',
-            textAlign: 'center'
-          }}>
-            <p style={{ 
-              margin: 0,
-              color: '#64748b',
-              fontSize: '1.125rem',
-              fontStyle: 'italic'
-            }}>
+          <div className="no-records">
+            <p className="no-records-text">
               No attendance records found yet.
             </p>
           </div>

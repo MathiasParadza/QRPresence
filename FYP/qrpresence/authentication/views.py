@@ -6,10 +6,14 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework_simplejwt.views import TokenObtainPairView
-
+from attendance.serializers import StudentSerializer
 from .serializers import UserSerializer
 from .models import UserProfile, CustomUser
 from django.db import transaction
+from attendance.models import Student, Lecturer
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
+
 
 
 # JWT login view (extend if needed)
@@ -113,72 +117,137 @@ def current_user(request):
     serializer = UserSerializer(request.user)
     return Response(serializer.data)
 
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register(request):
     data = request.data
-    username = data.get('username')
-    email = data.get('email')
+    
+    # Required fields check
+    required_fields = ['username', 'email', 'password', 'role', 'name']  # Added name
+    missing_fields = [field for field in required_fields if field not in data]
+    if missing_fields:
+        return Response(
+            {'error': f'Missing required fields: {", ".join(missing_fields)}'}, 
+            status=400
+        )
+
+    username = data.get('username', '').strip()
+    email = data.get('email', '').strip().lower()
     password = data.get('password')
     role = data.get('role')
-    student_id = data.get('student_id')
+    name = data.get('name', '').strip()
+    student_id = data.get('student_id', '').strip() if role == 'student' else None
+    program = data.get('program', '') if role == 'student' else None
 
+    # Validate email format
+    try:
+        validate_email(email)
+    except ValidationError:
+        return Response({'email': ['Enter a valid email address.']}, status=400)
+
+    # Check for existing users
     if CustomUser.objects.filter(username=username).exists():
-        return Response({'username': ['A user with that username already exists.']}, status=400)
+        return Response({'username': ['This username is already taken.']}, status=400)
+    
     if CustomUser.objects.filter(email=email).exists():
-        return Response({'email': ['A user with that email already exists.']}, status=400)
+        return Response({'email': ['This email is already registered.']}, status=400)
 
+    # Role-specific validation
     if role == 'student':
         if not student_id:
             return Response({'student_id': ['Student ID is required.']}, status=400)
-
+        
         if Student.objects.filter(student_id=student_id).exists():
-            return Response({'student_id': ['Student ID already exists.']}, status=400)
+            return Response({'student_id': ['This Student ID already exists.']}, status=400)
 
-        with transaction.atomic():
-            user = CustomUser.objects.create_user(
-                username=username,
-                email=email,
-                password=password,
-                role='student'
+        try:
+            with transaction.atomic():
+                user = CustomUser.objects.create_user(
+                    username=username,
+                    email=email,
+                    password=password,
+                    role='student',
+                    first_name=name.split()[0] if name else '',
+                    last_name=' '.join(name.split()[1:]) if name else ''
+                )
+                
+                student_profile, created = Student.objects.get_or_create(
+                    user=user,
+                    defaults={
+                        'student_id': student_id,
+                        'name': name,
+                        'program': program
+                    }
+                )
+                if not created:
+                    return Response(
+                        {'error': 'A student profile for this user already exists.'},
+                        status=400
+                    )
+                
+            return Response(
+                {
+                    'message': 'Student registered successfully',
+                    'user_id': user.id,
+                    'student_id': student_id
+                }, 
+                status=201
             )
-            Student.objects.create(user=user, student_id=student_id, email=email)
-        return Response({'message': 'Student registered successfully'}, status=201)
+        except Exception as e:
+            return Response(
+                {'error': f'Registration failed: {str(e)}'}, 
+                status=400
+            )
 
     elif role == 'lecturer':
-        with transaction.atomic():
-            user = CustomUser.objects.create_user(
-                username=username,
-                email=email,
-                password=password,
-                role='lecturer'
+        try:
+            with transaction.atomic():
+                user = CustomUser.objects.create_user(
+                    username=username,
+                    email=email,
+                    password=password,
+                    role='lecturer',
+                    first_name=name.split()[0] if name else '',
+                    last_name=' '.join(name.split()[1:]) if name else ''
+                )
+                Lecturer.objects.create(
+                    user=user,
+                    name=name
+                )
+            return Response(
+                {
+                    'message': 'Lecturer registered successfully',
+                    'user_id': user.id
+                }, 
+                status=201
             )
-            Lecturer.objects.create(user=user, email=email)
-        return Response({'message': 'Lecturer registered successfully'}, status=201)
+        except Exception as e:
+            return Response(
+                {'error': f'Registration failed: {str(e)}'}, 
+                status=400
+            )
 
-    return Response({'error': 'Invalid role'}, status=400)
+    return Response(
+        {'error': 'Invalid role. Must be either "student" or "lecturer".'}, 
+        status=400
+    )
+
 # Student Profile Update View
-    
-from attendance.models import Student, Lecturer
-from attendance.serializers import StudentSerializer  
-from rest_framework.permissions import IsAuthenticated
-
 class StudentProfileUpdateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        try:
-            student = request.user.student
-        except Student.DoesNotExist:
+        student = getattr(request.user, 'student', None)
+        if not student:
             return Response({"error": "Student profile not found."}, status=404)
 
         serializer = StudentSerializer(student)
         return Response(serializer.data)
 
     def put(self, request):
-        try:
-            student = request.user.student
-        except Student.DoesNotExist:
+        student = getattr(request.user, 'student', None)
+        if not student:
             return Response({"error": "Student profile not found."}, status=404)
 
         serializer = StudentSerializer(student, data=request.data, partial=True)

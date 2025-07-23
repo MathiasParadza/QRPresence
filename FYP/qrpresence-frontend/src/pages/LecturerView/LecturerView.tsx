@@ -30,6 +30,7 @@ const LecturerView: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
+  const [qrCodes, setQrCodes] = useState<string[]>([]);
   const [attendanceReport, setAttendanceReport] = useState<AttendanceRecord[]>([]);
   const [loadingReport, setLoadingReport] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,13 +39,35 @@ const LecturerView: React.FC = () => {
   const [ordering, setOrdering] = useState<string>('check_in_time');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
+  const [aiResponse, setAiResponse] = useState<string>('');
+  const [aiQuery, setAiQuery] = useState<string>('');
+  const [aiLoading, setAiLoading] = useState<boolean>(false);
 
+  // Fetch QR codes
+  useEffect(() => {
+    const fetchQrCodes = async () => {
+      try {
+        const res = await axios.get<{ qr_codes: string[] }>('http://127.0.0.1:8000/api/qr-codes/');
+        setQrCodes(res.data.qr_codes || []);
+        if (!qrCodeUrl && res.data.qr_codes.length > 0) {
+          setQrCodeUrl(res.data.qr_codes[0]); // set latest
+        }
+      } catch (err) {
+        console.error('Failed to load QR codes', err);
+      }
+    };
+
+    fetchQrCodes();
+  }, [qrCodeUrl]);
+
+  // Set QR code from location state if available
   useEffect(() => {
     if (location.state && location.state.qrCodeUrl) {
       setQrCodeUrl(location.state.qrCodeUrl);
     }
   }, [location.state]);
 
+  // Fetch attendance records
   useEffect(() => {
     const fetchAttendanceRecord = async (): Promise<void> => {
       setLoadingReport(true);
@@ -118,6 +141,33 @@ const LecturerView: React.FC = () => {
     setOrdering((prev) => (prev === field ? `-${field}` : field));
   };
 
+  interface AIInsightsResponse {
+    response: string;
+  }
+  
+  const handleAIQuery = async () => {
+    if (!aiQuery.trim()) return;
+    setAiLoading(true);
+    setAiResponse('');
+    const token = localStorage.getItem('access_token');
+    try {
+      const res = await axios.post<AIInsightsResponse>(
+        'http://127.0.0.1:8000/api/ai-chat/',
+        { query: aiQuery },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      setAiResponse(res.data.response || 'No response');
+    } catch {
+      setAiResponse('Error getting insights.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 py-8 px-4">
       <div className="max-w-7xl mx-auto">
@@ -134,6 +184,32 @@ const LecturerView: React.FC = () => {
           </div>
         </div>
 
+        {/* AI Chat Box */}
+        <div className="bg-white shadow-lg rounded-xl p-6 mb-8">
+          <h2 className="text-2xl font-semibold text-purple-700 mb-4">AI Attendance Insights</h2>
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+            <input
+              type="text"
+              placeholder="Ask a question about attendance..."
+              className="w-full sm:flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              value={aiQuery}
+              onChange={(e) => setAiQuery(e.target.value)}
+            />
+            <button
+              onClick={handleAIQuery}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors duration-200"
+              disabled={aiLoading}
+            >
+              {aiLoading ? 'Thinking...' : 'Ask AI'}
+            </button>
+          </div>
+          {aiResponse && (
+            <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-4 text-gray-800 whitespace-pre-wrap">
+              {aiResponse}
+            </div>
+          )}
+        </div>
+
         {/* Main Content */}
         <div className="bg-white shadow-lg rounded-xl p-6">
           <Tabs defaultValue="actions" className="w-full">
@@ -148,7 +224,7 @@ const LecturerView: React.FC = () => {
                 value="qrcode" 
                 className="data-[state=active]:bg-purple-600 data-[state=active]:text-white bg-white text-gray-700 hover:bg-gray-100 transition-all duration-200 rounded-lg py-3 font-medium"
               >
-                Latest QR
+                QR Codes
               </TabsTrigger>
               <TabsTrigger 
                 value="stats" 
@@ -187,7 +263,6 @@ const LecturerView: React.FC = () => {
                   </button>
                 </div>
 
-                
                 <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 shadow-sm">
                   <h2 className="text-lg font-semibold text-gray-800 mb-4">Students Management</h2>
                  <button
@@ -196,36 +271,51 @@ const LecturerView: React.FC = () => {
                >
                    🎓 Manage Students
                  </button>
-
                 </div>
               </div>
             </TabsContent>
 
             {/* QR Code Tab */}
             <TabsContent value="qrcode">
-              <div className="text-center">
-                {qrCodeUrl ? (
-                  <div className="space-y-6">
+              <div className="space-y-8">
+                {qrCodeUrl && (
+                  <div className="text-center space-y-4">
                     <h2 className="text-2xl font-semibold text-purple-700">Latest Attendance QR Code</h2>
-                    <div className="flex justify-center">
-                      <img 
-                        src={qrCodeUrl} 
-                        alt="Latest QR Code" 
-                        className="w-64 h-64 border-4 border-green-400 rounded-xl shadow-lg"
-                      />
-                    </div>
-                    <button 
-                      onClick={downloadQRCode} 
+                    <img 
+                      src={qrCodeUrl} 
+                      alt="Latest QR Code" 
+                      className="mx-auto w-64 h-64 border-4 border-green-400 rounded-xl shadow-lg" 
+                    />
+                    <button
+                      onClick={downloadQRCode}
                       className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-semibold transition-colors duration-200"
                     >
-                      ⬇️ Download QR Code
+                      ⬇️ Download Latest QR Code
                     </button>
                   </div>
-                ) : (
-                  <div className="py-16">
-                    <p className="text-gray-600 text-lg">No QR Code available yet.</p>
-                  </div>
                 )}
+
+                <div>
+                  <h3 className="text-xl font-semibold text-purple-600 mb-4 text-center">📚 All QR Codes</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {qrCodes.map((url, index) => (
+                      <div key={index} className="flex flex-col items-center space-y-2">
+                        <img 
+                          src={url} 
+                          alt={`QR Code ${index + 1}`} 
+                          className="w-40 h-40 border border-gray-300 rounded-lg" 
+                        />
+                        <a
+                          href={url}
+                          download={`qr_code_${index + 1}.png`}
+                          className="text-sm text-blue-600 hover:underline"
+                        >
+                          Download
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </TabsContent>
 

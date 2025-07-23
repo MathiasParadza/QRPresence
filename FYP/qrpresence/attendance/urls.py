@@ -9,6 +9,9 @@ from rest_framework.routers import DefaultRouter
 from .views import LecturerAttendanceViewSet
 from .views import StudentListCreateAPIView, StudentDetailAPIView
 from .views import export_students_csv
+from .views import AbsentStudentsView
+from .views import AttendanceAIChatView
+from .views import get_qr_codes
 
 
 
@@ -30,4 +33,7 @@ urlpatterns = [
     path('students/', StudentListCreateAPIView.as_view(), name='student-list'),
     path('students/<int:pk>/', StudentDetailAPIView.as_view(), name='student-detail'),
     path('students/export-csv/', export_students_csv, name='export-students-csv'),
+    path('api/attendance/absent/<str:session_id>/', AbsentStudentsView.as_view(), name='absent-students'),
+    path('ai-chat/', AttendanceAIChatView.as_view(), name='attendance-ai-chat'),
+    path('api/qr-codes/', get_qr_codes),
 ]
