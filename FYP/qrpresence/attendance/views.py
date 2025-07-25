@@ -16,18 +16,18 @@ from rest_framework import status, generics, serializers
 import logging
 from django.http import HttpResponse
 from rest_framework.views import APIView
+from django.core.exceptions import PermissionDenied
 import csv
 from django.db.models import Q
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from django_filters.rest_framework import DjangoFilterBackend, FilterSet, DateFromToRangeFilter, ChoiceFilter
 from .filters import AttendanceFilter
-from attendance.utils import analytics
 from .utils import get_absent_students
 from .utils import AnalyticsAgent
-
-from attendance.utils import ai_agent 
 from attendance.ai_chat.llm_agent import answer_natural_language_query
+from .models import Course, Student, StudentCourseEnrollment
+from .serializers import CourseSerializer, EnrollmentSerializer
  
 
 
@@ -133,37 +133,8 @@ class SessionListCreateView(generics.ListCreateAPIView):
         except Lecturer.DoesNotExist:
             raise serializers.ValidationError("Lecturer profile not found for the logged-in user.")
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def admin_stats(request):
-    total_students = Student.objects.count()
-    total_lecturers = Lecturer.objects.count()
-    total_sessions = Session.objects.count()
-    active_sessions = Session.objects.filter(is_active=True).count()
-    total_attendances = Attendance.objects.count()
-    total_possible_attendances = total_sessions * total_students if total_sessions > 0 else 0
-    attendance_rate = (total_attendances / total_possible_attendances) * 100 if total_possible_attendances > 0 else 0
 
-    stats = [
-        {"label": "Total Students", "value": total_students},
-        {"label": "Total Lecturers", "value": total_lecturers},
-        {"label": "Total Sessions", "value": total_sessions},
-        {"label": "Active Sessions", "value": active_sessions},
-        {"label": "Attendance Rate", "value": f"{attendance_rate:.2f}%"},
-    ]
-    return Response(stats)
 
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def missed_sessions_heatmap(request):
-    data = [
-        {"session": "Math101", "missed": 20},
-        {"session": "History201", "missed": 35},
-        {"session": "Physics301", "missed": 10},
-        {"session": "Chemistry401", "missed": 50},
-        {"session": "Biology501", "missed": 25},
-    ]
-    return Response(data)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -236,34 +207,47 @@ class LecturerAttendanceViewSet(viewsets.ModelViewSet):
     serializer_class = AttendanceLecturerViewSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = AttendanceFilter
-    
-    def get_queryset(self):
-        return Attendance.objects.filter(
-        session__lecturer=self.request.user.lecturer
-    ).select_related('student__user', 'session').order_by('-check_in_time')  # 👈 add ordering
 
-        
-        return queryset
+    def get_queryset(self):
+        # Check if user has lecturer profile
+        try:
+            lecturer_profile = self.request.user.lecturer
+        except AttributeError:
+            raise PermissionDenied("User is not associated with a lecturer profile")
+            
+        return Attendance.objects.filter(
+            session__lecturer=lecturer_profile
+        ).select_related('student__user', 'session').order_by('-check_in_time')
 
     def list(self, request, *args, **kwargs):
-        queryset = self.filter_queryset(self.get_queryset())
-        
-        # Get counts for the dashboard/filter UI
-        response = super().list(request, *args, **kwargs)
-        response.data['counts'] = {
-            'all': queryset.count(),
-            'present': queryset.filter(status='Present').count(),
-            'absent': queryset.filter(status='Absent').count(),
-            'by_date': {
-                'today': queryset.filter(check_in_time__date=timezone.now().date()).count(),
-                'week': queryset.filter(check_in_time__date__gte=timezone.now().date() - timedelta(days=7)).count(),
-                'month': queryset.filter(check_in_time__month=timezone.now().month).count(),
-                'year': queryset.filter(check_in_time__year=timezone.now().year).count(),
-            }
-        }
-        
-        return response
+        try:
+            queryset = self.filter_queryset(self.get_queryset())
+            response = super().list(request, *args, **kwargs)
 
+            response.data['counts'] = {
+                'all': queryset.count(),
+                'present': queryset.filter(status='Present').count(),
+                'absent': queryset.filter(status='Absent').count(),
+                'by_date': {
+                    'today': queryset.filter(check_in_time__date=timezone.now().date()).count(),
+                    'week': queryset.filter(check_in_time__date__gte=timezone.now().date() - timedelta(days=7)).count(),
+                    'month': queryset.filter(check_in_time__month=timezone.now().month).count(),
+                    'year': queryset.filter(check_in_time__year=timezone.now().year).count(),
+                }
+            }
+            return response
+            
+        except PermissionDenied as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        except Exception as e:
+            return Response(
+                {"detail": "An error occurred while processing your request"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
 
 class StudentListCreateAPIView(generics.ListCreateAPIView):
     queryset = Student.objects.all().order_by('student_id')
@@ -353,3 +337,120 @@ def get_qr_codes(request):
     )
     qr_urls = [request.build_absolute_uri(os.path.join(settings.MEDIA_URL, 'qr_codes', f)) for f in files]
     return JsonResponse({"qr_codes": qr_urls})
+
+
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_course(request):
+    # Verify the user is a lecturer
+    if not request.user.role == 'lecturer':
+        return Response(
+            {'error': 'Only lecturers can create courses'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    serializer = CourseSerializer(data=request.data)
+    if serializer.is_valid():
+        # Automatically set the lecturer as the course creator
+        course = serializer.save(created_by=request.user)
+        return Response(
+            {'message': 'Course created successfully', 'course_id': course.id},
+            status=status.HTTP_201_CREATED
+        )
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def enroll_students(request, course_id):
+    try:
+        course = Course.objects.get(id=course_id)
+        
+        # Verify the requesting lecturer owns the course
+        if course.created_by != request.user:
+            return Response(
+                {'error': 'You can only enroll students in your own courses'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        student_ids = request.data.get('student_ids', [])
+        
+        # Validate student IDs exist
+        students = Student.objects.filter(id__in=student_ids)
+        if len(students) != len(student_ids):
+            return Response(
+                {'error': 'One or more student IDs are invalid'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Create enrollments
+        enrollments = []
+        for student in students:
+            enrollment, created = StudentCourseEnrollment.objects.get_or_create(
+                student=student,
+                course=course,
+                defaults={'enrolled_by': request.user}
+            )
+            if created:
+                enrollments.append(enrollment)
+
+        return Response(
+            {
+                'message': f'Successfully enrolled {len(enrollments)} students',
+                'enrolled_count': len(enrollments),
+                'duplicates': len(student_ids) - len(enrollments)
+            },
+            status=status.HTTP_201_CREATED
+        )
+
+    except Course.DoesNotExist:
+        return Response(
+            {'error': 'Course not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+class LecturerCourseView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        courses = Course.objects.filter(created_by=request.user)
+        serializer = CourseSerializer(courses, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = CourseSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class LecturerEnrollmentView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, course_id):
+        try:
+            course = Course.objects.get(id=course_id, created_by=request.user)
+            student_ids = request.data.get('student_ids', [])
+            
+            enrollments = []
+            for student_id in student_ids:
+                enrollment, created = StudentCourseEnrollment.objects.get_or_create(
+                    student_id=student_id,
+                    course=course,
+                    defaults={'enrolled_by': request.user}
+                )
+                if created:
+                    enrollments.append(enrollment)
+            
+            serializer = EnrollmentSerializer(enrollments, many=True)
+            return Response({
+                'message': 'Students enrolled successfully',
+                'enrollments': serializer.data
+            }, status=status.HTTP_201_CREATED)
+            
+        except Course.DoesNotExist:
+            return Response(
+                {'error': 'Course not found or access denied'},
+                status=status.HTTP_404_NOT_FOUND
+            )

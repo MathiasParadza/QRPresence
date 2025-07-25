@@ -77,12 +77,12 @@ def admin_required(view_func):
     return _wrapped_view
 
 
-from attendance.models import ClassSession,Attendance, Student
+from attendance.models import Session,Attendance, Student
 
 def get_absent_students(session_id):
     try:
-        session = ClassSession.objects.get(id=session_id)
-    except ClassSession.DoesNotExist:
+        session = Session.objects.get(id=session_id)
+    except Session.DoesNotExist:
         return None  # or raise an exception if you want
 
     enrolled_students = session.course.students.all()

@@ -1,3 +1,4 @@
+"""
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import CustomUser, UserProfile
@@ -17,3 +18,4 @@ def handle_user_creation(sender, instance, created, **kwargs):
             user=instance,
             defaults={'name': instance.get_full_name()}
         )
+"""

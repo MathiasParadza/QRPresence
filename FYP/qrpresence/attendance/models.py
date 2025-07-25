@@ -40,23 +40,34 @@ class Lecturer(models.Model):
 
     def __str__(self):
         return self.name or "Unnamed Lecturer"
+
+
 class Course(models.Model):
+    title = models.CharField(max_length=200)
     code = models.CharField(max_length=20, unique=True)
-    name = models.CharField(max_length=100)
-    lecturer = models.ForeignKey('Lecturer', on_delete=models.CASCADE, related_name='courses')
-
-    def __str__(self):
-        return f"{self.code} - {self.name}"
-
+    description = models.TextField()
+    credit_hours = models.PositiveIntegerField()
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='created_courses'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
 
 class StudentCourseEnrollment(models.Model):
-    student = models.ForeignKey('Student', on_delete=models.CASCADE, related_name='enrollments')
-    course = models.ForeignKey('Course', on_delete=models.CASCADE, related_name='enrollments')
+    student = models.ForeignKey(Student, on_delete=models.CASCADE)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    enrolled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True
+    )
+    enrolled_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('student', 'course')  # prevent duplicate enrollments
-
-
+        unique_together = ('student', 'course')
+        
 class Session(models.Model):
     session_id = models.CharField(max_length=100, unique=True)  # <-- manually entered ID
     class_name = models.CharField(max_length=255)
@@ -66,7 +77,7 @@ class Session(models.Model):
     allowed_radius = models.IntegerField(default=100)
     timestamp = models.DateTimeField(auto_now_add=True)
     course = models.ForeignKey('Course', on_delete=models.CASCADE, related_name='sessions')
-    qr_code = models.ImageField(upload_to='qr_codes/', null=True, blank=True)
+    
 
     def __str__(self):
         return f"{self.class_name} ({self.session_id}) - {self.timestamp}"

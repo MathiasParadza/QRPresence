@@ -1,6 +1,6 @@
 # attendance/ai_chat/llm_agent.py
 
-from attendance.models import Attendance, ClassSession, Student, Course
+from attendance.models import Attendance, Session, Student, Course
 from datetime import datetime, timedelta
 from django.db.models import Count, Q
 
@@ -28,7 +28,7 @@ def answer_natural_language_query(query: str) -> str:
             students = Student.objects.filter(enrollments__course=course)
             attendance_data = []
             for student in students:
-                total_sessions = ClassSession.objects.filter(course=course).count()
+                total_sessions = Session.objects.filter(course=course).count()
                 attended = Attendance.objects.filter(student=student, session__course=course).count()
                 percentage = (attended / total_sessions * 100) if total_sessions else 0
                 attendance_data.append((student.name, percentage))

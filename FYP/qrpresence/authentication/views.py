@@ -124,114 +124,123 @@ def register(request):
     data = request.data
     
     # Required fields check
-    required_fields = ['username', 'email', 'password', 'role', 'name']  # Added name
+    required_fields = ['username', 'email', 'password', 'role', 'name']
     missing_fields = [field for field in required_fields if field not in data]
     if missing_fields:
         return Response(
             {'error': f'Missing required fields: {", ".join(missing_fields)}'}, 
-            status=400
+            status=status.HTTP_400_BAD_REQUEST
         )
 
+    # Data preparation
     username = data.get('username', '').strip()
     email = data.get('email', '').strip().lower()
     password = data.get('password')
-    role = data.get('role')
+    role = data.get('role').lower()
     name = data.get('name', '').strip()
-    student_id = data.get('student_id', '').strip() if role == 'student' else None
-    program = data.get('program', '') if role == 'student' else None
-
+    
     # Validate email format
     try:
         validate_email(email)
     except ValidationError:
-        return Response({'email': ['Enter a valid email address.']}, status=400)
+        return Response(
+            {'email': ['Enter a valid email address.']}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
     # Check for existing users
     if CustomUser.objects.filter(username=username).exists():
-        return Response({'username': ['This username is already taken.']}, status=400)
+        return Response(
+            {'username': ['This username is already taken.']}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
     
     if CustomUser.objects.filter(email=email).exists():
-        return Response({'email': ['This email is already registered.']}, status=400)
+        return Response(
+            {'email': ['This email is already registered.']}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
-    # Role-specific validation
-    if role == 'student':
-        if not student_id:
-            return Response({'student_id': ['Student ID is required.']}, status=400)
-        
-        if Student.objects.filter(student_id=student_id).exists():
-            return Response({'student_id': ['This Student ID already exists.']}, status=400)
+    # Role validation
+    if role not in ['student', 'lecturer']:
+        return Response(
+            {'error': 'Invalid role. Must be either "student" or "lecturer".'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
-        try:
-            with transaction.atomic():
-                user = CustomUser.objects.create_user(
-                    username=username,
-                    email=email,
-                    password=password,
-                    role='student',
-                    first_name=name.split()[0] if name else '',
-                    last_name=' '.join(name.split()[1:]) if name else ''
-                )
+    # Role-specific processing
+    try:
+        with transaction.atomic():
+            # Create user (common for both roles)
+            user = CustomUser.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+                role=role,
+                first_name=name.split()[0] if name else '',
+                last_name=' '.join(name.split()[1:]) if len(name.split()) > 1 else ''
+            )
+
+            if role == 'student':
+                # Student-specific validation
+                student_id = data.get('student_id', '').strip()
+                program = data.get('program', '').strip()
                 
-                student_profile, created = Student.objects.get_or_create(
-                    user=user,
-                    defaults={
-                        'student_id': student_id,
-                        'name': name,
-                        'program': program
-                    }
-                )
-                if not created:
+                if not student_id:
                     return Response(
-                        {'error': 'A student profile for this user already exists.'},
-                        status=400
+                        {'student_id': ['Student ID is required.']}, 
+                        status=status.HTTP_400_BAD_REQUEST
                     )
                 
-            return Response(
-                {
-                    'message': 'Student registered successfully',
-                    'user_id': user.id,
-                    'student_id': student_id
-                }, 
-                status=201
-            )
-        except Exception as e:
-            return Response(
-                {'error': f'Registration failed: {str(e)}'}, 
-                status=400
-            )
+                if Student.objects.filter(student_id=student_id).exists():
+                    return Response(
+                        {'student_id': ['This Student ID already exists.']}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
 
-    elif role == 'lecturer':
-        try:
-            with transaction.atomic():
-                user = CustomUser.objects.create_user(
-                    username=username,
-                    email=email,
-                    password=password,
-                    role='lecturer',
-                    first_name=name.split()[0] if name else '',
-                    last_name=' '.join(name.split()[1:]) if name else ''
-                )
-                Lecturer.objects.create(
+                # Create student profile
+                Student.objects.create(
                     user=user,
-                    name=name
+                    student_id=student_id,
+                    name=name,
+                    program=program
                 )
-            return Response(
-                {
-                    'message': 'Lecturer registered successfully',
-                    'user_id': user.id
-                }, 
-                status=201
-            )
-        except Exception as e:
-            return Response(
-                {'error': f'Registration failed: {str(e)}'}, 
-                status=400
-            )
 
-    return Response(
-        {'error': 'Invalid role. Must be either "student" or "lecturer".'}, 
-        status=400
-    )
+                return Response(
+                    {
+                        'message': 'Student registered successfully',
+                        'user_id': user.id,
+                        'student_id': student_id
+                    }, 
+                    status=status.HTTP_201_CREATED
+                )
+
+            elif role == 'lecturer':
+                # Create lecturer profile
+                lecturer, created = Lecturer.objects.get_or_create(
+                    user=user,
+                    defaults={'name': name}
+                )
+                
+                if not created:
+                    return Response(
+                        {'error': 'Lecturer profile already exists for this user.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                return Response(
+                    {
+                        'message': 'Lecturer registered successfully',
+                        'user_id': user.id
+                    }, 
+                    status=status.HTTP_201_CREATED
+                )
+
+    except Exception as e:
+        return Response(
+            {'error': f'Registration failed: {str(e)}'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 # Student Profile Update View
 class StudentProfileUpdateView(APIView):

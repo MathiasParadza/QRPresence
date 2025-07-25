@@ -3,6 +3,8 @@ from .models import Session, Student, Lecturer, Attendance # Added Lecturer impo
 from .utils import haversine # Assuming haversine is in .utils
 from django.contrib.auth import get_user_model
 from authentication.serializers import UserSerializer
+from .models import Course, StudentCourseEnrollment
+
 
 
 
@@ -132,3 +134,18 @@ class AttendanceLecturerViewSerializer(serializers.ModelSerializer):
     class Meta:
         model = Attendance
         fields = ['id', 'student', 'session', 'status', 'check_in_time', 'check_out_time', 'latitude', 'longitude']
+
+
+class CourseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Course
+        fields = ['id', 'title', 'code', 'description', 'credit_hours']
+        extra_kwargs = {
+            'created_by': {'read_only': True}
+        }
+
+class EnrollmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StudentCourseEnrollment
+        fields = ['id', 'student', 'course', 'enrolled_at', 'enrolled_by']
+        read_only_fields = ['enrolled_at', 'enrolled_by']
