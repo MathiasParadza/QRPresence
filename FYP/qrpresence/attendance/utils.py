@@ -51,6 +51,18 @@ def haversine(lat1, lon1, lat2, lon2):
     return R * c
 
 
+
+
+def is_qr_valid(session, scan_time, latitude, longitude, max_distance=0.1):
+    if session.attendance_window and scan_time > session.timestamp + session.attendance_window:
+        return False, "QR code has expired."
+    if session.gps_latitude is not None and session.gps_longitude is not None:
+        distance = haversine(latitude, longitude, session.gps_latitude, session.gps_longitude)
+        if distance > max_distance:
+            return False, "You are too far from the class location."
+    return True, "QR code is valid."
+
+
 # controlling attendance if only using campus wifi
 def is_on_campus(request):
     ip = request.META.get('REMOTE_ADDR')

@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils.timezone import now
 from django.conf import settings
+from datetime import timedelta
 
 class Student(models.Model):
     student_id = models.CharField(max_length=20, primary_key=True)  # Keep manually assigned ID
@@ -77,6 +78,7 @@ class Session(models.Model):
     allowed_radius = models.IntegerField(default=100)
     timestamp = models.DateTimeField(auto_now_add=True)
     course = models.ForeignKey('Course', on_delete=models.CASCADE, related_name='sessions')
+    attendance_window = models.DurationField(default=timedelta(minutes=15)) 
     
 
     def __str__(self):
@@ -84,11 +86,7 @@ class Session(models.Model):
     class Meta:
         ordering = ['-timestamp']
 
-class AttendanceRecord(models.Model):
-    student = models.ForeignKey(Student, on_delete=models.CASCADE)
-    session = models.ForeignKey(Session, on_delete=models.CASCADE)
-    timestamp = models.DateTimeField(auto_now_add=True)
-    status = models.CharField(max_length=20, choices=[('Present', 'Present'), ('Absent', 'Absent')], default='Present')  # 🛠 Capital P
+
 class QRCode(models.Model):
     session = models.ForeignKey(Session, on_delete=models.CASCADE)
     qr_image = models.ImageField(upload_to="qr_codes/")
@@ -104,14 +102,19 @@ class QRCode(models.Model):
 class Attendance(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
     session = models.ForeignKey(Session, on_delete=models.CASCADE)
-    status = models.CharField(max_length=20, choices=[('Present', 'Present'), ('Absent', 'Absent')], default='Present')
+    status = models.CharField(
+        max_length=20,
+        choices=[('Present', 'Present'), ('Absent', 'Absent')],
+        default='Present'
+    )
     check_in_time = models.DateTimeField(default=now)
     check_out_time = models.DateTimeField(blank=True, null=True)
-    latitude = models.FloatField(null=True, blank=True)   
+    latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
-
 
     def __str__(self):
         return f"{self.student} - {self.session}"
+
     class Meta:
+        unique_together = ('student', 'session')
         ordering = ['-check_in_time']

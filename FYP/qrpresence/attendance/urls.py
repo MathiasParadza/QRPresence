@@ -20,7 +20,6 @@ router.register(r'lecturer-attendance', LecturerAttendanceViewSet, basename='lec
 
 urlpatterns = [
     path('mark/', views.mark_attendance, name='mark_attendance'),  
-    path('report/', views.attendance_record, name='attendance_record'),
     path('sessions/', SessionListCreateView.as_view(), name='create-session'),
     path('generate-and-save-qr/', views.generate_and_save_qr, name='generate_and_save_qr'),
     path('validate-student/<str:student_id>/', views.validate_student, name='validate_student'),

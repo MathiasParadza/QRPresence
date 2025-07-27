@@ -7,6 +7,7 @@ import { EnrollmentManager } from './EnrollmentManager';
 import { QrCodeSection } from './QrCodeSection';
 import AttendanceStats from './AttendanceStats';
 import { fetchWithAuth } from '@/lib/api'; 
+import { toast } from 'react-toastify';
 
 interface Course {
   id: number;
@@ -150,8 +151,8 @@ const LecturerView = () => {
       try {
         setLoadingCourses(true);
         const [coursesData, studentsData] = await Promise.all([
-          fetchWithAuth('/lecturer/courses/'),
-          fetchWithAuth('/students/')
+          fetchWithAuth('/api/lecturer/courses/'),
+          fetchWithAuth('/api/students/')
         ]);
         setCourses(Array.isArray(coursesData) ? coursesData : []);
         setStudents(Array.isArray(studentsData) ? studentsData : []);
@@ -177,7 +178,7 @@ const LecturerView = () => {
       setLoadingEnrollments(true);
       try {
         const queryParams = new URLSearchParams({ course_id: selectedCourse.toString() });
-        const data = await fetchWithAuth(`/lecturer/enrollments/?${queryParams}`);
+        const data = await fetchWithAuth(`/api/lecturer/enrollments/?${queryParams}`);
         setEnrollments(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('Failed to fetch enrollments', error);
@@ -206,35 +207,69 @@ const LecturerView = () => {
       setAiLoading(false);
     }
   };
+const handleCreateCourse = async (courseData: {
+  code: string;
+  title: string;
+  description: string;
+  credit_hours: number;
+}): Promise<void> => {
+  try {
+    // Format the code to ensure consistency (uppercase, no spaces)
+    const formattedCode = courseData.code.trim().toUpperCase().replace(/\s+/g, '');
 
-  const handleCreateCourse = async (courseData: Omit<Course, 'id' | 'created_by'>): Promise<void> => {
-    try {
-      const data = await fetchWithAuth('/lecturer/courses/create/', {
-        method: 'POST',
-        body: JSON.stringify(courseData)
-      });
-      if (data && typeof data === 'object' && 'id' in data && 'code' in data && 'title' in data && 'description' in data && 'credit_hours' in data && 'created_by' in data) {
-        setCourses(prev => [...prev, data as Course]);
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(`${BASE_URL}/api/lecturer/courses/create/`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        code: formattedCode, // Use formatted code
+        title: courseData.title.trim(),
+        description: courseData.description.trim(),
+        credit_hours: Number(courseData.credit_hours) // Ensure it's a number
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      // Handle specific field errors
+      if (errorData.code) {
+        throw new Error(`Course Code: ${errorData.code.join(', ')}`);
       }
-      setShowCourseModal(false);
-      setCourseForm({
-        code: '',
-        title: '',
-        description: '',
-        credit_hours: 3
-      });
-    } catch (error) {
-      console.error('Failed to create course', error);
-      throw error;
+      if (errorData.title) {
+        throw new Error(`Title: ${errorData.title.join(', ')}`);
+      }
+      throw new Error(errorData.detail || 'Failed to create course');
     }
-  };
 
+    const data = await response.json();
+    setCourses(prev => [...prev, data]);
+    setShowCourseModal(false);
+    setCourseForm({
+      code: '',
+      title: '',
+      description: '',
+      credit_hours: 3
+    });
+    toast.success('Course created successfully!');
+  } catch (error) {
+    console.error('Failed to create course', error);
+    toast.error(
+      typeof error === 'object' && error !== null && 'message' in error
+        ? (error as { message?: string }).message || 'Failed to create course'
+        : 'Failed to create course'
+    );
+    throw error;
+  }
+};
   const handleEnrollStudents = async (studentIds: number[]): Promise<void> => {
     if (!selectedCourse) return;
     
     setLoadingEnrollments(true);
     try {
-      const data = await fetchWithAuth(`/lecturer/enrollments/${selectedCourse}/enroll/`, {
+      const data = await fetchWithAuth(`/api/lecturer/enrollments/${selectedCourse}/enroll/`, {
         method: 'POST',
         body: JSON.stringify({ student_ids: studentIds })
       });
@@ -321,7 +356,7 @@ const LecturerView = () => {
                 value="courses"
                 className="data-[state=active]:bg-purple-600 data-[state=active]:text-white bg-white text-gray-700 hover:bg-gray-100 transition-all duration-200 rounded-lg py-3 font-medium"
               >
-                Course Management
+                Courses
               </TabsTrigger>
               <TabsTrigger
                 value="qrcode"

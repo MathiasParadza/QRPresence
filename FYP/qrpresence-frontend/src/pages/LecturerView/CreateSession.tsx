@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, MapPin, Users, Target, Navigation, Hash } from "lucide-react";
+import { ArrowLeft, Plus, MapPin, Users, Target, Navigation, Hash, BookOpen } from "lucide-react";
 
 // Custom Button Component
 const Button: React.FC<{
@@ -70,6 +70,8 @@ const Input: React.FC<{
   );
 };
 
+
+
 // Custom Card Component
 const Card: React.FC<{
   children: React.ReactNode;
@@ -88,6 +90,13 @@ const toast = {
   error: (message: string) => alert(`❌ ${message}`)
 };
 
+interface Course {
+  id: string;
+  code: string;
+  title: string;
+  credit_hours: number;
+}
+
 const CreateSession: React.FC = () => {
   const navigate = useNavigate();
   const [sessionId, setSessionId] = useState("");
@@ -95,8 +104,43 @@ const CreateSession: React.FC = () => {
   const [gpsLatitude, setGpsLatitude] = useState<number | "">("");
   const [gpsLongitude, setGpsLongitude] = useState<number | "">("");
   const [allowedRadius, setAllowedRadius] = useState<number>(100);
+  const [selectedCourse, setSelectedCourse] = useState("");
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [coursesLoading, setCoursesLoading] = useState(true);
+  const [coursesError, setCoursesError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [gettingLocation, setGettingLocation] = useState(false);
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        setCoursesLoading(true);
+        setCoursesError(null);
+        const token = localStorage.getItem("access_token");
+        
+        const response = await fetch("http://127.0.0.1:8000/api/courses/", {
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch courses: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        setCourses(data);
+      } catch (error) {
+        console.error("Error fetching courses:", error);
+        setCoursesError("Failed to load courses. Please try again later.");
+      } finally {
+        setCoursesLoading(false);
+      }
+    };
+    
+    fetchCourses();
+  }, []);
 
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -126,7 +170,7 @@ const CreateSession: React.FC = () => {
   };
 
   const handleCreateSession = async () => {
-    if (!sessionId || !className || gpsLatitude === "" || gpsLongitude === "") {
+    if (!sessionId || !className || !selectedCourse || gpsLatitude === "" || gpsLongitude === "") {
       toast.error("Please fill in all required fields!");
       return;
     }
@@ -140,6 +184,7 @@ const CreateSession: React.FC = () => {
         gps_latitude: Number(gpsLatitude),
         gps_longitude: Number(gpsLongitude),
         allowed_radius: allowedRadius,
+        course: selectedCourse,
       };
 
       const response = await fetch("http://127.0.0.1:8000/api/sessions/", {
@@ -152,6 +197,13 @@ const CreateSession: React.FC = () => {
       });
 
       if (!response.ok) {
+        const errorData = await response.json();
+        if (errorData.course) {
+          throw new Error(`Course error: ${errorData.course.join(", ")}`);
+        }
+        if (errorData.session_id) {
+          throw new Error(`Session ID error: ${errorData.session_id.join(", ")}`);
+        }
         throw new Error(`Failed to create session: ${response.status}`);
       }
 
@@ -163,6 +215,7 @@ const CreateSession: React.FC = () => {
       setGpsLatitude("");
       setGpsLongitude("");
       setAllowedRadius(100);
+      setSelectedCourse("");
       
       // Navigate to session list after a short delay
       setTimeout(() => {
@@ -171,7 +224,11 @@ const CreateSession: React.FC = () => {
       
     } catch (error) {
       console.error("Error creating session:", error);
-      toast.error("Failed to create session. Please try again.");
+      toast.error(
+        typeof error === "object" && error !== null && "message" in error
+          ? (error as { message?: string }).message || "Failed to create session. Please try again."
+          : "Failed to create session. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -221,6 +278,47 @@ const CreateSession: React.FC = () => {
                   required
                   icon={<Users className="w-5 h-5" />}
                 />
+              </div>
+
+              {/* Course Selection */}
+              <div className="space-y-2">
+                <label htmlFor="course-select" className="block text-sm font-medium text-gray-700">
+                  Course
+                  <span className="text-red-500 ml-1">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <BookOpen className="w-5 h-5" />
+                  </div>
+                  <select
+                    id="course-select"
+                    value={selectedCourse}
+                    onChange={(e) => setSelectedCourse(e.target.value)}
+                    disabled={coursesLoading}
+                    className={`block w-full rounded-lg border-gray-300 border-2 shadow-sm focus:border-purple-500 focus:ring-purple-500 transition-colors duration-200 pl-10 pr-4 py-3 text-gray-900 ${
+                      coursesLoading ? 'bg-gray-100' : ''
+                    }`}
+                    required
+                  >
+                    <option value="">{coursesLoading ? "Loading courses..." : "Select a course"}</option>
+                    {!coursesLoading && courses.map((course) => (
+                      <option key={course.id} value={course.id}>
+                        {course.code} - {course.title} ({course.credit_hours} credits)
+                      </option>
+                    ))}
+                  </select>
+                  {coursesLoading && (
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                    </div>
+                  )}
+                </div>
+                {coursesError && (
+                  <p className="text-sm text-red-500 mt-1">{coursesError}</p>
+                )}
+                {!coursesLoading && courses.length === 0 && !coursesError && (
+                  <p className="text-sm text-gray-500 mt-1">No courses available. Please create courses first.</p>
+                )}
               </div>
 
               {/* GPS Coordinates Section */}
@@ -321,7 +419,7 @@ const CreateSession: React.FC = () => {
               <div className="flex flex-col sm:flex-row gap-4 pt-6">
                 <Button
                   onClick={handleCreateSession}
-                  disabled={loading}
+                  disabled={loading || coursesLoading || !selectedCourse}
                   className="flex-1 sm:flex-none"
                 >
                   {loading ? (

@@ -1,6 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Pencil, Trash2, ArrowLeft } from "lucide-react";
+
+interface Course {
+  id: number;
+  code: string;
+  title: string;
+  credit_hours: number;
+}
 
 interface Session {
   id: number;
@@ -10,6 +17,11 @@ interface Session {
   gps_longitude: number;
   allowed_radius: number;
   timestamp: string;
+  course: Course;
+  lecturer: {
+    id: number;
+    name: string;
+  };
 }
 
 // Custom Button Component
@@ -19,7 +31,8 @@ const Button: React.FC<{
   disabled?: boolean;
   variant?: "primary" | "secondary" | "danger";
   className?: string;
-}> = ({ children, onClick, disabled = false, variant = "primary", className = "" }) => {
+  type?: "button" | "submit";
+}> = ({ children, onClick, disabled = false, variant = "primary", className = "", type = "button" }) => {
   const baseStyles = "px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 min-w-fit";
   
   const variantStyles = {
@@ -30,6 +43,7 @@ const Button: React.FC<{
   
   return (
     <button
+      type={type}
       className={`${baseStyles} ${variantStyles[variant]} ${className} ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
       onClick={onClick}
       disabled={disabled}
@@ -51,7 +65,7 @@ const Card: React.FC<{
   );
 };
 
-// Toast mock (since we can't use external toast library)
+// Toast mock
 const toast = {
   success: (message: string) => alert(`✅ ${message}`),
   error: (message: string) => alert(`❌ ${message}`)
@@ -64,57 +78,55 @@ const SessionList: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [count, setCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
   const navigate = useNavigate();
 
-  const fetchSessions = React.useCallback(
-    async (url?: string) => {
-      setLoading(true);
-      try {
-        const token = localStorage.getItem("access_token");
-        const fetchUrl = url ?? `http://127.0.0.1:8000/api/sessions/?page=${currentPage}`;
+  const fetchSessions = useCallback(async (url?: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem("access_token");
+      const fetchUrl = url ?? `http://127.0.0.1:8000/api/sessions/?page=${currentPage}`;
 
-        const res = await fetch(fetchUrl, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+      const res = await fetch(fetchUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+      });
 
-        const contentType = res.headers.get("content-type");
-
-        if (!res.ok) {
-          const text = await res.text();
-          console.error("Fetch error response:", text);
-          throw new Error(`Fetch failed with status ${res.status}`);
-        }
-
-        if (!contentType || !contentType.includes("application/json")) {
-          throw new Error("Invalid content type: expected JSON");
-        }
-
-        const data = await res.json();
-        setSessions(data.results);
-        setNextUrl(data.next);
-        setPrevUrl(data.previous);
-        setCount(data.count);
-
-        // Extract page number from URL if possible to sync currentPage
-        if (url) {
-          const urlObj = new URL(url);
-          const pageParam = urlObj.searchParams.get("page");
-          if (pageParam) {
-            setCurrentPage(Number(pageParam));
-          }
-        }
-      } catch (error) {
-        console.error("Failed to fetch sessions:", error);
-        toast.error("Failed to load sessions.");
-      } finally {
-        setLoading(false);
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || `Failed to fetch sessions: ${res.status}`);
       }
-    },
-    [currentPage]
-  );
+
+      const data = await res.json();
+      
+      // Handle both paginated and non-paginated responses
+      const results = data.results || data;
+      setSessions(results);
+      setNextUrl(data.next);
+      setPrevUrl(data.previous);
+      setCount(data.count || results.length);
+
+      // Update current page if URL contains page parameter
+      if (url) {
+        const urlObj = new URL(url);
+        const pageParam = urlObj.searchParams.get("page");
+        if (pageParam) {
+          setCurrentPage(Number(pageParam));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch sessions:", err);
+      const errorMessage = typeof err === "object" && err !== null && "message" in err ? (err as { message?: string }).message : undefined;
+      setError(errorMessage || "Failed to load sessions");
+      toast.error(errorMessage || "Failed to load sessions");
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage]);
 
   const handleDelete = async (id: number) => {
     if (!window.confirm("Are you sure you want to delete this session?")) return;
@@ -126,20 +138,21 @@ const SessionList: React.FC = () => {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
         },
       });
 
-      if (res.ok) {
-        toast.success("Session deleted.");
-        // Refresh current page after deletion
-        fetchSessions();
-      } else {
-        const errorText = await res.text();
-        throw new Error(`Delete failed: ${errorText}`);
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || "Failed to delete session");
       }
-    } catch (error) {
-      console.error("Delete error:", error);
-      toast.error("Failed to delete session.");
+
+      toast.success("Session deleted successfully");
+      fetchSessions(); // Refresh the list
+    } catch (err) {
+      console.error("Delete error:", err);
+      const errorMessage = typeof err === "object" && err !== null && "message" in err ? (err as { message?: string }).message : undefined;
+      toast.error(errorMessage || "Failed to delete session");
     }
   };
 
@@ -158,104 +171,138 @@ const SessionList: React.FC = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="p-8 text-center">
+          <div className="text-red-500">
+            <p className="text-lg font-medium mb-2">Error loading sessions</p>
+            <p className="text-sm">{error}</p>
+            <Button
+              variant="secondary"
+              onClick={() => fetchSessions()}
+              className="mt-4"
+            >
+              Retry
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen bg-gray-50 flex flex-col">
       <div className="flex-1 px-6 py-6 overflow-hidden flex flex-col">
         {/* Header */}
         <div className="mb-6 flex-shrink-0">
-           <Button
-                          variant="secondary"
-                          onClick={() => navigate("/lecturerview")}
-                          className="hover:bg-blue-50 hover:text-blue-700"
-                        >
-                          <ArrowLeft className="w-4 h-4" />
-                          Back to Dashboard
-                        </Button>
+          <Button
+            variant="secondary"
+            onClick={() => navigate("/lecturerview")}
+            className="hover:bg-blue-50 hover:text-blue-700"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Dashboard
+          </Button>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Session Management</h1>
           <p className="text-gray-600">Manage your class sessions and attendance tracking</p>
         </div>
 
-        {/* Sessions Grid - Scrollable */}
+        {/* Sessions Grid */}
         <div className="flex-1 overflow-y-auto mb-6">
           <div className="space-y-4 pr-2">
-          {sessions.length === 0 ? (
-            <Card className="p-8 text-center">
-              <div className="text-gray-500">
-                <p className="text-lg font-medium mb-2">No sessions found</p>
-                <p className="text-sm">Create your first session to get started.</p>
-              </div>
-            </Card>
-          ) : (
-            sessions.map((session) => (
-              <Card key={session.id} className="p-6 hover:shadow-lg transition-shadow duration-200">
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                  {/* Session Info */}
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-3">
-                      <h3 className="text-xl font-semibold text-gray-900">{session.class_name}</h3>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        Active
-                      </span>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="font-medium text-gray-600">Session ID:</span>
-                        <span className="ml-2 text-gray-800 font-mono bg-gray-100 px-2 py-1 rounded">
-                          {session.session_id}
-                        </span>
-                      </div>
-                      
-                      <div>
-                        <span className="font-medium text-gray-600">Created:</span>
-                        <span className="ml-2 text-gray-800">
-                          {new Date(session.timestamp).toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="font-medium text-gray-600">Location:</span>
-                        <span className="ml-2 text-gray-800">
-                          {session.gps_latitude.toFixed(6)}, {session.gps_longitude.toFixed(6)}
-                        </span>
-                      </div>
-                      
-                      <div>
-                        <span className="font-medium text-gray-600">Allowed Radius:</span>
-                        <span className="ml-2 text-gray-800">{session.allowed_radius}m</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    <Button
-                      variant="secondary"
-                      onClick={() => navigate(`/lecturer/sessions/edit/${session.id}`)}
-                      className="hover:bg-blue-50 hover:text-blue-700"
-                    >
-                      <Pencil className="w-4 h-4" />
-                      Edit
-                    </Button>
-                    <Button
-                      variant="danger"
-                      onClick={() => handleDelete(session.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Delete
-                    </Button>
-                  </div>
+            {sessions.length === 0 ? (
+              <Card className="p-8 text-center">
+                <div className="text-gray-500">
+                  <p className="text-lg font-medium mb-2">No sessions found</p>
+                  <p className="text-sm">Create your first session to get started.</p>
                 </div>
               </Card>
-            ))
-          )}
+            ) : (
+              sessions.map((session) => (
+                <Card key={session.id} className="p-6 hover:shadow-lg transition-shadow duration-200">
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    {/* Session Info */}
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-xl font-semibold text-gray-900">{session.class_name}</h3>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          Active
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <span className="font-medium text-gray-600">Course:</span>
+                          <span className="ml-2 text-gray-800">
+                            {session.course.code} - {session.course.title}
+                          </span>
+                        </div>
+                        
+                        <div>
+                          <span className="font-medium text-gray-600">Session ID:</span>
+                          <span className="ml-2 text-gray-800 font-mono bg-gray-100 px-2 py-1 rounded">
+                            {session.session_id}
+                          </span>
+                        </div>
+                        
+                        <div>
+                          <span className="font-medium text-gray-600">Lecturer:</span>
+                          <span className="ml-2 text-gray-800">
+                            {session.lecturer.name}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <span className="font-medium text-gray-600">Location:</span>
+                          <span className="ml-2 text-gray-800">
+                            {session.gps_latitude.toFixed(6)}, {session.gps_longitude.toFixed(6)}
+                          </span>
+                        </div>
+                        
+                        <div>
+                          <span className="font-medium text-gray-600">Radius:</span>
+                          <span className="ml-2 text-gray-800">{session.allowed_radius}m</span>
+                        </div>
+                        
+                        <div>
+                          <span className="font-medium text-gray-600">Created:</span>
+                          <span className="ml-2 text-gray-800">
+                            {new Date(session.timestamp).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <Button
+                        variant="secondary"
+                        onClick={() => navigate(`/sessions/edit/${session.id}`)}
+                        className="hover:bg-blue-50 hover:text-blue-700"
+                      >
+                        <Pencil className="w-4 h-4" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="danger"
+                        onClick={() => handleDelete(session.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ))
+            )}
           </div>
         </div>
 
-        {/* Pagination Controls - Fixed at bottom */}
-        {sessions.length > 0 && (
+        {/* Pagination Controls */}
+        {count > 0 && (
           <div className="flex-shrink-0">
             <Card className="p-4">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">

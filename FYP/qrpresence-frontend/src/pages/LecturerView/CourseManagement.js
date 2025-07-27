@@ -9,14 +9,35 @@ export const CourseManagement = ({ courses, onCreateCourse, onSelectCourse, isLo
         credit_hours: 3
     });
     const [error, setError] = useState(null);
+    // Add this validation function
+    const validateCourseCode = (code) => {
+        // Example: Course codes should be like "CS101" - letters followed by numbers
+        return /^[A-Za-z]{2,4}\d{3,4}$/.test(code);
+    };
     const handleCreate = async () => {
-        if (!courseForm.code || !courseForm.title) {
+        // Trim all inputs
+        const trimmedData = {
+            code: courseForm.code.trim(),
+            title: courseForm.title.trim(),
+            description: courseForm.description.trim(),
+            credit_hours: courseForm.credit_hours
+        };
+        // Validation checks
+        if (!trimmedData.code || !trimmedData.title) {
             setError('Course code and title are required');
+            return;
+        }
+        if (!validateCourseCode(trimmedData.code)) {
+            setError('Course code must be in format like "CS101" (2-4 letters followed by 3-4 numbers)');
+            return;
+        }
+        if (trimmedData.credit_hours < 1 || trimmedData.credit_hours > 6) {
+            setError('Credit hours must be between 1 and 6');
             return;
         }
         try {
             setError(null);
-            await onCreateCourse(courseForm);
+            await onCreateCourse(trimmedData);
             setShowModal(false);
             setCourseForm({
                 code: '',
@@ -26,8 +47,8 @@ export const CourseManagement = ({ courses, onCreateCourse, onSelectCourse, isLo
             });
         }
         catch (err) {
-            setError('Failed to create course. Please try again.');
-            console.error('Course creation error:', err);
+            // Error message will come from handleCreateCourse
+            console.error('Creation error:', err);
         }
     };
     const handleFormChange = (e) => {

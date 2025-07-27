@@ -9,8 +9,8 @@ from authentication.permissions import IsLecturer,IsLecturerOrAdmin
 from django.utils.timezone import now
 from django.core.files.base import ContentFile
 import base64
-from .models import Session, Attendance, QRCode, Student, Lecturer, AttendanceRecord
-from .utils import haversine
+from .models import Session, Attendance, QRCode, Student, Lecturer
+from .utils import haversine, is_qr_valid
 from .serializers import StudentSerializer, AttendanceMarkSerializer, SessionSerializer,AttendanceLecturerViewSerializer
 from rest_framework import status, generics, serializers
 import logging
@@ -28,6 +28,9 @@ from .utils import AnalyticsAgent
 from attendance.ai_chat.llm_agent import answer_natural_language_query
 from .models import Course, Student, StudentCourseEnrollment
 from .serializers import CourseSerializer, EnrollmentSerializer
+from django.utils.timezone import is_aware, make_aware
+
+
  
 
 
@@ -35,7 +38,6 @@ from .serializers import CourseSerializer, EnrollmentSerializer
 
 # Configure logger
 logger = logging.getLogger(__name__)
-
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def mark_attendance(request):
@@ -57,9 +59,43 @@ def mark_attendance(request):
         except Student.DoesNotExist:
             return Response({'error': 'Student profile not found'}, status=status.HTTP_404_NOT_FOUND)
 
+        if not StudentCourseEnrollment.objects.filter(student=student, course=session.course).exists():
+            return Response({'error': 'You are not enrolled in this course'}, status=status.HTTP_403_FORBIDDEN)
+
+        # ✅ QR scan + location + time validity check
+        is_valid, message = is_qr_valid(session, now(), float(latitude), float(longitude))
+        if not is_valid:
+            return Response({'error': message}, status=status.HTTP_400_BAD_REQUEST)
+
         if Attendance.objects.filter(student=student, session=session).exists():
             return Response({'message': 'Attendance already marked for this session'}, status=status.HTTP_200_OK)
 
+        # Optional: fallback geolocation check if needed
+        try:
+            distance = haversine(
+                float(latitude),
+                float(longitude),
+                float(session.gps_latitude),
+                float(session.gps_longitude)
+            )
+        except Exception as e:
+            return Response({'error': f'Invalid coordinates: {str(e)}'}, status=400)
+
+        if distance > session.allowed_radius:
+            return Response({
+                'error': f'You are too far from the session location ({distance:.2f} meters). Allowed radius: {session.allowed_radius}m'
+            }, status=403)
+
+        # QR code expiration or fallback timeout
+        try:
+            qr_code = QRCode.objects.get(session=session)
+            if qr_code.expires_at and now() > qr_code.expires_at:
+                return Response({'error': 'QR code has expired. Attendance window closed.'}, status=403)
+        except QRCode.DoesNotExist:
+            if now() > session.timestamp + timedelta(minutes=15):
+                return Response({'error': 'Attendance window has closed.'}, status=403)
+
+        # Create attendance
         Attendance.objects.create(
             student=student,
             session=session,
@@ -67,20 +103,15 @@ def mark_attendance(request):
             longitude=longitude
         )
 
-        return Response({'message': 'Attendance marked successfully'}, status=status.HTTP_201_CREATED)
+        return Response({
+            'message': 'Attendance marked successfully',
+            'distance_from_class': f'{distance:.2f} meters'
+        }, status=status.HTTP_201_CREATED)
 
     except Exception as e:
         logger.exception("Error marking attendance")
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def attendance_record(request):
-    if getattr(request.user, 'role', None) != 'lecturer':
-        return Response({'error': 'Permission denied'}, status=403)
-
-    report = list(AttendanceRecord.objects.values('student_id', 'session_id', 'timestamp', 'status'))
-    return Response({'attendance_record': report})
+        return Response({'error': str(e)}, status=500)
+    
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -199,7 +230,7 @@ class AttendanceRecordFilter(FilterSet):
     status = ChoiceFilter(choices=STATUS_CHOICES)
 
     class Meta:
-        model = AttendanceRecord
+        model = Attendance
         fields = ['status', 'session', 'student']
 
 
@@ -341,79 +372,65 @@ def get_qr_codes(request):
 
 
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def create_course(request):
-    # Verify the user is a lecturer
-    if not request.user.role == 'lecturer':
-        return Response(
-            {'error': 'Only lecturers can create courses'},
-            status=status.HTTP_403_FORBIDDEN
-        )
+class EnrollStudentsView(APIView):
+    permission_classes = [IsAuthenticated]
 
-    serializer = CourseSerializer(data=request.data)
-    if serializer.is_valid():
-        # Automatically set the lecturer as the course creator
-        course = serializer.save(created_by=request.user)
-        return Response(
-            {'message': 'Course created successfully', 'course_id': course.id},
-            status=status.HTTP_201_CREATED
-        )
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def post(self, request, course_id):
+        try:
+            course = Course.objects.get(id=course_id)
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def enroll_students(request, course_id):
-    try:
-        course = Course.objects.get(id=course_id)
-        
-        # Verify the requesting lecturer owns the course
-        if course.created_by != request.user:
+            # Check ownership
+            if course.created_by != request.user:
+                return Response(
+                    {'error': 'You can only enroll students in your own courses'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            student_ids = request.data.get('student_ids', [])
+            students = Student.objects.filter(id__in=student_ids)
+
+            if len(students) != len(student_ids):
+                return Response(
+                    {'error': 'One or more student IDs are invalid'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            enrollments = []
+            for student in students:
+                enrollment, created = StudentCourseEnrollment.objects.get_or_create(
+                    student=student,
+                    course=course,
+                    defaults={'enrolled_by': request.user}
+                )
+                if created:
+                    enrollments.append(enrollment)
+
             return Response(
-                {'error': 'You can only enroll students in your own courses'},
-                status=status.HTTP_403_FORBIDDEN
+                {
+                    'message': f'Successfully enrolled {len(enrollments)} students',
+                    'enrolled_count': len(enrollments),
+                    'duplicates': len(student_ids) - len(enrollments)
+                },
+                status=status.HTTP_201_CREATED
             )
 
-        student_ids = request.data.get('student_ids', [])
-        
-        # Validate student IDs exist
-        students = Student.objects.filter(id__in=student_ids)
-        if len(students) != len(student_ids):
+        except Course.DoesNotExist:
             return Response(
-                {'error': 'One or more student IDs are invalid'},
-                status=status.HTTP_400_BAD_REQUEST
+                {'error': 'Course not found'},
+                status=status.HTTP_404_NOT_FOUND
+
             )
-
-        # Create enrollments
-        enrollments = []
-        for student in students:
-            enrollment, created = StudentCourseEnrollment.objects.get_or_create(
-                student=student,
-                course=course,
-                defaults={'enrolled_by': request.user}
-            )
-            if created:
-                enrollments.append(enrollment)
-
-        return Response(
-            {
-                'message': f'Successfully enrolled {len(enrollments)} students',
-                'enrolled_count': len(enrollments),
-                'duplicates': len(student_ids) - len(enrollments)
-            },
-            status=status.HTTP_201_CREATED
-        )
-
-    except Course.DoesNotExist:
-        return Response(
-            {'error': 'Course not found'},
-            status=status.HTTP_404_NOT_FOUND
-        )
-    
+        
+        
 class LecturerCourseView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        if request.user.role != 'lecturer':
+            return Response(
+                {'error': 'Only lecturers can create courses'},
+                status=status.HTTP_403_FORBIDDEN
+            )
         courses = Course.objects.filter(created_by=request.user)
         serializer = CourseSerializer(courses, many=True)
         return Response(serializer.data)
@@ -424,15 +441,28 @@ class LecturerCourseView(APIView):
             serializer.save(created_by=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+    
+    
 class LecturerEnrollmentView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, course_id):
+    def get(self, request):
+        # This handles the /lecturer/enrollments/ GET request
+        # For example: list all enrollments for courses the lecturer owns
+        enrollments = StudentCourseEnrollment.objects.filter(enrolled_by=request.user)
+        serializer = EnrollmentSerializer(enrollments, many=True)
+        return Response(serializer.data)
+
+    def post(self, request, course_id=None):
+        if course_id is None:
+            return Response(
+                {"error": "Course ID is required to enroll students."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         try:
             course = Course.objects.get(id=course_id, created_by=request.user)
             student_ids = request.data.get('student_ids', [])
-            
+
             enrollments = []
             for student_id in student_ids:
                 enrollment, created = StudentCourseEnrollment.objects.get_or_create(
@@ -442,13 +472,13 @@ class LecturerEnrollmentView(APIView):
                 )
                 if created:
                     enrollments.append(enrollment)
-            
+
             serializer = EnrollmentSerializer(enrollments, many=True)
             return Response({
                 'message': 'Students enrolled successfully',
                 'enrollments': serializer.data
             }, status=status.HTTP_201_CREATED)
-            
+
         except Course.DoesNotExist:
             return Response(
                 {'error': 'Course not found or access denied'},

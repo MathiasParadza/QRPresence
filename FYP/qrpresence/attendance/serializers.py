@@ -15,31 +15,26 @@ class SessionSerializer(serializers.ModelSerializer):
             'id',
             'session_id',
             'class_name',
+            'lecturer',  # <-- Added (required, since it's a ForeignKey)
+            'course',    # <-- Added (required, since it's a ForeignKey)
             'gps_latitude',
             'gps_longitude',
             'allowed_radius',
             'timestamp',
+            'attendance_window',  # <-- Added (optional, but part of the model)
         ]
         read_only_fields = ['id', 'timestamp']
+        extra_kwargs = {
+            'lecturer': {'required': True},  # Enforce lecturer is provided
+            'course': {'required': True},     # Enforce course is provided
+        }
 
     def validate_session_id(self, value):
-        # This validation is for creating/updating sessions, not for marking attendance against one.
-        # If this serializer is ONLY for creating, this is fine.
-        # If it can be used for updates where session_id is writable, it might need adjustment
-        # to allow the same ID on the instance being updated.
-        # For now, assuming it's primarily for creation or session_id is read-only on update.
-        if self.instance is None and Session.objects.filter(session_id=value).exists(): # Check only on create
+        if self.instance is None and Session.objects.filter(session_id=value).exists():
             raise serializers.ValidationError("Session ID must be unique.")
-        if self.instance and self.instance.session_id != value and Session.objects.filter(session_id=value).exists(): # Check on update if changed
-             raise serializers.ValidationError("Session ID must be unique.")
+        if self.instance and self.instance.session_id != value and Session.objects.filter(session_id=value).exists():
+            raise serializers.ValidationError("Session ID must be unique.")
         return value
-    
-    def get_qr_code_url(self, obj):
-        request = self.context.get('request')
-        if obj.qr_code and request:
-            return request.build_absolute_uri(obj.qr_code.url)
-        return None
-
 
 class StudentSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
@@ -47,9 +42,6 @@ class StudentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Student
         fields = ['student_id', 'user', 'name', 'email', 'program']
-        extra_kwargs = {
-            'email': {'required': True, 'allow_blank': False}
-        }
 
     def validate_email(self, value):
         if not value:

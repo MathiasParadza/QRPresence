@@ -34,37 +34,58 @@ class LogoutUserView(APIView):
         # You could add token blacklisting here if needed.
         return Response({"message": "Logout handled on frontend by deleting token."}, status=status.HTTP_200_OK)
 
-
 class UserProfileView(APIView):
     """
-    Retrieve or update user profile information.
+    Retrieve or update student/lecturer profile.
     """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        profile = request.user.profile
-        return Response({
-            "username": request.user.username,
-            "email": request.user.email,
-            "bio": profile.bio,
-            "location": profile.location,
-            "profile_picture": profile.profile_picture.url if profile.profile_picture else None,
-        }, status=status.HTTP_200_OK)
+        user = request.user
+
+        if hasattr(user, 'student_profile'):
+            student = user.student_profile
+            return Response({
+                "role": "student",
+                "username": user.username,
+                "email": student.email,
+                "name": student.name,
+                "program": student.program,
+                "student_id": student.student_id,
+            })
+
+        elif hasattr(user, 'lecturer_profile'):
+            lecturer = user.lecturer_profile
+            return Response({
+                "role": "lecturer",
+                "username": user.username,
+                "email": lecturer.email,
+                "name": lecturer.name,
+                "department": lecturer.department,
+                "is_admin": lecturer.is_admin,
+            })
+
+        return Response({"detail": "No associated profile found."}, status=status.HTTP_404_NOT_FOUND)
 
     def put(self, request):
-        profile = request.user.profile
-        profile.bio = request.data.get('bio', profile.bio)
-        profile.location = request.data.get('location', profile.location)
-        profile.profile_picture = request.data.get('profile_picture', profile.profile_picture)
-        profile.save()
+        user = request.user
+        data = request.data
 
-        return Response({
-            "message": "Profile updated successfully.",
-            "bio": profile.bio,
-            "location": profile.location,
-            "profile_picture": profile.profile_picture.url if profile.profile_picture else None,
-        }, status=status.HTTP_200_OK)
+        if hasattr(user, 'student_profile'):
+            student = user.student_profile
+            student.name = data.get('name', student.name)
+            student.program = data.get('program', student.program)
+            student.save()
+            return Response({"message": "Student profile updated successfully."})
 
+        elif hasattr(user, 'lecturer_profile'):
+            lecturer = user.lecturer_profile
+            lecturer.name = data.get('name', lecturer.name)
+            lecturer.department = data.get('department', lecturer.department)
+            lecturer.save()
+            return Response({"message": "Lecturer profile updated successfully."})
+
+        return Response({"detail": "No profile found to update."}, status=status.HTTP_404_NOT_FOUND)
 
 class PasswordResetView(APIView):
     """

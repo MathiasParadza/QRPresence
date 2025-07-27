@@ -107,7 +107,6 @@ const App = () => {
           }
         />
 
-
         {/* Dashboard Route */}
         <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
 
