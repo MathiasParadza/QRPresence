@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import type { JSX } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import LoadingSpinner from '../components/LoadingSpinner';
 import LecturerView from '@/pages/LecturerView/LecturerView';
-import AdminView from '@/pages/AdminView/AdminView';
 import StudentView from '@/pages/StudentView/StudentView';
 
 interface User {
   name: string;
-  role: 'student' | 'lecturer' | 'admin';
+  role: 'student' | 'lecturer' | 'admin' | string;
 }
+
+const API_BASE_URL = 'http://127.0.0.1:8000/api';
 
 const getAccessToken = (): string | null => localStorage.getItem('access_token');
 
@@ -21,7 +21,7 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchUserData = async (): Promise<void> => {
+    const fetchUser = async () => {
       const token = getAccessToken();
       if (!token) {
         navigate('/login');
@@ -29,13 +29,20 @@ const Dashboard: React.FC = () => {
       }
 
       try {
-        const response = await axios.get<User>('http://127.0.0.1:8000/api/user/', {
-          headers: { Authorization: `Bearer ${token}` },
+        const res = await fetch(`${API_BASE_URL}/user/`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         });
-        setUser(response.data);
-        setError(null);
+
+        if (!res.ok) {
+          throw new Error(`Failed to fetch user: ${res.statusText}`);
+        }
+
+        const data: User = await res.json();
+        setUser(data);
       } catch (err) {
-        console.error('Failed to fetch user data:', err);
+        console.error('Error fetching user:', err);
         localStorage.removeItem('access_token');
         navigate('/login');
         setError('Failed to load user data');
@@ -44,36 +51,16 @@ const Dashboard: React.FC = () => {
       }
     };
 
-    fetchUserData();
+    fetchUser();
   }, [navigate]);
 
-  const handleRetry = (): void => {
+  const handleRetry = () => {
     setLoading(true);
     setError(null);
-    const token = getAccessToken();
-    if (!token) {
-      navigate('/login');
-      return;
-    }
-
-    axios
-      .get<User>('http://127.0.0.1:8000/api/user/', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then((res) => {
-        setUser(res.data);
-        setError(null);
-      })
-      .catch((err) => {
-        console.error('Retry failed:', err);
-        setError('Failed to load user data');
-      })
-      .then(() => {
-        setLoading(false);
-      });
+    window.location.reload();
   };
 
-  const handleLogout = (): void => {
+  const handleLogout = () => {
     localStorage.removeItem('access_token');
     navigate('/login');
   };
@@ -145,13 +132,10 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  // Role-based rendering
   const renderRoleBasedView = (): JSX.Element => {
     switch (user.role) {
       case 'lecturer':
         return <LecturerView />;
-      case 'admin':
-        return <AdminView />;
       case 'student':
         return <StudentView />;
       default:

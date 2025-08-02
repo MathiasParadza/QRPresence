@@ -15,7 +15,7 @@ from .views import LecturerCourseView, LecturerEnrollmentView
 
 
 router = DefaultRouter()
-router.register(r'lecturer-attendance', LecturerAttendanceViewSet, basename='lecturer-attendance')
+router.register(r'', LecturerAttendanceViewSet, basename='lecturer-attendance')
 
 
 urlpatterns = [
@@ -29,7 +29,7 @@ urlpatterns = [
     path('students/', StudentListCreateAPIView.as_view(), name='student-list'),
     path('students/<int:pk>/', StudentDetailAPIView.as_view(), name='student-detail'),
     path('students/export-csv/', export_students_csv, name='export-students-csv'),
-    path('api/attendance/absent/<str:session_id>/', AbsentStudentsView.as_view(), name='absent-students'),
+    path('attendance/absent/<str:session_id>/', AbsentStudentsView.as_view(), name='absent-students'),
     path('ai-chat/', AttendanceAIChatView.as_view(), name='attendance-ai-chat'),
     path('qr-codes/', get_qr_codes),
     #course management
@@ -38,6 +38,7 @@ urlpatterns = [
     path('lecturer/courses/<int:pk>/', LecturerCourseView.as_view(), name='course-detail'),
     #enrollment management
     path('lecturer/enrollments/', LecturerEnrollmentView.as_view(), name='enrollment-list'),
-    path('lecturer/enrollments/<int:course_id>/enroll/', LecturerEnrollmentView.as_view(), name='enroll-students')
+    path('lecturer/enrollments/<int:course_id>/enroll/', LecturerEnrollmentView.as_view(), name='enroll-students'),
+
     
 ]

@@ -1,9 +1,22 @@
 import { jsx as _jsx } from "react/jsx-runtime";
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-export function Tabs({ defaultValue, children, className }) {
-    const [activeTab, setActiveTab] = React.useState(defaultValue);
-    const contextValue = React.useMemo(() => ({ activeTab, setActiveTab }), [activeTab]);
+export function Tabs({ defaultValue, value, onValueChange, children, className }) {
+    const isControlled = value !== undefined;
+    const [internalValue, setInternalValue] = React.useState(defaultValue);
+    const activeTab = isControlled ? value : internalValue;
+    const handleValueChange = React.useCallback((newValue) => {
+        if (!isControlled) {
+            setInternalValue(newValue);
+        }
+        if (onValueChange) {
+            onValueChange(newValue);
+        }
+    }, [isControlled, onValueChange]);
+    const contextValue = React.useMemo(() => ({
+        activeTab,
+        setActiveTab: handleValueChange
+    }), [activeTab, handleValueChange]);
     return (_jsx("div", { className: cn('w-full', className), children: _jsx(TabsContext.Provider, { value: contextValue, children: children }) }));
 }
 const TabsContext = React.createContext({});

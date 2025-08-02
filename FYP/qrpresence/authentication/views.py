@@ -1,42 +1,43 @@
-from django.contrib.auth import get_user_model, authenticate
+from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
+from django.db import transaction
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework_simplejwt.views import TokenObtainPairView
-from attendance.serializers import StudentSerializer
+
 from .serializers import UserSerializer
-from .models import UserProfile, CustomUser
-from django.db import transaction
+from .models import CustomUser
 from attendance.models import Student, Lecturer
-from django.core.validators import validate_email
-from django.core.exceptions import ValidationError
+from attendance.serializers import StudentSerializer
 
 
-
-# JWT login view (extend if needed)
+# Custom JWT Login View
 class MyTokenObtainPairView(TokenObtainPairView):
+    """
+    Extends default JWT login view if needed in the future.
+    """
     pass
-
-
 
 
 class LogoutUserView(APIView):
     """
-    Handle user logout.
+    Handles user logout. JWT token deletion is handled client-side.
     """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        # JWT tokens can't be forcibly invalidated on the server without extra setup.
-        # You could add token blacklisting here if needed.
         return Response({"message": "Logout handled on frontend by deleting token."}, status=status.HTTP_200_OK)
+
 
 class UserProfileView(APIView):
     """
-    Retrieve or update student/lecturer profile.
+    Retrieve or update a user's profile depending on their role.
     """
     permission_classes = [IsAuthenticated]
 
@@ -87,9 +88,11 @@ class UserProfileView(APIView):
 
         return Response({"detail": "No profile found to update."}, status=status.HTTP_404_NOT_FOUND)
 
+
 class PasswordResetView(APIView):
     """
-    Handle password reset by sending a reset token to the user's email.
+    Sends a password reset token to the user's email.
+    (Email sending needs to be implemented separately.)
     """
     def post(self, request):
         email = request.data.get('email')
@@ -98,21 +101,20 @@ class PasswordResetView(APIView):
             return Response({"error": "Email is required."}, status=status.HTTP_400_BAD_REQUEST)
 
         user = get_user_model().objects.filter(email=email).first()
-
         if not user:
             return Response({"error": "User with this email does not exist."}, status=status.HTTP_404_NOT_FOUND)
 
         token = default_token_generator.make_token(user)
-
+        # Here you'd normally send the token via email.
         return Response({
-            "message": "Password reset token has been sent.",
+            "message": "Password reset token has been generated.",
             "reset_token": token
         }, status=status.HTTP_200_OK)
 
 
 class ChangePasswordView(APIView):
     """
-    Handle changing of a user's password.
+    Allow authenticated users to change their password.
     """
     permission_classes = [IsAuthenticated]
 
@@ -128,13 +130,15 @@ class ChangePasswordView(APIView):
 
         request.user.set_password(new_password)
         request.user.save()
-
         return Response({"message": "Password changed successfully."}, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def current_user(request):
+    """
+    Return serialized user info (for frontend auth check).
+    """
     serializer = UserSerializer(request.user)
     return Response(serializer.data)
 
@@ -142,84 +146,57 @@ def current_user(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register(request):
+    """
+    Handle user registration (student or lecturer).
+    """
     data = request.data
-    
-    # Required fields check
     required_fields = ['username', 'email', 'password', 'role', 'name']
-    missing_fields = [field for field in required_fields if field not in data]
-    if missing_fields:
-        return Response(
-            {'error': f'Missing required fields: {", ".join(missing_fields)}'}, 
-            status=status.HTTP_400_BAD_REQUEST
-        )
+    missing = [field for field in required_fields if field not in data]
 
-    # Data preparation
-    username = data.get('username', '').strip()
-    email = data.get('email', '').strip().lower()
-    password = data.get('password')
-    role = data.get('role').lower()
-    name = data.get('name', '').strip()
-    
-    # Validate email format
+    if missing:
+        return Response({'error': f"Missing required fields: {', '.join(missing)}"}, status=400)
+
+    username = data['username'].strip()
+    email = data['email'].strip().lower()
+    password = data['password']
+    role = data['role'].lower()
+    name = data['name'].strip()
+
+    # Email format validation
     try:
         validate_email(email)
     except ValidationError:
-        return Response(
-            {'email': ['Enter a valid email address.']}, 
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({'email': ['Enter a valid email address.']}, status=400)
 
-    # Check for existing users
+    # Username & email uniqueness
     if CustomUser.objects.filter(username=username).exists():
-        return Response(
-            {'username': ['This username is already taken.']}, 
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
+        return Response({'username': ['This username is already taken.']}, status=400)
     if CustomUser.objects.filter(email=email).exists():
-        return Response(
-            {'email': ['This email is already registered.']}, 
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({'email': ['This email is already registered.']}, status=400)
 
-    # Role validation
     if role not in ['student', 'lecturer']:
-        return Response(
-            {'error': 'Invalid role. Must be either "student" or "lecturer".'}, 
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({'error': 'Invalid role. Must be either "student" or "lecturer".'}, status=400)
 
-    # Role-specific processing
     try:
         with transaction.atomic():
-            # Create user (common for both roles)
             user = CustomUser.objects.create_user(
                 username=username,
                 email=email,
                 password=password,
                 role=role,
-                first_name=name.split()[0] if name else '',
+                first_name=name.split()[0],
                 last_name=' '.join(name.split()[1:]) if len(name.split()) > 1 else ''
             )
 
             if role == 'student':
-                # Student-specific validation
                 student_id = data.get('student_id', '').strip()
                 program = data.get('program', '').strip()
-                
-                if not student_id:
-                    return Response(
-                        {'student_id': ['Student ID is required.']}, 
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-                
-                if Student.objects.filter(student_id=student_id).exists():
-                    return Response(
-                        {'student_id': ['This Student ID already exists.']}, 
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
 
-                # Create student profile
+                if not student_id:
+                    return Response({'student_id': ['Student ID is required.']}, status=400)
+                if Student.objects.filter(student_id=student_id).exists():
+                    return Response({'student_id': ['This Student ID already exists.']}, status=400)
+
                 Student.objects.create(
                     user=user,
                     student_id=student_id,
@@ -227,44 +204,33 @@ def register(request):
                     program=program
                 )
 
-                return Response(
-                    {
-                        'message': 'Student registered successfully',
-                        'user_id': user.id,
-                        'student_id': student_id
-                    }, 
-                    status=status.HTTP_201_CREATED
-                )
+                return Response({
+                    'message': 'Student registered successfully',
+                    'user_id': user.id,
+                    'student_id': student_id
+                }, status=201)
 
             elif role == 'lecturer':
-                # Create lecturer profile
                 lecturer, created = Lecturer.objects.get_or_create(
                     user=user,
                     defaults={'name': name}
                 )
-                
                 if not created:
-                    return Response(
-                        {'error': 'Lecturer profile already exists for this user.'},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
+                    return Response({'error': 'Lecturer profile already exists.'}, status=400)
 
-                return Response(
-                    {
-                        'message': 'Lecturer registered successfully',
-                        'user_id': user.id
-                    }, 
-                    status=status.HTTP_201_CREATED
-                )
+                return Response({
+                    'message': 'Lecturer registered successfully',
+                    'user_id': user.id
+                }, status=201)
 
     except Exception as e:
-        return Response(
-            {'error': f'Registration failed: {str(e)}'}, 
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({'error': f"Registration failed: {str(e)}"}, status=400)
 
-# Student Profile Update View
+
 class StudentProfileUpdateView(APIView):
+    """
+    Allow a student to view and update their own profile.
+    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):

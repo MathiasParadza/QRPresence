@@ -220,53 +220,79 @@ def student_overview(request):
         'attendance_history': history_data
     })
 
-
-class AttendanceRecordFilter(FilterSet):
-    STATUS_CHOICES = [
-        ('Present', 'Present'),
-        ('Absent', 'Absent'),
-    ]
-
-    status = ChoiceFilter(choices=STATUS_CHOICES)
-
-    class Meta:
-        model = Attendance
-        fields = ['status', 'session', 'student']
-
-
 class LecturerAttendanceViewSet(viewsets.ModelViewSet):
     serializer_class = AttendanceLecturerViewSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = AttendanceFilter
+    permission_classes = [IsAuthenticated, IsLecturerOrAdmin]
 
     def get_queryset(self):
-        # Check if user has lecturer profile
+        """
+        Returns attendance records only for sessions belonging to the requesting lecturer.
+        Includes optimizations for related data fetching.
+        """
+        user = self.request.user
+        
+        # For admin users, return all attendance records
+        if user.role == 'admin':
+            return Attendance.objects.all().select_related(
+                'student__user',
+                'session',
+                'session__course',
+                'session__lecturer'
+            ).order_by('-check_in_time')
+        
+        # For lecturers, return only their own sessions' attendance
         try:
-            lecturer_profile = self.request.user.lecturer
+            lecturer = user.lecturer_profile
+            return Attendance.objects.filter(
+                session__lecturer=lecturer
+            ).select_related(
+                'student__user',
+                'session',
+                'session__course'
+            ).order_by('-check_in_time')
         except AttributeError:
             raise PermissionDenied("User is not associated with a lecturer profile")
-            
-        return Attendance.objects.filter(
-            session__lecturer=lecturer_profile
-        ).select_related('student__user', 'session').order_by('-check_in_time')
 
     def list(self, request, *args, **kwargs):
+        """
+        Enhanced list view with:
+        - Pagination
+        - Detailed counts
+        - Course filtering
+        - Permission checks
+        """
         try:
             queryset = self.filter_queryset(self.get_queryset())
-            response = super().list(request, *args, **kwargs)
+            
+            # Apply additional filters from query parameters
+            course_id = request.query_params.get('course_id')
+            if course_id:
+                queryset = queryset.filter(session__course_id=course_id)
+                
+            date_from = request.query_params.get('date_from')
+            date_to = request.query_params.get('date_to')
+            if date_from and date_to:
+                queryset = queryset.filter(
+                    check_in_time__date__range=[date_from, date_to]
+                )
 
-            response.data['counts'] = {
-                'all': queryset.count(),
-                'present': queryset.filter(status='Present').count(),
-                'absent': queryset.filter(status='Absent').count(),
-                'by_date': {
-                    'today': queryset.filter(check_in_time__date=timezone.now().date()).count(),
-                    'week': queryset.filter(check_in_time__date__gte=timezone.now().date() - timedelta(days=7)).count(),
-                    'month': queryset.filter(check_in_time__month=timezone.now().month).count(),
-                    'year': queryset.filter(check_in_time__year=timezone.now().year).count(),
-                }
-            }
-            return response
+            # Pagination
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response({
+                    'results': serializer.data,
+                    'counts': self._get_counts_data(queryset)
+                })
+
+            serializer = self.get_serializer(queryset, many=True)
+            
+            return Response({
+                'results': serializer.data,
+                'counts': self._get_counts_data(queryset)
+            })
             
         except PermissionDenied as e:
             return Response(
@@ -274,11 +300,33 @@ class LecturerAttendanceViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         except Exception as e:
+            logger.exception("Error in LecturerAttendanceViewSet")
             return Response(
                 {"detail": "An error occurred while processing your request"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-            
+    
+    def _get_counts_data(self, queryset):
+        """Helper method to generate counts data for the response"""
+        today = timezone.now().date()
+        return {
+            'total': queryset.count(),
+            'present': queryset.filter(status='Present').count(),
+            'absent': queryset.filter(status='Absent').count(),
+            'by_time_period': {
+                'today': queryset.filter(check_in_time__date=today).count(),
+                'this_week': queryset.filter(
+                    check_in_time__date__gte=today - timedelta(days=7)
+                ).count(),
+                'this_month': queryset.filter(
+                    check_in_time__month=today.month,
+                    check_in_time__year=today.year
+                ).count(),
+                'this_year': queryset.filter(
+                    check_in_time__year=today.year
+                ).count(),
+            }
+        }
 
 class StudentListCreateAPIView(generics.ListCreateAPIView):
     queryset = Student.objects.all().order_by('student_id')
@@ -372,28 +420,27 @@ def get_qr_codes(request):
 
 
 
-class EnrollStudentsView(APIView):
+class LecturerEnrollmentView(APIView):
     permission_classes = [IsAuthenticated]
 
+    def get(self, request):
+        """List all enrollments for courses created by the lecturer"""
+        enrollments = StudentCourseEnrollment.objects.filter(course__created_by=request.user)
+        serializer = EnrollmentSerializer(enrollments, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
     def post(self, request, course_id):
+        """Enroll students to a course the lecturer owns"""
         try:
             course = Course.objects.get(id=course_id)
-
-            # Check ownership
             if course.created_by != request.user:
-                return Response(
-                    {'error': 'You can only enroll students in your own courses'},
-                    status=status.HTTP_403_FORBIDDEN
-                )
+                return Response({'error': 'Unauthorized for this course'}, status=status.HTTP_403_FORBIDDEN)
 
             student_ids = request.data.get('student_ids', [])
             students = Student.objects.filter(id__in=student_ids)
 
             if len(students) != len(student_ids):
-                return Response(
-                    {'error': 'One or more student IDs are invalid'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                return Response({'error': 'One or more student IDs are invalid'}, status=status.HTTP_400_BAD_REQUEST)
 
             enrollments = []
             for student in students:
@@ -405,21 +452,14 @@ class EnrollStudentsView(APIView):
                 if created:
                     enrollments.append(enrollment)
 
-            return Response(
-                {
-                    'message': f'Successfully enrolled {len(enrollments)} students',
-                    'enrolled_count': len(enrollments),
-                    'duplicates': len(student_ids) - len(enrollments)
-                },
-                status=status.HTTP_201_CREATED
-            )
+            return Response({
+                'message': f'Successfully enrolled {len(enrollments)} students',
+                'enrolled_count': len(enrollments),
+                'duplicates': len(student_ids) - len(enrollments)
+            }, status=status.HTTP_201_CREATED)
 
         except Course.DoesNotExist:
-            return Response(
-                {'error': 'Course not found'},
-                status=status.HTTP_404_NOT_FOUND
-
-            )
+            return Response({'error': 'Course not found'}, status=status.HTTP_404_NOT_FOUND)
         
         
 class LecturerCourseView(APIView):

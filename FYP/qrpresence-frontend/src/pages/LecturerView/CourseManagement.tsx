@@ -1,248 +1,258 @@
-import { useState } from 'react';
-import { Course } from '@/types';
+import React, { useEffect, useState } from 'react';
 
-export interface CourseManagementProps {
-  courses: Course[];
-  isLoading: boolean;
-  onCreateCourse: (courseData: Omit<Course, 'id' | 'created_by'>) => Promise<void>;
-  onSelectCourse: (courseId: number | null) => void;
-  showCourseModal: boolean;
-  courseForm: {
-    code: string;
-    title: string;
-    description: string;
-    credit_hours: number;
-  };
-  setCourseForm: React.Dispatch<React.SetStateAction<{
-    code: string;
-    title: string;
-    description: string;
-    credit_hours: number;
-  }>>;
-  setShowCourseModal: React.Dispatch<React.SetStateAction<boolean>>;
-}
-interface CourseFormState {
-  code: string;
+interface Course {
+  id: number;
   title: string;
+  code: string;
   description: string;
   credit_hours: number;
 }
 
-export const CourseManagement = ({ 
-  courses, 
-  onCreateCourse,
-  onSelectCourse,
-  isLoading = false
-}: CourseManagementProps) => {
-  const [showModal, setShowModal] = useState(false);
-  const [courseForm, setCourseForm] = useState<CourseFormState>({
-    code: '',
-    title: '',
-    description: '',
-    credit_hours: 3
-  });
-  const [error, setError] = useState<string | null>(null);
-// Add this validation function
-const validateCourseCode = (code: string) => {
-  // Example: Course codes should be like "CS101" - letters followed by numbers
-  return /^[A-Za-z]{2,4}\d{3,4}$/.test(code);
-};
+interface ApiError {
+  detail?: string;
+  error?: string;
+  message?: string;
+  status_code?: number;
+}
 
-const handleCreate = async () => {
-  // Trim all inputs
-  const trimmedData = {
-    code: courseForm.code.trim(),
-    title: courseForm.title.trim(),
-    description: courseForm.description.trim(),
-    credit_hours: courseForm.credit_hours
+const CourseManagement: React.FC = () => {
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [formData, setFormData] = useState({
+    title: '',
+    code: '',
+    description: '',
+    credit_hours: '',
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<ApiError | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const fetchCourses = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/lecturer/courses/', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!res.ok) {
+        const errorData: ApiError = await res.json();
+        throw {
+          status: res.status,
+          ...errorData
+        };
+      }
+
+      const data: Course[] = await res.json();
+      setCourses(data);
+      setSuccess('Courses loaded successfully');
+    } catch (err: unknown) {
+      handleApiError(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Validation checks
-  if (!trimmedData.code || !trimmedData.title) {
-    setError('Course code and title are required');
-    return;
-  }
+  const handleApiError = (err: unknown) => {
+    if (typeof err === 'object' && err !== null) {
+      const errorObj = err as ApiError & { status?: number };
+      if (errorObj.status === 401) {
+        setError({
+          detail: 'Authentication failed. Please login again.',
+          status_code: 401
+        });
+      } else if (errorObj.detail || errorObj.error) {
+        setError(errorObj);
+      } else if (errorObj.message) {
+        setError({ detail: errorObj.message });
+      } else {
+        setError({ detail: 'An unexpected error occurred' });
+      }
+    } else {
+      setError({ detail: 'An unexpected error occurred' });
+    }
+  };
 
-  if (!validateCourseCode(trimmedData.code)) {
-    setError('Course code must be in format like "CS101" (2-4 letters followed by 3-4 numbers)');
-    return;
-  }
+  useEffect(() => {
+    fetchCourses();
+  }, []);
 
-  if (trimmedData.credit_hours < 1 || trimmedData.credit_hours > 6) {
-    setError('Credit hours must be between 1 and 6');
-    return;
-  }
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
 
-  try {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
     setError(null);
-    await onCreateCourse(trimmedData);
-    setShowModal(false);
-    setCourseForm({
-      code: '',
-      title: '',
-      description: '',
-      credit_hours: 3
-    });
-  } catch (err) {
-    // Error message will come from handleCreateCourse
-    console.error('Creation error:', err);
-  }
-};
+    setSuccess(null);
 
-  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setCourseForm(prev => ({
-      ...prev,
-      [name]: name === 'credit_hours' ? Number(value) : value
-    }));
+    try {
+      const res = await fetch('/api/lecturer/courses/create/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          ...formData,
+          credit_hours: Number(formData.credit_hours),
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData: ApiError = await res.json();
+        throw {
+          status: res.status,
+          ...errorData
+        };
+      }
+
+      const data: Course = await res.json();
+      setCourses(prev => [...prev, data]);
+      setFormData({ title: '', code: '', description: '', credit_hours: '' });
+      setSuccess('Course created successfully!');
+    } catch (err: unknown) {
+      handleApiError(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatError = (error: ApiError | null) => {
+    if (!error) return null;
+    
+    if (error.detail) return error.detail;
+    if (error.error) return error.error;
+    if (error.message) return error.message;
+    
+    return 'An unknown error occurred';
   };
 
   return (
-    <div className="space-y-8">
-      <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-xl font-semibold text-purple-800">Your Courses</h1>
-          <button
-            onClick={() => setShowModal(true)}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-            aria-label="Create new course"
+    <div className="max-w-4xl mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-4">Course Management</h1>
+
+      {/* Create Course Form */}
+      <form onSubmit={handleSubmit} className="space-y-4 mb-8 bg-white shadow p-4 rounded">
+        <h2 className="text-xl font-semibold">Create New Course</h2>
+        
+        <div>
+          <label className="block font-medium">Title</label>
+          <input
+            name="title"
+            value={formData.title}
+            onChange={handleChange}
+            className="w-full p-2 border rounded"
+            required
+            placeholder="Enter course name"
+          />
+        </div>
+        
+        <div>
+          <label className="block font-medium">Code</label>
+          <input
+            name="code"
+            value={formData.code}
+            onChange={handleChange}
+            className="w-full p-2 border rounded"
+            required
+            placeholder="Enter course code"
+          />
+        </div>
+        
+        <div>
+          <label className="block font-medium">Description</label>
+          <textarea
+            name="description"
+            value={formData.description}
+            onChange={handleChange}
+            className="w-full p-2 border rounded"
+            required
+            placeholder="Enter course description"
+            rows={3}
+          />
+        </div>
+        
+        <div>
+          <label className="block font-medium">Credit Hours</label>
+          <input
+            name="credit_hours"
+            type="number"
+            min={1}
+            value={formData.credit_hours}
+            onChange={handleChange}
+            className="w-full p-2 border rounded"
+            required
+            placeholder="Enter credit hours"
+          />
+        </div>
+        
+        <button
+          type="submit"
+          disabled={loading}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded disabled:bg-blue-400"
+        >
+          {loading ? 'Creating...' : 'Add Course'}
+        </button>
+        
+        {error && (
+          <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+            <strong>Error:</strong> {formatError(error)}
+            {error.status_code && ` (Status: ${error.status_code})`}
+          </div>
+        )}
+        
+        {success && (
+          <div className="p-3 bg-green-100 border border-green-400 text-green-700 rounded">
+            {success}
+          </div>
+        )}
+      </form>
+
+      {/* Course List */}
+      <div className="bg-white shadow p-4 rounded">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">Your Courses</h2>
+          <button 
+            onClick={fetchCourses} 
+            disabled={loading}
+            className="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded text-sm disabled:opacity-50"
           >
-            + Create Course
+            Refresh
           </button>
         </div>
-
-        {isLoading ? (
+        
+        {loading && courses.length === 0 ? (
           <div className="text-center py-8">Loading courses...</div>
+        ) : courses.length === 0 ? (
+          <div className="text-center py-8">No courses found.</div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="space-y-3">
             {courses.map(course => (
-              <article 
-                key={course.id} 
-                className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-              >
-                <h2 className="font-bold text-lg">{course.code} - {course.title}</h2>
-                <p className="text-gray-600 text-sm mt-1">{course.credit_hours} credit hours</p>
-                <p className="text-gray-500 text-sm mt-2 line-clamp-2">{course.description}</p>
-                <button
-                  onClick={() => onSelectCourse(course.id)}
-                  className="mt-3 w-full bg-blue-100 hover:bg-blue-200 text-blue-800 py-1 rounded text-sm transition-colors"
-                  aria-label={`Manage students for ${course.code}`}
-                >
-                  Manage Students
-                </button>
-              </article>
+              <div key={course.id} className="border p-4 rounded hover:shadow-md transition-shadow">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-lg font-bold">
+                      {course.title} <span className="text-blue-600">({course.code})</span>
+                    </h3>
+                    <p className="text-gray-700 mt-1">{course.description}</p>
+                  </div>
+                  <span className="bg-gray-200 px-2 py-1 rounded text-sm">
+                    {course.credit_hours} credit hour{course.credit_hours !== 1 ? 's' : ''}
+                  </span>
+                </div>
+              </div>
             ))}
           </div>
         )}
       </div>
-
-      {/* Course Creation Modal */}
-      {showModal && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="modal-title"
-        >
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h2 id="modal-title" className="text-lg font-semibold">Create New Course</h2>
-              <button 
-                onClick={() => setShowModal(false)}
-                className="text-gray-500 hover:text-gray-700"
-                aria-label="Close modal"
-              >
-                &times;
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="course-code" className="block text-sm font-medium text-gray-700 mb-1">
-                  Course Code*
-                </label>
-                <input
-                  id="course-code"
-                  type="text"
-                  name="code"
-                  placeholder="CS101"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                  value={courseForm.code}
-                  onChange={handleFormChange}
-                  required
-                />
-              </div>
-
-              <div>
-                <label htmlFor="course-title" className="block text-sm font-medium text-gray-700 mb-1">
-                  Course Title*
-                </label>
-                <input
-                  id="course-title"
-                  type="text"
-                  name="title"
-                  placeholder="Introduction to Computer Science"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                  value={courseForm.title}
-                  onChange={handleFormChange}
-                  required
-                />
-              </div>
-
-              <div>
-                <label htmlFor="course-description" className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
-                </label>
-                <textarea
-                  id="course-description"
-                  name="description"
-                  placeholder="Course description"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                  rows={3}
-                  value={courseForm.description}
-                  onChange={handleFormChange}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="credit-hours" className="block text-sm font-medium text-gray-700 mb-1">
-                  Credit Hours
-                </label>
-                <input
-                  id="credit-hours"
-                  type="number"
-                  name="credit_hours"
-                  min="1"
-                  max="6"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                  value={courseForm.credit_hours}
-                  onChange={handleFormChange}
-                />
-              </div>
-
-              {error && (
-                <p className="text-red-500 text-sm">{error}</p>
-              )}
-            </div>
-
-            <div className="flex justify-end space-x-2 mt-6">
-              <button
-                onClick={() => setShowModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreate}
-                disabled={isLoading || !courseForm.code || !courseForm.title}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-300"
-              >
-                {isLoading ? 'Creating...' : 'Create Course'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
+
+export default CourseManagement;

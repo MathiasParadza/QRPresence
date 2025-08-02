@@ -1,174 +1,160 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import Dialog from '@/components/ui/Dialog';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/button';
-import { Pencil, Trash2 } from 'lucide-react';
-import api from '@/utils/api';
-import { ArrowLeft } from "lucide-react";
+import { Pencil, Trash2, ArrowLeft } from 'lucide-react';
+import { fetchWithAuth } from '@/lib/api';
 import { useNavigate } from 'react-router-dom';
+import type { StudentProfile, PaginatedResponse } from '@/types/user';
 
-
-interface User {
-  username: string;
-}
-
-interface Student {
-  student_id: number;
-  user: User;
-  name: string;
-  email: string;
-  program: string;
-}
-
-interface PaginatedResponse {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: Student[];
-}
+type Status = 'idle' | 'loading' | 'success' | 'error';
 
 const StudentManager: React.FC = () => {
-  const [students, setStudents] = useState<Student[]>([]);
+  const [students, setStudents] = useState<StudentProfile[]>([]);
   const [next, setNext] = useState<string | null>(null);
   const [previous, setPrevious] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [programFilter, setProgramFilter] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editStudent, setEditStudent] = useState<Student | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
+  const [editStudent, setEditStudent] = useState<StudentProfile | null>(null);
+  const [status, setStatus] = useState<Status>('idle');
+  const navigate = useNavigate();
 
-  const fetchStudents = React.useCallback(async (url: string = '/api/students/') => {
-    setLoading(true);
+  const fetchStudents = useCallback(async (url: string = '/api/students/') => {
+    setStatus('loading');
     try {
-      const res = await api.get<PaginatedResponse>(url, {
-        params: {
-          search: search?.trim() || undefined,
-          program: programFilter?.trim() || undefined,
-        },
-      });
-      setStudents(res.data.results || []);
-      setNext(res.data.next);
-      setPrevious(res.data.previous);
+      // Build query string
+      const params = new URLSearchParams();
+      if (search.trim()) params.append('search', search.trim());
+      if (programFilter.trim()) params.append('program', programFilter.trim());
+      const fetchUrl = url.includes('?') ? `${url}&${params.toString()}` : `${url}?${params.toString()}`;
+      const { data } = await fetchWithAuth<PaginatedResponse<StudentProfile>>(fetchUrl);
+      if (data) {
+        setStudents(data.results);
+        setNext(data.next);
+        setPrevious(data.previous);
+        setStatus('success');
+      } else {
+        setStudents([]);
+        setNext(null);
+        setPrevious(null);
+        setStatus('error');
+        toast.error('Failed to fetch students: No data returned');
+      }
     } catch (error) {
-      console.error('Error fetching students:', error);
-      toast.error('Failed to fetch students');
+      setStatus('error');
+      toast.error(error instanceof Error ? error.message : 'Failed to fetch students');
       setStudents([]);
-    } finally {
-      setLoading(false);
     }
   }, [search, programFilter]);
 
   useEffect(() => {
     fetchStudents();
-  }, [search, programFilter, fetchStudents]);
+  }, [fetchStudents]);
 
-  const handleCreate = async (): Promise<void> => {
+  const openEditModal = (student: StudentProfile | null = null) => {
+    setEditStudent(student || {
+      student_id: 0,
+      name: '',
+      email: '',
+      program: '',
+      user: {
+        id: 0,
+        username: '',
+        email: '',
+        role: 'student'
+      }
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleSubmit = async () => {
     if (!editStudent?.student_id) {
-      toast.error('Student ID required');
+      toast.error('Student ID is required');
       return;
     }
-    
-    setIsSubmitting(true);
+
+    setStatus('loading');
     try {
-      await api.post('/api/students/', editStudent);
-      toast.success('Student created successfully');
+      const method = editStudent.student_id ? 'PUT' : 'POST';
+      const url = editStudent.student_id 
+        ? `/api/students/${editStudent.student_id}/` 
+        : '/api/students/';
+
+      await fetchWithAuth(url, {
+        method,
+        body: JSON.stringify(editStudent),
+      });
+
+      toast.success(`Student ${method === 'POST' ? 'created' : 'updated'} successfully`);
       setIsDialogOpen(false);
       setEditStudent(null);
       fetchStudents();
     } catch (error) {
-      console.error('Create error:', error);
-      toast.error('Failed to create student');
-    } finally {
-      setIsSubmitting(false);
+      setStatus('error');
+      toast.error(error instanceof Error ? error.message : 'Operation failed');
     }
   };
 
-  const handleUpdate = async (): Promise<void> => {
-    if (!editStudent?.student_id) return;
-    
-    setIsSubmitting(true);
-    try {
-      await api.put(`/api/students/${editStudent.student_id}/`, editStudent);
-      toast.success('Student updated successfully');
-      setIsDialogOpen(false);
-      setEditStudent(null);
-      fetchStudents();
-    } catch (error) {
-      console.error('Update error:', error);
-      toast.error('Failed to update student');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDelete = async (student_id: number): Promise<void> => {
+  const handleDelete = async (studentId: number) => {
     if (!confirm('Are you sure you want to delete this student?')) return;
-    
+
+    setStatus('loading');
     try {
-      await api.delete(`/api/students/${student_id}/`);
+      await fetchWithAuth(`/api/students/${studentId}/`, { method: 'DELETE' });
       toast.success('Student deleted successfully');
       fetchStudents();
     } catch (error) {
-      console.error('Delete error:', error);
-      toast.error('Failed to delete student');
+      setStatus('error');
+      toast.error(error instanceof Error ? error.message : 'Deletion failed');
     }
   };
 
-  const exportCsv = async (): Promise<void> => {
+  const exportCsv = async () => {
+    setStatus('loading');
     try {
-      const response = await api.get('/api/students/export-csv/', {
-        responseType: 'blob'
+
+      const token = localStorage.getItem('access_token');
+      const response = await fetch('/api/students/export-csv/', {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       });
-      
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      if (!response.ok) throw new Error('Failed to export CSV');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', 'students.csv');
       document.body.appendChild(link);
       link.click();
       link.parentNode?.removeChild(link);
-    } catch (error) {
-      console.error('Export error:', error);
+    } catch {
+      setStatus('error');
       toast.error('Failed to export CSV');
+    } finally {
+      setStatus('idle');
     }
   };
 
-  const openEditModal = (student: Student | null = null): void => {
-    setEditStudent(student || {
-      student_id: 0,
-      user: { username: '' },
-      name: '',
-      email: '',
-      program: ''
-    });
-    setIsDialogOpen(true);
-  };
 
-  const closeModal = (): void => {
-    setIsDialogOpen(false);
-    setEditStudent(null);
-  };
-
+  const isLoading = status === 'loading';
   const isCreateMode = !editStudent?.student_id;
-  const navigate = useNavigate();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-         
         <div className="mb-8">
-         
-           <Button
-             variant="secondary"
-             onClick={() => navigate('/lecturerview')}
-             className="hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 mb-4"
-            >
-           <ArrowLeft className="w-4 h-4" />
-              Back to Dashboard
-           </Button>
+          <Button
+            variant="secondary"
+            onClick={() => navigate('/lecturerview')}
+            className="hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 mb-4"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Dashboard
+          </Button>
 
           <h2 className="text-3xl font-bold text-purple-800 mb-2">Student Management</h2>
           <p className="text-gray-600">Manage student records and information</p>
@@ -178,14 +164,11 @@ const StudentManager: React.FC = () => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
           <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-end">
             <div className="flex-1 min-w-0">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Search Students
-              </label>
               <Input
+                label="Search Students"
                 placeholder="Search by username or name..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full border-gray-300 focus:ring-purple-500 focus:border-purple-500"
               />
             </div>
             
@@ -195,30 +178,29 @@ const StudentManager: React.FC = () => {
               </label>
               <select
                 value={programFilter}
+                aria-label="Filter by Program"
                 onChange={(e) => setProgramFilter(e.target.value)}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 bg-white text-gray-900 focus:ring-purple-500 focus:border-purple-500"
-                aria-label="Filter by program"
               >
                 <option value="">All Programs</option>
                 <option value="Computer Science">Computer Science</option>
                 <option value="Information Tech">Information Tech</option>
                 <option value="Engineering">Engineering</option>
-                <option value="Networking and information security">Networking</option>
               </select>
             </div>
 
             <div className="flex gap-3">
               <Button 
                 onClick={exportCsv} 
-                disabled={loading}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isLoading}
+                className="bg-green-600 hover:bg-green-700"
               >
                 Export CSV
               </Button>
               <Button 
                 onClick={() => openEditModal()} 
-                disabled={loading}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isLoading}
+                className="bg-purple-600 hover:bg-purple-700"
               >
                 Add Student
               </Button>
@@ -253,7 +235,7 @@ const StudentManager: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {loading ? (
+                {isLoading ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center">
                       <div className="flex items-center justify-center">
@@ -267,30 +249,27 @@ const StudentManager: React.FC = () => {
                     <td colSpan={6} className="px-6 py-12 text-center">
                       <div className="text-gray-500">
                         <p className="text-lg mb-2">No students found</p>
-                        <p className="text-sm">Try adjusting your search criteria or add a new student</p>
+                        <p className="text-sm">Try adjusting your search criteria</p>
                       </div>
                     </td>
                   </tr>
                 ) : (
-                  students.map((student, index) => (
-                    <tr 
-                      key={student.student_id} 
-                      className={`hover:bg-gray-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}
-                    >
+                  students.map((student) => (
+                    <tr key={student.student_id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
                         {student.student_id}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {student.user.username}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {student.name}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {student.email}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
                           {student.program}
                         </span>
                       </td>
@@ -299,16 +278,16 @@ const StudentManager: React.FC = () => {
                           <Button
                             variant="ghost"
                             onClick={() => openEditModal(student)}
-                            className="p-2 text-green-600 hover:text-blue-800 hover:bg-blue-100 rounded-md transition-colors"
+                            aria-label="Edit student"
                           >
-                            <Pencil className="h-4 w-4" title="Edit student" />
+                            <Pencil className="h-4 w-4 text-blue-600" />
                           </Button>
                           <Button
                             variant="ghost"
                             onClick={() => handleDelete(student.student_id)}
-                            className="p-2 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-md transition-colors"
+                            aria-label="Delete student"
                           >
-                            <Trash2 className="h-4 w-4" title="Delete student" />
+                            <Trash2 className="h-4 w-4 text-red-600" />
                           </Button>
                         </div>
                       </td>
@@ -325,174 +304,102 @@ const StudentManager: React.FC = () => {
           <div className="flex justify-center items-center space-x-4 mt-6">
             <Button
               onClick={() => previous && fetchStudents(previous)}
-              disabled={!previous || loading}
-              className="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!previous || isLoading}
+              className="bg-gray-600 hover:bg-gray-700"
             >
               Previous
             </Button>
             <Button
               onClick={() => next && fetchStudents(next)}
-              disabled={!next || loading}
-              className="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!next || isLoading}
+              className="bg-gray-600 hover:bg-gray-700"
             >
               Next
             </Button>
           </div>
         )}
 
-        {/* Modal Dialog */}
-        <Dialog isOpen={isDialogOpen} onClose={closeModal}>
-          <div className="bg-white rounded-lg p-6 w-full max-w-lg mx-4">
-            <div className="space-y-6">
-              <div className="border-b border-gray-200 pb-4">
-                <h3 className="text-xl font-semibold text-purple-800">
-                  {isCreateMode ? 'Add New Student' : 'Edit Student'}
-                </h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  {isCreateMode ? 'Enter student information below' : 'Update student details'}
-                </p>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <Input
-                    label="Student ID"
-                    placeholder="Enter student ID"
-                    type="number"
-                    value={editStudent?.student_id || ''}
-                    onChange={(e) =>
-                      setEditStudent((prev) => ({
-                        ...(prev || {
-                          student_id: 0,
-                          user: { username: '' },
-                          name: '',
-                          email: '',
-                          program: '',
-                        }),
-                        student_id: Number(e.target.value),
-                      }))
-                    }
-                    className="border-gray-300 focus:ring-purple-500 focus:border-purple-500"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <Input
-                    label="Username"
-                    placeholder="Enter username"
-                    value={editStudent?.user.username || ''}
-                    onChange={(e) =>
-                      setEditStudent((prev) => ({
-                        ...(prev || {
-                          student_id: 0,
-                          user: { username: '' },
-                          name: '',
-                          email: '',
-                          program: '',
-                        }),
-                        user: { username: e.target.value },
-                      }))
-                    }
-                    className="border-gray-300 focus:ring-purple-500 focus:border-purple-500"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <Input
-                    label="Full Name"
-                    placeholder="Enter full name"
-                    value={editStudent?.name || ''}
-                    onChange={(e) =>
-                      setEditStudent((prev) => ({
-                        ...(prev || {
-                          student_id: 0,
-                          user: { username: '' },
-                          name: '',
-                          email: '',
-                          program: '',
-                        }),
-                        name: e.target.value,
-                      }))
-                    }
-                    className="border-gray-300 focus:ring-purple-500 focus:border-purple-500"
-                  />
-                </div>
-                
-                <div>
-                  <Input
-                    label="Email Address"
-                    placeholder="Enter email"
-                    type="email"
-                    value={editStudent?.email || ''}
-                    onChange={(e) =>
-                      setEditStudent((prev) => ({
-                        ...(prev || {
-                          student_id: 0,
-                          user: { username: '' },
-                          name: '',
-                          email: '',
-                          program: '',
-                        }),
-                        email: e.target.value,
-                      }))
-                    }
-                    className="border-gray-300 focus:ring-purple-500 focus:border-purple-500"
-                  />
-                </div>
-                
-                <div>
-                  <Input
-                    label="Program"
-                    placeholder="Enter program"
-                    value={editStudent?.program || ''}
-                    onChange={(e) =>
-                      setEditStudent((prev) => ({
-                        ...(prev || {
-                          student_id: 0,
-                          user: { username: '' },
-                          name: '',
-                          email: '',
-                          program: '',
-                        }),
-                        program: e.target.value,
-                      }))
-                    }
-                    className="border-gray-300 focus:ring-purple-500 focus:border-purple-500"
-                  />
-                </div>
-              </div>
-              
-              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-                <Button 
-                  variant="outline" 
-                  onClick={closeModal}
-                  className="px-4 py-2 border-gray-300 text-gray-700 hover:bg-gray-50 rounded-md"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={isCreateMode ? handleCreate : handleUpdate}
-                  disabled={isSubmitting}
-                  className={`px-6 py-2 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed ${
-                    isCreateMode 
-                      ? 'bg-green-600 hover:bg-green-700' 
-                      : 'bg-blue-600 hover:bg-blue-700'
-                  }`}
-                >
-                  {isSubmitting
-                    ? (
-                        <div className="flex items-center">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Processing...
-                        </div>
-                      )
-                    : isCreateMode
-                    ? 'Create Student'
-                    : 'Update Student'}
-                </Button>
-              </div>
+        {/* Edit/Create Dialog */}
+        <Dialog 
+          isOpen={isDialogOpen} 
+          onClose={() => setIsDialogOpen(false)}
+          aria-labelledby="student-dialog-title"
+        >
+          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+            <h3 id="student-dialog-title" className="text-xl font-semibold text-purple-800 mb-4">
+              {isCreateMode ? 'Add New Student' : 'Edit Student'}
+            </h3>
+            
+            <div className="space-y-4">
+              <Input
+                name="student_id"
+                label="Student ID"
+                type="number"
+                value={editStudent?.student_id || ''}
+                onChange={(e) => setEditStudent(prev => ({
+                  ...prev!,
+                  student_id: parseInt(e.target.value) || 0
+                }))}
+                required
+              />
+              <Input
+                name="username"
+                label="Username"
+                value={editStudent?.user.username || ''}
+                onChange={(e) => setEditStudent(prev => ({
+                  ...prev!,
+                  user: {
+                    ...prev!.user,
+                    username: e.target.value
+                  }
+                }))}
+                required
+              />
+              <Input
+                name="name"
+                label="Full Name"
+                value={editStudent?.name || ''}
+                onChange={(e) => setEditStudent(prev => ({
+                  ...prev!,
+                  name: e.target.value
+                }))}
+              />
+              <Input
+                name="email"
+                label="Email"
+                type="email"
+                value={editStudent?.email || ''}
+                onChange={(e) => setEditStudent(prev => ({
+                  ...prev!,
+                  email: e.target.value
+                }))}
+              />
+              <Input
+                name="program"
+                label="Program"
+                value={editStudent?.program || ''}
+                onChange={(e) => setEditStudent(prev => ({
+                  ...prev!,
+                  program: e.target.value
+                }))}
+              />
+            </div>
+
+            <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={isLoading}
+                className={isCreateMode ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}
+                aria-busy={isLoading}
+              >
+                {isLoading ? 'Processing...' : isCreateMode ? 'Create' : 'Update'}
+              </Button>
             </div>
           </div>
         </Dialog>

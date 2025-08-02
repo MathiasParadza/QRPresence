@@ -3,14 +3,31 @@ import { cn } from '@/lib/utils';
 
 export interface TabsProps {
   defaultValue?: string;
+  value?: string;
+  onValueChange?: (value: string) => void;
   children: React.ReactNode;
   className?: string;
 }
 
-export function Tabs({ defaultValue, children, className }: TabsProps) {
-  const [activeTab, setActiveTab] = React.useState(defaultValue);
+export function Tabs({ defaultValue, value, onValueChange, children, className }: TabsProps) {
+  const isControlled = value !== undefined;
+  const [internalValue, setInternalValue] = React.useState(defaultValue);
+  
+  const activeTab = isControlled ? value : internalValue;
 
-  const contextValue = React.useMemo(() => ({ activeTab, setActiveTab }), [activeTab]);
+  const handleValueChange = React.useCallback((newValue: string) => {
+    if (!isControlled) {
+      setInternalValue(newValue);
+    }
+    if (onValueChange) {
+      onValueChange(newValue);
+    }
+  }, [isControlled, onValueChange]);
+
+  const contextValue = React.useMemo(() => ({ 
+    activeTab, 
+    setActiveTab: handleValueChange 
+  }), [activeTab, handleValueChange]);
 
   return (
     <div className={cn('w-full', className)}>

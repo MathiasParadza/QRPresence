@@ -15,6 +15,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 import os
+from datetime import timedelta
 #from google.cloud import firestore
 
 
@@ -55,6 +56,14 @@ INSTALLED_APPS = [
     'drf_yasg',
     'corsheaders',
 ]
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -73,7 +82,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8001",  # Add your frontend's URL (with port 8001)
     "http://localhost:8000",  # For local development if you're running React locally
 ]
-CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_CREDENTIALS = True  # Allow cookies to be included in CORS requests
 
 CORS_ALLOW_HEADERS = [
     'content-type',
@@ -193,9 +202,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 #API PERMISSIONS
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.TokenAuthentication',
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+       'rest_framework_simplejwt.authentication.JWTAuthentication',
+       'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',

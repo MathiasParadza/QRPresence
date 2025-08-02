@@ -1,4 +1,6 @@
-import { useNavigate } from 'react-router-dom';
+			  
+			  
+			  import { useNavigate } from 'react-router-dom';
 export const ActionCards = () => {
   const navigate = useNavigate();
   
@@ -40,7 +42,7 @@ export const ActionCards = () => {
           👥 Manage Students
         </button>
         <button
-          onClick={() => navigate('/courses')}
+          onClick={() => navigate('#courses')}
           className="w-full bg-blue-400 hover:bg-blue-500 text-white py-3 rounded-lg font-medium transition-colors duration-200"
         >
           ➕ Enroll Students
@@ -50,7 +52,7 @@ export const ActionCards = () => {
       <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-indigo-800 mb-4">Course Management</h2>
         <button
-          onClick={() => navigate('/courses')}
+          onClick={() => navigate('#courses')}
           className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg font-medium transition-colors duration-200"
         >
           🎓 Manage Courses
