@@ -2,6 +2,7 @@ from django.db import models
 from django.utils.timezone import now
 from django.conf import settings
 from datetime import timedelta
+from django.contrib.auth.models import User
 
 class Student(models.Model):
     student_id = models.CharField(max_length=20, primary_key=True)  # Keep manually assigned ID
@@ -55,19 +56,26 @@ class Course(models.Model):
         related_name='created_courses'
     )
     created_at = models.DateTimeField(auto_now_add=True)
-
+# models.py
 class StudentCourseEnrollment(models.Model):
-    student = models.ForeignKey(Student, on_delete=models.CASCADE)
-    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    student = models.ForeignKey('Student', on_delete=models.CASCADE)
+    course = models.ForeignKey('Course', on_delete=models.CASCADE)
     enrolled_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True
+        on_delete=models.CASCADE,
+        verbose_name='Enrolling Lecturer'
     )
     enrolled_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = ('student', 'course')
+        indexes = [
+            models.Index(fields=['student', 'course']),
+            models.Index(fields=['course', 'student']),
+        ]
+
+    def __str__(self):
+        return f"{self.student} in {self.course} (by {self.enrolled_by})"
         
 class Session(models.Model):
     session_id = models.CharField(max_length=100, unique=True)  # <-- manually entered ID

@@ -12,7 +12,7 @@ import CreateSession from "./pages/LecturerView/CreateSession";
 import SessionList from "./pages/LecturerView/SessionList";
 import SessionEdit from "./pages/LecturerView/SessionEdit";
 import StudentManager from "./pages/LecturerView/StudentManager";
-import EnrollStudents from "./pages/LecturerView/EnrollStudents";
+
 
 // Components
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -23,6 +23,7 @@ import AIChatAssistant from "./components/AIChatAssistant";
 // Types
 import { User } from "./types/user";
 import CourseManagement from "./pages/LecturerView/CourseManagement";
+import BulkEnrollmentManager from "./pages/LecturerView/BulkEnrollmentManager";
 
 const App = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -110,7 +111,7 @@ const App = () => {
           element={
             user?.role === "lecturer" ? (
               <ErrorBoundary>
-                <EnrollStudents />
+                <BulkEnrollmentManager />
               </ErrorBoundary>
             ) : (
               <Navigate to="/login" replace />

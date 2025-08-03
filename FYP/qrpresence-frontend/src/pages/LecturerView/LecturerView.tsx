@@ -245,7 +245,7 @@ const LecturerView: React.FC = () => {
                        onClick={() => navigate('/manage-courses')}
                        className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium transition-colors"
                     >
-                     📚 Go to Course Management
+                     📚 Course Management
                     </button>
                </div>
 

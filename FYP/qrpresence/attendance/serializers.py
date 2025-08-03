@@ -135,9 +135,15 @@ class CourseSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'created_by': {'read_only': True}
         }
-
 class EnrollmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudentCourseEnrollment
-        fields = ['id', 'student', 'course', 'enrolled_at', 'enrolled_by']
-        read_only_fields = ['enrolled_at', 'enrolled_by']
+        fields = ['id', 'student', 'course', 'enrolled_by', 'enrolled_at']
+        read_only_fields = ['enrolled_by', 'enrolled_at']
+
+
+class BulkEnrollmentSerializer(serializers.Serializer):
+    course_id = serializers.IntegerField()
+    student_ids = serializers.ListField(
+        child=serializers.IntegerField()
+    )

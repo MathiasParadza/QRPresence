@@ -29,6 +29,7 @@ from attendance.ai_chat.llm_agent import answer_natural_language_query
 from .models import Course, Student, StudentCourseEnrollment
 from .serializers import CourseSerializer, EnrollmentSerializer
 from django.utils.timezone import is_aware, make_aware
+from .serializers import BulkEnrollmentSerializer
 
 
  
@@ -524,3 +525,51 @@ class LecturerEnrollmentView(APIView):
                 {'error': 'Course not found or access denied'},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+class LecturerBulkEnrollmentView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        serializer = BulkEnrollmentSerializer(data=request.data, many=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        results = []
+        for enrollment_data in serializer.validated_data:
+            try:
+                course = Course.objects.get(
+                    id=enrollment_data['course_id'],
+                    created_by=request.user  # This assumes created_by uses AUTH_USER_MODEL
+                )
+                
+                enrollments = [
+                    StudentCourseEnrollment(
+                        student_id=student_id,
+                        course=course,
+                        enrolled_by=request.user  # Using the request user
+                    )
+                    for student_id in enrollment_data['student_ids']
+                ]
+                
+                created = StudentCourseEnrollment.objects.bulk_create(
+                    enrollments,
+                    ignore_conflicts=True
+                )
+                
+                results.append({
+                    'course_id': course.id,
+                    'course_code': course.code,
+                    'enrolled_count': len(created),
+                    'skipped_count': len(enrollment_data['student_ids']) - len(created)
+                })
+                
+            except Course.DoesNotExist:
+                results.append({
+                    'course_id': enrollment_data['course_id'],
+                    'error': 'Course not found or access denied'
+                })
+        
+        return Response({
+            'results': results,
+            'total_enrolled': sum(r.get('enrolled_count', 0) for r in results)
+        }, status=status.HTTP_207_MULTI_STATUS)
