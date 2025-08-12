@@ -425,43 +425,71 @@ class LecturerEnrollmentView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        """List all enrollments for courses created by the lecturer"""
-        enrollments = StudentCourseEnrollment.objects.filter(course__created_by=request.user)
-        serializer = EnrollmentSerializer(enrollments, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def post(self, request, course_id):
-        """Enroll students to a course the lecturer owns"""
-        try:
-            course = Course.objects.get(id=course_id)
-            if course.created_by != request.user:
-                return Response({'error': 'Unauthorized for this course'}, status=status.HTTP_403_FORBIDDEN)
-
-            student_ids = request.data.get('student_ids', [])
-            students = Student.objects.filter(id__in=student_ids)
-
-            if len(students) != len(student_ids):
-                return Response({'error': 'One or more student IDs are invalid'}, status=status.HTTP_400_BAD_REQUEST)
-
-            enrollments = []
-            for student in students:
-                enrollment, created = StudentCourseEnrollment.objects.get_or_create(
-                    student=student,
-                    course=course,
-                    defaults={'enrolled_by': request.user}
+        """List enrollments - optionally filtered by course_id"""
+        course_id = request.query_params.get('course_id')
+        
+        if course_id:
+            try:
+                course = Course.objects.get(id=course_id, created_by=request.user)
+                enrollments = StudentCourseEnrollment.objects.filter(course=course)
+            except Course.DoesNotExist:
+                return Response(
+                    {'error': 'Course not found or access denied'},
+                    status=status.HTTP_404_NOT_FOUND
                 )
-                if created:
-                    enrollments.append(enrollment)
+        else:
+            enrollments = StudentCourseEnrollment.objects.filter(course__created_by=request.user)
+        
+        serializer = EnrollmentSerializer(enrollments, many=True)
+        return Response(serializer.data)
 
+    def post(self, request):
+        """Handle student enrollment"""
+        course_id = request.query_params.get('course_id') or request.data.get('course_id')
+        
+        if not course_id:
+            return Response(
+                {"error": "Course ID is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            course = Course.objects.get(id=course_id, created_by=request.user)
+            student_ids = request.data.get('student_ids', [])
+            
+            if not student_ids:
+                return Response(
+                    {"error": "No student IDs provided."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Create enrollments
+            enrollments = []
+            for student_id in student_ids:
+                try:
+                    student = Student.objects.get(student_id=student_id)
+                    enrollment, created = StudentCourseEnrollment.objects.get_or_create(
+                        student=student,
+                        course=course,
+                        defaults={'enrolled_by': request.user}
+                    )
+                    if created:
+                        enrollments.append(enrollment)
+                except Student.DoesNotExist:
+                    continue
+
+            serializer = EnrollmentSerializer(enrollments, many=True)
             return Response({
                 'message': f'Successfully enrolled {len(enrollments)} students',
-                'enrolled_count': len(enrollments),
+                'enrollments': serializer.data,
                 'duplicates': len(student_ids) - len(enrollments)
             }, status=status.HTTP_201_CREATED)
 
         except Course.DoesNotExist:
-            return Response({'error': 'Course not found'}, status=status.HTTP_404_NOT_FOUND)
-        
+            return Response(
+                {'error': 'Course not found or access denied'},
+                status=status.HTTP_404_NOT_FOUND
+            )
         
 class LecturerCourseView(APIView):
     permission_classes = [IsAuthenticated]
@@ -483,93 +511,3 @@ class LecturerCourseView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    
-class LecturerEnrollmentView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        # This handles the /lecturer/enrollments/ GET request
-        # For example: list all enrollments for courses the lecturer owns
-        enrollments = StudentCourseEnrollment.objects.filter(enrolled_by=request.user)
-        serializer = EnrollmentSerializer(enrollments, many=True)
-        return Response(serializer.data)
-
-    def post(self, request, course_id=None):
-        if course_id is None:
-            return Response(
-                {"error": "Course ID is required to enroll students."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        try:
-            course = Course.objects.get(id=course_id, created_by=request.user)
-            student_ids = request.data.get('student_ids', [])
-
-            enrollments = []
-            for student_id in student_ids:
-                enrollment, created = StudentCourseEnrollment.objects.get_or_create(
-                    student_id=student_id,
-                    course=course,
-                    defaults={'enrolled_by': request.user}
-                )
-                if created:
-                    enrollments.append(enrollment)
-
-            serializer = EnrollmentSerializer(enrollments, many=True)
-            return Response({
-                'message': 'Students enrolled successfully',
-                'enrollments': serializer.data
-            }, status=status.HTTP_201_CREATED)
-
-        except Course.DoesNotExist:
-            return Response(
-                {'error': 'Course not found or access denied'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-class LecturerBulkEnrollmentView(APIView):
-    permission_classes = [IsAuthenticated]
-    
-    def post(self, request):
-        serializer = BulkEnrollmentSerializer(data=request.data, many=True)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
-        results = []
-        for enrollment_data in serializer.validated_data:
-            try:
-                course = Course.objects.get(
-                    id=enrollment_data['course_id'],
-                    created_by=request.user  # This assumes created_by uses AUTH_USER_MODEL
-                )
-                
-                enrollments = [
-                    StudentCourseEnrollment(
-                        student_id=student_id,
-                        course=course,
-                        enrolled_by=request.user  # Using the request user
-                    )
-                    for student_id in enrollment_data['student_ids']
-                ]
-                
-                created = StudentCourseEnrollment.objects.bulk_create(
-                    enrollments,
-                    ignore_conflicts=True
-                )
-                
-                results.append({
-                    'course_id': course.id,
-                    'course_code': course.code,
-                    'enrolled_count': len(created),
-                    'skipped_count': len(enrollment_data['student_ids']) - len(created)
-                })
-                
-            except Course.DoesNotExist:
-                results.append({
-                    'course_id': enrollment_data['course_id'],
-                    'error': 'Course not found or access denied'
-                })
-        
-        return Response({
-            'results': results,
-            'total_enrolled': sum(r.get('enrolled_count', 0) for r in results)
-        }, status=status.HTTP_207_MULTI_STATUS)

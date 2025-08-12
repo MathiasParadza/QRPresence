@@ -10,7 +10,8 @@ from .views import export_students_csv
 from .views import AbsentStudentsView
 from .views import AttendanceAIChatView
 from .views import get_qr_codes
-from .views import LecturerCourseView, LecturerEnrollmentView
+from .views import LecturerCourseView # LecturerEnrollmentView
+from .views import LecturerEnrollmentView
 
 
 
@@ -37,8 +38,11 @@ urlpatterns = [
     path('lecturer/courses/create/', LecturerCourseView.as_view(), name='create-course'),
     path('lecturer/courses/<int:pk>/', LecturerCourseView.as_view(), name='course-detail'),
     #enrollment management
-    path('lecturer/enrollments/', LecturerEnrollmentView.as_view(), name='enrollment-list'),
-    path('lecturer/enrollments/<int:course_id>/enroll/', LecturerEnrollmentView.as_view(), name='enroll-students'),
+    path('lecturer/enrollments/', LecturerEnrollmentView.as_view(), name='lecturer-enrollments')
+    # Alternative POST URL with course_id in path (optional)
+   # path('lecturer/enrollments/course/<int:course_id>/', 
+        # LecturerEnrollmentView.as_view(), 
+        # name='lecturer-enrollments-course'),
 
     
 ]

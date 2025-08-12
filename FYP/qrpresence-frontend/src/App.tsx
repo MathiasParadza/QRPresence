@@ -23,7 +23,7 @@ import AIChatAssistant from "./components/AIChatAssistant";
 // Types
 import { User } from "./types/user";
 import CourseManagement from "./pages/LecturerView/CourseManagement";
-import BulkEnrollmentManager from "./pages/LecturerView/BulkEnrollmentManager";
+import LecturerEnrollmentManager from "./pages/LecturerView/LecturerEnrollmentManager";
 
 const App = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -111,7 +111,7 @@ const App = () => {
           element={
             user?.role === "lecturer" ? (
               <ErrorBoundary>
-                <BulkEnrollmentManager />
+                <LecturerEnrollmentManager />
               </ErrorBoundary>
             ) : (
               <Navigate to="/login" replace />
