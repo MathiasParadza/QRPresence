@@ -222,7 +222,8 @@ REST_FRAMEWORK = {
 
 }
 
-
+# OpenAI Configuration
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
 
 
 #media files settings

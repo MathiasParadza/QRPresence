@@ -4,7 +4,8 @@ from .utils import haversine # Assuming haversine is in .utils
 from django.contrib.auth import get_user_model
 from authentication.serializers import UserSerializer
 from .models import Course, StudentCourseEnrollment
-
+from django.core.exceptions import ValidationError
+from .models import QRCode
 
 
 
@@ -15,27 +16,34 @@ class SessionSerializer(serializers.ModelSerializer):
             'id',
             'session_id',
             'class_name',
-            'lecturer',  # <-- Added (required, since it's a ForeignKey)
-            'course',    # <-- Added (required, since it's a ForeignKey)
             'gps_latitude',
             'gps_longitude',
             'allowed_radius',
+            'course',  # Using the actual field name from model
+            'lecturer',
             'timestamp',
-            'attendance_window',  # <-- Added (optional, but part of the model)
+            'attendance_window'
         ]
-        read_only_fields = ['id', 'timestamp']
         extra_kwargs = {
-            'lecturer': {'required': True},  # Enforce lecturer is provided
-            'course': {'required': True},     # Enforce course is provided
+            'session_id': {'required': True},
+            'class_name': {'required': True},
+            'gps_latitude': {'required': True},
+            'gps_longitude': {'required': True},
+            'course': {'required': True},
+            'lecturer': {'read_only': True},  # Will be set in perform_create
+            'timestamp': {'read_only': True},
+            'attendance_window': {'read_only': True}  # Uses default value
         }
 
-    def validate_session_id(self, value):
-        if self.instance is None and Session.objects.filter(session_id=value).exists():
-            raise serializers.ValidationError("Session ID must be unique.")
-        if self.instance and self.instance.session_id != value and Session.objects.filter(session_id=value).exists():
-            raise serializers.ValidationError("Session ID must be unique.")
-        return value
-
+    def validate(self, data):
+        """Additional validation for the session"""
+        if data.get('gps_latitude') < -90 or data.get('gps_latitude') > 90:
+            raise ValidationError("Latitude must be between -90 and 90")
+        if data.get('gps_longitude') < -180 or data.get('gps_longitude') > 180:
+            raise ValidationError("Longitude must be between -180 and 180")
+        if data.get('allowed_radius') < 10 or data.get('allowed_radius') > 1000:
+            raise ValidationError("Allowed radius must be between 10 and 1000 meters")
+        return data
 class StudentSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
 
@@ -142,8 +150,23 @@ class EnrollmentSerializer(serializers.ModelSerializer):
         read_only_fields = ['enrolled_by', 'enrolled_at']
 
 
-class BulkEnrollmentSerializer(serializers.Serializer):
-    course_id = serializers.IntegerField()
-    student_ids = serializers.ListField(
-        child=serializers.IntegerField()
-    )
+class QRCodeSerializer(serializers.ModelSerializer):
+    session_name = serializers.CharField(source='session.class_name', read_only=True)
+    session_id = serializers.CharField(source='session.session_id', read_only=True)
+    is_expired = serializers.SerializerMethodField()
+
+    class Meta:
+        model = QRCode
+        fields = [
+            'id',
+            'qr_image',
+            'created_at',
+            'expires_at',
+            'is_expired',
+            'session_name',
+            'session_id'
+        ]
+        read_only_fields = ['created_at']
+
+    def get_is_expired(self, obj):
+        return obj.is_expired()

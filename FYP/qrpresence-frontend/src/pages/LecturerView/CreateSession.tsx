@@ -41,7 +41,11 @@ const Input: React.FC<{
   required?: boolean;
   icon?: React.ReactNode;
   label: string;
-}> = ({ type = "text", name, value, onChange, placeholder, required = false, icon, label }) => {
+  min?: number;
+  max?: number;
+  step?: number;
+  error?: string;
+}> = ({ type = "text", name, value, onChange, placeholder, required = false, icon, label, min, max, step, error }) => {
   return (
     <div className="space-y-2">
       <label className="block text-sm font-medium text-gray-700">
@@ -61,16 +65,20 @@ const Input: React.FC<{
           onChange={onChange}
           placeholder={placeholder}
           required={required}
-          className={`block w-full rounded-lg border-gray-300 border-2 shadow-sm focus:border-purple-500 focus:ring-purple-500 transition-colors duration-200 ${
+          min={min}
+          max={max}
+          step={step}
+          className={`block w-full rounded-lg border-2 shadow-sm focus:border-purple-500 focus:ring-purple-500 transition-colors duration-200 ${
             icon ? 'pl-10' : 'pl-4'
-          } pr-4 py-3 text-gray-900 placeholder-gray-500`}
+          } pr-4 py-3 text-gray-900 placeholder-gray-500 ${
+            error ? 'border-red-500' : 'border-gray-300'
+          }`}
         />
       </div>
+      {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
     </div>
   );
 };
-
-
 
 // Custom Card Component
 const Card: React.FC<{
@@ -84,17 +92,35 @@ const Card: React.FC<{
   );
 };
 
-// Toast mock
-const toast = {
+// Toast mock with better types
+interface Toast {
+  success: (message: string) => void;
+  error: (message: string) => void;
+  info: (message: string) => void;
+}
+
+const toast: Toast = {
   success: (message: string) => alert(`✅ ${message}`),
-  error: (message: string) => alert(`❌ ${message}`)
+  error: (message: string) => alert(`❌ ${message}`),
+  info: (message: string) => alert(`ℹ️ ${message}`)
 };
 
 interface Course {
-  id: string;
+  id: number;
   code: string;
   title: string;
+  description: string;
   credit_hours: number;
+}
+
+interface FormErrors {
+  sessionId?: string;
+  className?: string;
+  gpsLatitude?: string;
+  gpsLongitude?: string;
+  allowedRadius?: string;
+  course?: string;
+  general?: string;
 }
 
 const CreateSession: React.FC = () => {
@@ -104,12 +130,13 @@ const CreateSession: React.FC = () => {
   const [gpsLatitude, setGpsLatitude] = useState<number | "">("");
   const [gpsLongitude, setGpsLongitude] = useState<number | "">("");
   const [allowedRadius, setAllowedRadius] = useState<number>(100);
-  const [selectedCourse, setSelectedCourse] = useState("");
+  const [selectedCourse, setSelectedCourse] = useState<string | number>("");
   const [courses, setCourses] = useState<Course[]>([]);
   const [coursesLoading, setCoursesLoading] = useState(true);
   const [coursesError, setCoursesError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [gettingLocation, setGettingLocation] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -118,7 +145,11 @@ const CreateSession: React.FC = () => {
         setCoursesError(null);
         const token = localStorage.getItem("access_token");
         
-        const response = await fetch("http://127.0.0.1:8000/api/courses/", {
+        if (!token) {
+          throw new Error("Authentication token not found");
+        }
+        
+        const response = await fetch("http://127.0.0.1:8000/api/lecturer/courses/", {
           headers: { 
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -126,6 +157,13 @@ const CreateSession: React.FC = () => {
         });
         
         if (!response.ok) {
+          if (response.status === 401) {
+            navigate("/login");
+            return;
+          }
+          if (response.status === 403) {
+            throw new Error("Only lecturers can access courses");
+          }
           throw new Error(`Failed to fetch courses: ${response.status}`);
         }
         
@@ -133,14 +171,51 @@ const CreateSession: React.FC = () => {
         setCourses(data);
       } catch (error) {
         console.error("Error fetching courses:", error);
-        setCoursesError("Failed to load courses. Please try again later.");
+        setCoursesError(error instanceof Error ? error.message : "Failed to load courses. Please try again later.");
       } finally {
         setCoursesLoading(false);
       }
     };
     
     fetchCourses();
-  }, []);
+  }, [navigate]);
+
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {};
+    
+    if (!sessionId.trim()) {
+      newErrors.sessionId = "Session ID is required";
+    } else if (sessionId.length > 50) {
+      newErrors.sessionId = "Session ID must be less than 50 characters";
+    }
+    
+    if (!className.trim()) {
+      newErrors.className = "Class name is required";
+    }
+    
+    if (gpsLatitude === "") {
+      newErrors.gpsLatitude = "Latitude is required";
+    } else if (typeof gpsLatitude === "number" && (gpsLatitude < -90 || gpsLatitude > 90)) {
+      newErrors.gpsLatitude = "Latitude must be between -90 and 90";
+    }
+    
+    if (gpsLongitude === "") {
+      newErrors.gpsLongitude = "Longitude is required";
+    } else if (typeof gpsLongitude === "number" && (gpsLongitude < -180 || gpsLongitude > 180)) {
+      newErrors.gpsLongitude = "Longitude must be between -180 and 180";
+    }
+    
+    if (!selectedCourse) {
+      newErrors.course = "Course selection is required";
+    }
+    
+    if (allowedRadius < 10 || allowedRadius > 1000) {
+      newErrors.allowedRadius = "Radius must be between 10 and 1000 meters";
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -155,10 +230,28 @@ const CreateSession: React.FC = () => {
         setGpsLongitude(position.coords.longitude);
         toast.success("Location updated successfully!");
         setGettingLocation(false);
+        // Clear any previous errors
+        setErrors(prev => ({
+          ...prev,
+          gpsLatitude: undefined,
+          gpsLongitude: undefined
+        }));
       },
       (error) => {
         console.error("Geolocation error:", error);
-        toast.error("Failed to get your location. Please check your permissions.");
+        let errorMessage = "Failed to get your location";
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = "Location permission denied. Please enable it in your browser settings.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "Location information is unavailable.";
+            break;
+          case error.TIMEOUT:
+            errorMessage = "The request to get your location timed out.";
+            break;
+        }
+        toast.error(errorMessage);
         setGettingLocation(false);
       },
       {
@@ -168,71 +261,80 @@ const CreateSession: React.FC = () => {
       }
     );
   };
-
-  const handleCreateSession = async () => {
-    if (!sessionId || !className || !selectedCourse || gpsLatitude === "" || gpsLongitude === "") {
-      toast.error("Please fill in all required fields!");
-      return;
+const handleCreateSession = async () => {
+  if (!validateForm()) {
+    toast.error("Please fix the errors in the form before submitting.");
+    return;
+  }
+  try {
+    setLoading(true);
+    const token = localStorage.getItem("access_token");
+    
+    if (!token) {
+      throw new Error("Authentication token not found");
     }
 
-    try {
-      setLoading(true);
-      const token = localStorage.getItem("access_token");
-      const payload = {
-        session_id: sessionId,
-        class_name: className,
-        gps_latitude: Number(gpsLatitude),
-        gps_longitude: Number(gpsLongitude),
-        allowed_radius: allowedRadius,
-        course: selectedCourse,
-      };
+    // Payload matches the model exactly
+    const payload = {
+      session_id: sessionId,
+      class_name: className,
+      gps_latitude: Number(gpsLatitude),
+      gps_longitude: Number(gpsLongitude),
+      allowed_radius: allowedRadius,
+      course: Number(selectedCourse), // Matches model field name
+    };
 
-      const response = await fetch("http://127.0.0.1:8000/api/sessions/", {
-        method: "POST",
-        headers: { 
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
+    const response = await fetch("http://127.0.0.1:8000/api/sessions/", {
+      method: "POST",
+      headers: { 
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        if (errorData.course) {
-          throw new Error(`Course error: ${errorData.course.join(", ")}`);
-        }
-        if (errorData.session_id) {
-          throw new Error(`Session ID error: ${errorData.session_id.join(", ")}`);
-        }
-        throw new Error(`Failed to create session: ${response.status}`);
+    if (!response.ok) {
+      const errorData = await response.json();
+      
+      // Handle specific field errors
+      const apiErrors: FormErrors = {};
+      if (errorData.session_id) {
+        apiErrors.sessionId = errorData.session_id.join(", ");
       }
-
-      toast.success("Session created successfully!");
+      if (errorData.class_name) {
+        apiErrors.className = errorData.class_name.join(", ");
+      }
+      if (errorData.gps_latitude) {
+        apiErrors.gpsLatitude = errorData.gps_latitude.join(", ");
+      }
+      if (errorData.gps_longitude) {
+        apiErrors.gpsLongitude = errorData.gps_longitude.join(", ");
+      }
+      if (errorData.allowed_radius) {
+        apiErrors.allowedRadius = errorData.allowed_radius.join(", ");
+      }
+      if (errorData.course) {
+        apiErrors.course = errorData.course.join(", ");
+      }
       
-      // Reset form
-      setSessionId("");
-      setClassName("");
-      setGpsLatitude("");
-      setGpsLongitude("");
-      setAllowedRadius(100);
-      setSelectedCourse("");
-      
-      // Navigate to session list after a short delay
-      setTimeout(() => {
-        navigate("/session-list");
-      }, 1500);
-      
-    } catch (error) {
-      console.error("Error creating session:", error);
-      toast.error(
-        typeof error === "object" && error !== null && "message" in error
-          ? (error as { message?: string }).message || "Failed to create session. Please try again."
-          : "Failed to create session. Please try again."
-      );
-    } finally {
-      setLoading(false);
+      setErrors(apiErrors);
+      throw new Error("Failed to create session. Please check the form for errors.");
     }
-  };
+
+    toast.success("Session created successfully!");
+    navigate("/session-list");
+    
+  } catch (error) {
+    console.error("Error creating session:", error);
+    toast.error(
+      error instanceof Error 
+        ? error.message || "Failed to create session. Please try again."
+        : "Failed to create session. Please try again."
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="h-screen bg-gray-50 flex flex-col">
@@ -262,21 +364,29 @@ const CreateSession: React.FC = () => {
                 <Input
                   name="sessionId"
                   value={sessionId}
-                  onChange={(e) => setSessionId(e.target.value)}
+                  onChange={(e) => {
+                    setSessionId(e.target.value);
+                    setErrors(prev => ({ ...prev, sessionId: undefined }));
+                  }}
                   placeholder="Enter unique session ID"
                   label="Session ID"
                   required
                   icon={<Hash className="w-5 h-5" />}
+                  error={errors.sessionId}
                 />
                 
                 <Input
                   name="className"
                   value={className}
-                  onChange={(e) => setClassName(e.target.value)}
+                  onChange={(e) => {
+                    setClassName(e.target.value);
+                    setErrors(prev => ({ ...prev, className: undefined }));
+                  }}
                   placeholder="Enter class name"
                   label="Class Name"
                   required
                   icon={<Users className="w-5 h-5" />}
+                  error={errors.className}
                 />
               </div>
 
@@ -293,11 +403,14 @@ const CreateSession: React.FC = () => {
                   <select
                     id="course-select"
                     value={selectedCourse}
-                    onChange={(e) => setSelectedCourse(e.target.value)}
+                    onChange={(e) => {
+                      setSelectedCourse(e.target.value);
+                      setErrors(prev => ({ ...prev, course: undefined }));
+                    }}
                     disabled={coursesLoading}
-                    className={`block w-full rounded-lg border-gray-300 border-2 shadow-sm focus:border-purple-500 focus:ring-purple-500 transition-colors duration-200 pl-10 pr-4 py-3 text-gray-900 ${
+                    className={`block w-full rounded-lg border-2 shadow-sm focus:border-purple-500 focus:ring-purple-500 transition-colors duration-200 pl-10 pr-4 py-3 text-gray-900 ${
                       coursesLoading ? 'bg-gray-100' : ''
-                    }`}
+                    } ${errors.course ? 'border-red-500' : 'border-gray-300'}`}
                     required
                   >
                     <option value="">{coursesLoading ? "Loading courses..." : "Select a course"}</option>
@@ -313,6 +426,9 @@ const CreateSession: React.FC = () => {
                     </div>
                   )}
                 </div>
+                {errors.course && (
+                  <p className="text-sm text-red-500 mt-1">{errors.course}</p>
+                )}
                 {coursesError && (
                   <p className="text-sm text-red-500 mt-1">{coursesError}</p>
                 )}
@@ -350,22 +466,38 @@ const CreateSession: React.FC = () => {
                     type="number"
                     name="gpsLatitude"
                     value={gpsLatitude}
-                    onChange={(e) => setGpsLatitude(e.target.value === "" ? "" : parseFloat(e.target.value))}
+                    onChange={(e) => {
+                      const value = e.target.value === "" ? "" : parseFloat(e.target.value);
+                      setGpsLatitude(value);
+                      setErrors(prev => ({ ...prev, gpsLatitude: undefined }));
+                    }}
                     placeholder="e.g., -15.397596"
                     label="GPS Latitude"
                     required
                     icon={<MapPin className="w-5 h-5" />}
+                    min={-90}
+                    max={90}
+                    step={0.01}
+                    error={errors.gpsLatitude}
                   />
                   
                   <Input
                     type="number"
                     name="gpsLongitude"
                     value={gpsLongitude}
-                    onChange={(e) => setGpsLongitude(e.target.value === "" ? "" : parseFloat(e.target.value))}
+                    onChange={(e) => {
+                      const value = e.target.value === "" ? "" : parseFloat(e.target.value);
+                      setGpsLongitude(value);
+                      setErrors(prev => ({ ...prev, gpsLongitude: undefined }));
+                    }}
                     placeholder="e.g., 28.322817"
                     label="GPS Longitude"
                     required
                     icon={<MapPin className="w-5 h-5" />}
+                    min={-180}
+                    max={180}
+                    step={0.01}
+                    error={errors.gpsLongitude}
                   />
                 </div>
               </div>
@@ -375,11 +507,18 @@ const CreateSession: React.FC = () => {
                 type="number"
                 name="allowedRadius"
                 value={allowedRadius}
-                onChange={(e) => setAllowedRadius(parseInt(e.target.value) || 100)}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value) || 100;
+                  setAllowedRadius(value);
+                  setErrors(prev => ({ ...prev, allowedRadius: undefined }));
+                }}
                 placeholder="Enter radius in meters"
                 label="Allowed Radius (meters)"
                 required
                 icon={<Target className="w-5 h-5" />}
+                min={10}
+                max={1000}
+                error={errors.allowedRadius}
               />
 
               {/* Info Boxes */}
@@ -393,6 +532,7 @@ const CreateSession: React.FC = () => {
                       <h4 className="font-medium text-green-900 mb-1">Location Tip</h4>
                       <p className="text-sm text-green-700">
                         Click "Use Current Location" to automatically fill in your GPS coordinates.
+                        Manual entries must be between -90 to 90 for latitude and -180 to 180 for longitude.
                       </p>
                     </div>
                   </div>
@@ -408,7 +548,7 @@ const CreateSession: React.FC = () => {
                     <div>
                       <h4 className="font-medium text-blue-900 mb-1">Attendance Tracking</h4>
                       <p className="text-sm text-blue-700">
-                        Students must be within the specified radius of the GPS coordinates to mark their attendance.
+                        Students must be within the specified radius (10-1000 meters) of the GPS coordinates to mark their attendance.
                       </p>
                     </div>
                   </div>

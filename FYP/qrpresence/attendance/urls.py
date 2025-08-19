@@ -9,9 +9,10 @@ from .views import StudentListCreateAPIView, StudentDetailAPIView
 from .views import export_students_csv
 from .views import AbsentStudentsView
 from .views import AttendanceAIChatView
-from .views import get_qr_codes
+
 from .views import LecturerCourseView # LecturerEnrollmentView
 from .views import LecturerEnrollmentView
+
 
 
 
@@ -32,7 +33,8 @@ urlpatterns = [
     path('students/export-csv/', export_students_csv, name='export-students-csv'),
     path('attendance/absent/<str:session_id>/', AbsentStudentsView.as_view(), name='absent-students'),
     path('ai-chat/', AttendanceAIChatView.as_view(), name='attendance-ai-chat'),
-    path('qr-codes/', get_qr_codes),
+    path('qr-codes/', views.get_qr_codes, name="get_qr_codes"),
+    path('qr-codes/<int:qr_id>', views.delete_qr_code, name="delete_qr_code"),
     #course management
     path('lecturer/courses/', LecturerCourseView.as_view(), name='lecturer-courses'),
     path('lecturer/courses/create/', LecturerCourseView.as_view(), name='create-course'),

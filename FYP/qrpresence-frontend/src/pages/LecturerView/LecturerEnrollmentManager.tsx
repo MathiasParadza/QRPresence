@@ -18,14 +18,16 @@ interface Student {
 
 interface Course {
   id: number;
-  name: string;
+  title: string;  // Changed from 'name' to match Django model
   code: string;
+  description?: string;
+  credit_hours?: number;
 }
 
 interface Enrollment {
   id: number;
-  student: Student;
-  course: Course;
+  student: Student | string; // Can be object or ID
+  course: Course | number;   // Can be object or ID
   enrolled_at: string;
 }
 
@@ -120,6 +122,8 @@ const LecturerEnrollmentManager: React.FC = () => {
       }
 
       const data = await res.json();
+      console.log('Enrollments data:', data); // Debugging log
+      
       if (Array.isArray(data)) {
         setEnrollments(data);
         if (isRefresh) {
@@ -424,14 +428,14 @@ const LecturerEnrollmentManager: React.FC = () => {
                 value={selectedCourse || ''}
                 onChange={(e) => {
                   setSelectedCourse(Number(e.target.value));
-                  fetchEnrollments(); // Refresh enrollments when course changes
+                  fetchEnrollments();
                 }}
                 disabled={loading.courses || loading.submitting}
               >
                 <option value="">-- Select a course --</option>
                 {courses.map(course => (
                   <option key={course.id} value={course.id}>
-                    {course.code} - {course.name}
+                    {course.code} - {course.title}
                   </option>
                 ))}
               </select>
@@ -520,24 +524,35 @@ const LecturerEnrollmentManager: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {enrollments.map(enrollment => (
-                      <tr key={enrollment.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                          <div className="font-medium">{enrollment.student.name}</div>
-                          <div className="text-gray-500">{enrollment.student.student_id}</div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                          {enrollment.course.code}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(enrollment.enrolled_at).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric'
-                          })}
-                        </td>
-                      </tr>
-                    ))}
+                    {enrollments.map(enrollment => {
+                      // Handle cases where student/course might be just IDs or full objects
+                      const student = typeof enrollment.student === 'object' 
+                        ? enrollment.student 
+                        : students.find(s => s.student_id === enrollment.student);
+                      
+                      const course = typeof enrollment.course === 'object' 
+                        ? enrollment.course 
+                        : courses.find(c => c.id === enrollment.course);
+
+                      return (
+                        <tr key={enrollment.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                            <div className="font-medium">{student?.name || 'Unknown'}</div>
+                            <div className="text-gray-500">{student?.student_id || 'Unknown'}</div>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                            {course?.code || 'Unknown'} - {course?.title || 'Unknown'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(enrollment.enrolled_at).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

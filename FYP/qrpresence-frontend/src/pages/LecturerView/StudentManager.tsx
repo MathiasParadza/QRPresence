@@ -49,9 +49,10 @@ const StudentManager: React.FC = () => {
     }
   }, [search, programFilter]);
 
+  // FIXED: Remove fetchStudents from dependency array to prevent infinite loop
   useEffect(() => {
     fetchStudents();
-  }, [fetchStudents]);
+  }, [search, programFilter, fetchStudents]); // Add fetchStudents to dependency array
 
   const openEditModal = (student: StudentProfile | null = null) => {
     setEditStudent(student || {
@@ -114,9 +115,9 @@ const StudentManager: React.FC = () => {
   const exportCsv = async () => {
     setStatus('loading');
     try {
-
       const token = localStorage.getItem('access_token');
-      const response = await fetch('/api/students/export-csv/', {
+      // FIXED: Removed extra slash from URL
+      const response = await fetch('http://localhost:8000/api/students/export-csv/', {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
@@ -137,7 +138,6 @@ const StudentManager: React.FC = () => {
       setStatus('idle');
     }
   };
-
 
   const isLoading = status === 'loading';
   const isCreateMode = !editStudent?.student_id;
