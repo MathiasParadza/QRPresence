@@ -1,0 +1,484 @@
+/* Enhanced Register Component Styling */
+
+/* Main Container */
+.register-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #4facfe 100%);
+  background-size: 400% 400%;
+  animation: gradientShift 18s ease infinite;
+  position: relative;
+  overflow: hidden;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  padding: 20px;
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Animated Background Elements */
+.register-container::before {
+  content: '';
+  position: absolute;
+  top: 15%;
+  left: 15%;
+  width: 350px;
+  height: 350px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+  filter: blur(50px);
+  animation: float 7s ease-in-out infinite;
+}
+
+.register-container::after {
+  content: '';
+  position: absolute;
+  bottom: 15%;
+  right: 15%;
+  width: 280px;
+  height: 280px;
+  background: rgba(79, 172, 254, 0.1);
+  border-radius: 50%;
+  filter: blur(40px);
+  animation: float 9s ease-in-out infinite reverse;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px) scale(1) rotate(0deg); }
+  50% { transform: translateY(-30px) scale(1.1) rotate(180deg); }
+}
+
+/* Form Container */
+.register-form {
+  background: rgba(255, 255, 255, 0.95);
+  -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+  padding: 48px 40px;
+  border-radius: 24px;
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(255, 255, 255, 0.2);
+  width: 100%;
+  max-width: 480px;
+  position: relative;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.register-form:hover {
+  transform: translateY(-8px);
+  box-shadow: 
+    0 35px 60px -12px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.3);
+}
+
+/* Header Styling */
+.register-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.register-title {
+  font-size: 32px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea 0%, #4facfe 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+.register-subtitle {
+  color: #6b7280;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* Error Message */
+.error-message {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 12px;
+  color: #dc2626;
+  padding: 16px;
+  margin-bottom: 24px;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+/* Input Groups */
+.input-group {
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.input-label {
+  display: block;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.input-field {
+  width: 100%;
+  padding: 16px 20px;
+  border: 2px solid rgba(107, 114, 128, 0.1);
+  border-radius: 16px;
+  font-size: 16px;
+  background: rgba(249, 250, 251, 0.8);
+   -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  color: #1f2937;
+  box-sizing: border-box;
+}
+
+.input-field::placeholder {
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: #667eea;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 
+    0 0 0 3px rgba(102, 126, 234, 0.1),
+    0 4px 12px rgba(102, 126, 234, 0.1);
+  transform: translateY(-1px);
+}
+
+.input-field:hover {
+  border-color: rgba(102, 126, 234, 0.3);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+/* Select Field Specific */
+.select-field {
+  width: 100%;
+  padding: 16px 20px;
+  border: 2px solid rgba(107, 114, 128, 0.1);
+  border-radius: 16px;
+  font-size: 16px;
+  background: rgba(249, 250, 251, 0.8);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  color: #1f2937;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+.select-field:focus {
+  outline: none;
+  border-color: #667eea;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 
+    0 0 0 3px rgba(102, 126, 234, 0.1),
+    0 4px 12px rgba(102, 126, 234, 0.1);
+  transform: translateY(-1px);
+}
+
+.select-field:hover {
+  border-color: rgba(102, 126, 234, 0.3);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+/* Student Fields Animation */
+.student-fields {
+  animation: slideDown 0.3s ease-out;
+  overflow: hidden;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    max-height: 200px;
+    transform: translateY(0);
+  }
+}
+
+/* Register Button */
+.register-button {
+  width: 100%;
+  background: linear-gradient(135deg, #667eea 0%, #4facfe 100%);
+  color: white;
+  border: none;
+  border-radius: 16px;
+  padding: 18px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+  margin-bottom: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.register-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.register-button:hover::before {
+  left: 100%;
+}
+
+.register-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(102, 126, 234, 0.4);
+}
+
+.register-button:active {
+  transform: translateY(0);
+}
+
+.register-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+}
+
+.register-button:disabled:hover {
+  transform: none;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+}
+
+/* Loading Spinner */
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Login Link */
+.login-section {
+  text-align: center;
+  padding-top: 24px;
+  border-top: 1px solid rgba(107, 114, 128, 0.1);
+}
+
+.login-text {
+  color: #6b7280;
+  font-size: 15px;
+  margin-bottom: 12px;
+  font-weight: 500;
+}
+
+.login-link {
+  color: #667eea;
+  font-weight: 600;
+  text-decoration: none;
+  font-size: 15px;
+  transition: all 0.3s ease;
+  position: relative;
+  display: inline-block;
+}
+
+.login-link::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 2px;
+  bottom: -2px;
+  left: 0;
+  background: linear-gradient(135deg, #667eea 0%, #4facfe 100%);
+  transition: width 0.3s ease;
+}
+
+.login-link:hover {
+  color: #4facfe;
+  transform: translateY(-1px);
+}
+
+.login-link:hover::after {
+  width: 100%;
+}
+
+/* Toast Container Styling */
+.Toastify__toast-container {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.Toastify__toast {
+  background: rgba(255, 255, 255, 0.95);
+   -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #2d3748;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.Toastify__toast--success {
+  background: rgba(72, 187, 120, 0.95);
+  color: white;
+}
+
+.Toastify__toast--error {
+  background: rgba(245, 101, 101, 0.95);
+  color: white;
+}
+
+/* Role Indicator */
+.role-indicator {
+  position: absolute;
+  top: -8px;
+  right: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #4facfe 100%);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: all 0.3s ease;
+}
+
+.input-group:hover .role-indicator {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+  .register-container {
+    padding: 16px;
+  }
+  
+  .register-form {
+    padding: 32px 24px;
+    border-radius: 20px;
+    margin: 0;
+  }
+  
+  .register-title {
+    font-size: 28px;
+  }
+  
+  .input-field,
+  .select-field {
+    padding: 14px 16px;
+    font-size: 15px;
+  }
+  
+  .register-button {
+    padding: 16px 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .register-form {
+    padding: 24px 20px;
+  }
+  
+  .register-title {
+    font-size: 24px;
+  }
+  
+  .input-field,
+  .select-field {
+    padding: 12px 14px;
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .register-form {
+    background: white;
+    border: 2px solid #000;
+  }
+  
+  .input-field,
+  .select-field {
+    border-color: #000;
+  }
+  
+  .register-button {
+    background: #000;
+  }
+}
+
+/* Focus visible for accessibility */
+.input-field:focus-visible,
+.select-field:focus-visible,
+.register-button:focus-visible,
+.login-link:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+/* Form validation states */
+.input-field.error {
+  border-color: #ef4444;
+  background: rgba(254, 242, 242, 0.8);
+}
+
+.input-field.error:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.input-field.success {
+  border-color: #10b981;
+  background: rgba(240, 253, 244, 0.8);
+}
+
+.input-field.success:focus {
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}

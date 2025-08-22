@@ -53,15 +53,38 @@ def haversine(lat1, lon1, lat2, lon2):
 
 
 
-def is_qr_valid(session, scan_time, latitude, longitude, max_distance=0.1):
-    if session.attendance_window and scan_time > session.timestamp + session.attendance_window:
-        return False, "QR code has expired."
-    if session.gps_latitude is not None and session.gps_longitude is not None:
-        distance = haversine(latitude, longitude, session.gps_latitude, session.gps_longitude)
-        if distance > max_distance:
-            return False, "You are too far from the class location."
-    return True, "QR code is valid."
-
+def is_qr_valid(session, scan_time, latitude, longitude, max_distance=50):
+    """
+    Validate QR code attendance with proper error handling.
+    max_distance: 50 meters default (adjust as needed)
+    """
+    try:
+        # Check time validity with proper null handling
+        if hasattr(session, 'attendance_window') and session.attendance_window:
+            expiration_time = session.timestamp + session.attendance_window
+            if scan_time > expiration_time:
+                return False, "Attendance window has closed. QR code expired."
+        
+        # Check location validity
+        if (session.gps_latitude is not None and session.gps_longitude is not None and
+            latitude is not None and longitude is not None):
+            
+            distance = haversine(
+                float(latitude), 
+                float(longitude),
+                float(session.gps_latitude), 
+                float(session.gps_longitude)
+            )
+            
+            if distance > max_distance:
+                return False, f"You are {distance:.2f}m away from class. Maximum allowed: {max_distance}m."
+        
+        return True, "QR code is valid."
+        
+    except (ValueError, TypeError) as e:
+        return False, f"Validation error: {str(e)}"
+    except Exception as e:
+        return False, f"Unexpected validation error: {str(e)}"
 
 # controlling attendance if only using campus wifi
 def is_on_campus(request):

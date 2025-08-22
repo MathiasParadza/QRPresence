@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import "./Register.css"; // Import the enhanced CSS file
 
 interface FormData {
   username: string;
@@ -139,131 +140,133 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+    <div className="register-container">
       <ToastContainer />
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white shadow-md rounded px-8 pt-6 pb-8 w-full max-w-md"
-      >
-        <h2 className="text-2xl font-bold mb-6 text-center">Create an Account</h2>
+      <form onSubmit={handleSubmit} className="register-form">
+        <div className="register-header">
+          <h2 className="register-title">Create Account</h2>
+          <p className="register-subtitle">Join our platform today</p>
+        </div>
 
-        {error && <p className="text-red-500 mb-4">{error}</p>}
+        {error && <div className="error-message">{error}</div>}
 
-        <input
-          type="text"
-          name="username"
-          placeholder="Username"
-          value={formData.username}
-          onChange={handleChange}
-          className="mb-4 w-full p-2 border rounded"
-          required
-        />
+        <div className="input-group">
+          <label className="input-label">Username</label>
+          <input
+            type="text"
+            name="username"
+            placeholder="Enter your username"
+            value={formData.username}
+            onChange={handleChange}
+            className="input-field"
+            required
+          />
+        </div>
 
-        <input
-          type="email"
-          name="email"
-          placeholder="Email"
-          value={formData.email}
-          onChange={handleChange}
-          className="mb-4 w-full p-2 border rounded"
-          required
-        />
+        <div className="input-group">
+          <label className="input-label">Email</label>
+          <input
+            type="email"
+            name="email"
+            placeholder="Enter your email"
+            value={formData.email}
+            onChange={handleChange}
+            className="input-field"
+            required
+          />
+        </div>
 
-        <input
-          type="text"
-          name="name"
-          placeholder="Full Name"
-          value={formData.name}
-          onChange={handleChange}
-          className="mb-4 w-full p-2 border rounded"
-          required
-        />
+        <div className="input-group">
+          <label className="input-label">Full Name</label>
+          <input
+            type="text"
+            name="name"
+            placeholder="Enter your full name"
+            value={formData.name}
+            onChange={handleChange}
+            className="input-field"
+            required
+          />
+        </div>
 
-        <input
-          type="password"
-          name="password"
-          placeholder="Password"
-          value={formData.password}
-          onChange={handleChange}
-          className="mb-4 w-full p-2 border rounded"
-          required
-        />
+        <div className="input-group">
+          <label className="input-label">Password</label>
+          <input
+            type="password"
+            name="password"
+            placeholder="Create a secure password"
+            value={formData.password}
+            onChange={handleChange}
+            className="input-field"
+            required
+          />
+        </div>
 
-        <label htmlFor="role" className="block mb-2 font-medium text-gray-700">
-          Role
-        </label>
-        <select
-          id="role"
-          name="role"
-          value={formData.role}
-          onChange={handleChange}
-          className="mb-6 w-full p-2 border rounded"
-        >
-          <option value="student">Student</option>
-          <option value="lecturer">Lecturer</option>
-        </select>
+        <div className="input-group">
+          <label htmlFor="role" className="input-label">Role</label>
+          <select
+            id="role"
+            name="role"
+            value={formData.role}
+            onChange={handleChange}
+            className="select-field"
+          >
+            <option value="student">Student</option>
+            <option value="lecturer">Lecturer</option>
+          </select>
+        </div>
 
         {formData.role === "student" && (
-          <>
-            <input
-              type="text"
-              name="student_id"
-              placeholder="Student ID"
-              value={formData.student_id}
-              onChange={handleChange}
-              className="mb-4 w-full p-2 border rounded"
-              required
-            />
+          <div className="student-fields">
+            <div className="input-group">
+              <label className="input-label">Student ID</label>
+              <input
+                type="text"
+                name="student_id"
+                placeholder="Enter your student ID"
+                value={formData.student_id}
+                onChange={handleChange}
+                className="input-field"
+                required
+              />
+            </div>
 
-            <input
-              type="text"
-              name="program"
-              placeholder="Program"
-              value={formData.program}
-              onChange={handleChange}
-              className="mb-4 w-full p-2 border rounded"
-              required
-            />
-          </>
+            <div className="input-group">
+              <label className="input-label">Program</label>
+              <input
+                type="text"
+                name="program"
+                placeholder="Enter your program"
+                value={formData.program}
+                onChange={handleChange}
+                className="input-field"
+                required
+              />
+            </div>
+          </div>
         )}
 
         <button
           type="submit"
           disabled={loading}
-          className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded w-full flex justify-center items-center"
+          className="register-button"
         >
           {loading ? (
-            <svg
-              className="animate-spin h-5 w-5 text-white"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              ></circle>
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z"
-              ></path>
-            </svg>
+            <>
+              <div className="loading-spinner"></div>
+              Creating Account...
+            </>
           ) : (
-            "Register"
+            "Create Account"
           )}
         </button>
 
-        <p className="mt-4 text-center text-sm">
-          Already have an account?{" "}
-          <a href="/login" className="text-blue-600 hover:underline">
-            Login
+        <div className="login-section">
+          <p className="login-text">Already have an account?</p>
+          <a href="/login" className="login-link">
+            Sign In
           </a>
-        </p>
+        </div>
       </form>
     </div>
   );

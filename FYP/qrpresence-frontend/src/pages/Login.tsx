@@ -3,6 +3,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import "./Login.css"; // Import the enhanced CSS file
 import { User } from "../types/user";
 
 interface LoginProps {
@@ -56,45 +57,59 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+    <div className="login-container">
       <ToastContainer />
-      <form
-        onSubmit={handleLogin}
-        className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm"
-      >
-        <h2 className="text-2xl font-semibold mb-4">Login</h2>
-        <input
-          type="text"
-          placeholder="Username"
-          className="w-full p-2 mb-4 border rounded"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          required
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          className="w-full p-2 mb-4 border rounded"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
+      <form onSubmit={handleLogin} className="login-form">
+        <div className="login-header">
+          <h2 className="login-title"> QRPresence Login</h2>
+          <p className="login-subtitle">Sign in to your account</p>
+        </div>
+
+        <div className="input-group">
+          <label className="input-label">Username</label>
+          <input
+            type="text"
+            placeholder="Enter your username"
+            className="input-field"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className="input-group">
+          <label className="input-label">Password</label>
+          <input
+            type="password"
+            placeholder="Enter your password"
+            className="input-field"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+        </div>
+
         <button
           type="submit"
           disabled={loading}
-          className={`w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 ${
-            loading ? "opacity-50 cursor-not-allowed" : ""
-          }`}
+          className="login-button"
         >
-          {loading ? "Logging in..." : "Login"}
+          {loading ? (
+            <span className="loading-text">
+              <span className="loading-spinner"></span>
+              Signing in...
+            </span>
+          ) : (
+            "Sign In"
+          )}
         </button>
 
-        <p className="mt-4 text-center text-sm">
-          Don't Have An Account?{" "}
-          <a href="/register" className="text-blue-600 hover:underline">
-            Register
+        <div className="register-section">
+          <p className="register-text">Don't have an account?</p>
+          <a href="/register" className="register-link">
+            Create Account
           </a>
-        </p>
+        </div>
       </form>
     </div>
   );

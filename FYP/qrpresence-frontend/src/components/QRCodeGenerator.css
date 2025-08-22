@@ -1,0 +1,429 @@
+/* QRCodeGenerator.css */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+/* Main Container */
+.qr-generator-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #9553e9 100%);
+  background-size: 400% 400%;
+  animation: gradientShift 20s ease infinite;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  position: relative;
+  overflow: hidden;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.qr-generator-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 30% 40%, rgba(120, 119, 198, 0.3), transparent 50%),
+              radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3), transparent 50%),
+              radial-gradient(circle at 40% 80%, rgba(120, 219, 255, 0.3), transparent 50%);
+  animation: pulse 4s ease-in-out infinite;
+  z-index: 0;
+}
+
+/* Animations */
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Back Button */
+.back-button {
+  position: absolute;
+  top: 32px;
+  left: 32px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.2);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  color: white;
+  font-weight: 500;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 10;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.back-button:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.2);
+}
+
+.back-button:focus {
+  outline: 2px solid rgba(255, 255, 255, 0.8);
+  outline-offset: 2px;
+}
+
+/* Generator Card */
+.generator-card {
+  background: rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 48px;
+  width: 100%;
+  max-width: 600px;
+  position: relative;
+  z-index: 10;
+  animation: fadeInUp 0.8s ease-out;
+  transition: all 0.3s ease;
+}
+
+.generator-card:hover {
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  transform: translateY(-4px) scale(1.02);
+}
+
+/* Header Section */
+.generator-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.generator-title {
+  font-size: 3rem;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 16px;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+  line-height: 1.2;
+}
+
+.generator-subtitle {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1.25rem;
+  font-weight: 300;
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  background: rgba(255, 255, 255, 0.1);
+  padding: 12px 24px;
+  border-radius: 16px;
+  display: inline-block;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Input Group */
+.input-group {
+  margin-bottom: 32px;
+}
+
+.input-label {
+  display: block;
+  color: white;
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 12px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+.session-input {
+  width: 100%;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  color: white;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.session-input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 400;
+}
+
+.session-input:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1), 0 8px 25px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+.session-input:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* Generate Button */
+.generate-button {
+  width: 100%;
+  padding: 18px 24px;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  box-shadow: 0 8px 25px rgba(139, 92, 246, 0.3);
+  margin-bottom: 32px;
+  position: relative;
+  overflow: hidden;
+}
+
+.generate-button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.1) 50%, transparent 100%);
+  transform: translateX(-100%);
+  transition: transform 0.6s ease;
+}
+
+.generate-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 12px 35px rgba(139, 92, 246, 0.4);
+}
+
+.generate-button:hover:not(:disabled)::before {
+  transform: translateX(100%);
+}
+
+.generate-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+}
+
+.generate-button:focus {
+  outline: 2px solid rgba(255, 255, 255, 0.8);
+  outline-offset: 2px;
+}
+
+/* Loading Spinner */
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* QR Code Display */
+.qr-display-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  animation: scaleIn 0.5s ease-out;
+}
+
+.qr-canvas {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.2);
+  border: 4px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+  max-width: 100%;
+  height: auto;
+}
+
+.qr-canvas:hover {
+  transform: scale(1.05);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .qr-generator-container {
+    padding: 20px 16px;
+  }
+  
+  .back-button {
+    top: 20px;
+    left: 20px;
+    padding: 10px 16px;
+    font-size: 0.9rem;
+  }
+  
+  .generator-card {
+    padding: 32px 24px;
+    border-radius: 20px;
+  }
+  
+  .generator-title {
+    font-size: 2.25rem;
+  }
+  
+  .generator-subtitle {
+    font-size: 1rem;
+    padding: 10px 20px;
+  }
+  
+  .session-input {
+    padding: 14px 18px;
+    font-size: 0.95rem;
+  }
+  
+  .generate-button {
+    padding: 16px 20px;
+    font-size: 1rem;
+  }
+  
+  .qr-canvas {
+    padding: 20px;
+    border-radius: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .qr-generator-container {
+    padding: 16px 12px;
+  }
+  
+  .generator-card {
+    padding: 24px 20px;
+    border-radius: 16px;
+  }
+  
+  .generator-title {
+    font-size: 1.875rem;
+  }
+  
+  .generator-subtitle {
+    font-size: 0.9rem;
+    padding: 8px 16px;
+  }
+  
+  .session-input {
+    padding: 12px 16px;
+  }
+  
+  .generate-button {
+    padding: 14px 18px;
+    font-size: 0.95rem;
+  }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .qr-generator-container {
+    background: linear-gradient(135deg, #000080 0%, #4B0082 50%, #800080 100%);
+  }
+  
+  .generator-card,
+  .session-input {
+    border: 2px solid rgba(255, 255, 255, 0.8);
+  }
+  
+  .generate-button {
+    border: 2px solid currentColor;
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .qr-generator-container {
+    animation: none;
+  }
+  
+  .qr-generator-container::before {
+    animation: none;
+  }
+  
+  .generator-card {
+    animation: none;
+  }
+  
+  .qr-display-container {
+    animation: none;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .qr-generator-container {
+    background: white !important;
+    color: black !important;
+  }
+  
+  .generator-card {
+    background: white !important;
+    border: 1px solid black !important;
+    box-shadow: none !important;
+  }
+  
+  .back-button {
+    display: none !important;
+  }
+  
+  .generate-button {
+    display: none !important;
+  }
+  
+  .qr-canvas {
+    border: 1px solid black !important;
+    background: white !important;
+  }
+}

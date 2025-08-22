@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from "react-router-dom";
+import './LecturerEnrollmentManager.css';
 
 interface User {
   id: number;
@@ -18,7 +19,7 @@ interface Student {
 
 interface Course {
   id: number;
-  title: string;  // Changed from 'name' to match Django model
+  title: string;
   code: string;
   description?: string;
   credit_hours?: number;
@@ -26,8 +27,8 @@ interface Course {
 
 interface Enrollment {
   id: number;
-  student: Student | string; // Can be object or ID
-  course: Course | number;   // Can be object or ID
+  student: Student | string;
+  course: Course | number;
   enrolled_at: string;
 }
 
@@ -122,7 +123,6 @@ const LecturerEnrollmentManager: React.FC = () => {
       }
 
       const data = await res.json();
-      console.log('Enrollments data:', data); // Debugging log
       
       if (Array.isArray(data)) {
         setEnrollments(data);
@@ -192,14 +192,6 @@ const LecturerEnrollmentManager: React.FC = () => {
         },
       });
 
-      if (!res.ok) {
-        const errorData: ApiError = await res.json();
-        throw {
-          status: res.status,
-          ...errorData
-        };
-      }
-
       const data: PaginatedResponse<Student> = await res.json();
       if (data && Array.isArray(data.results)) {
         setStudents(data.results);
@@ -258,7 +250,6 @@ const LecturerEnrollmentManager: React.FC = () => {
       fetchEnrollments(true);
     } catch (err) {
       handleApiError(err);
-      console.error('Enrollment error:', err);
     } finally {
       setLoading(prev => ({ ...prev, submitting: false }));
     }
@@ -291,20 +282,26 @@ const LecturerEnrollmentManager: React.FC = () => {
   const renderStudentsList = () => {
     if (loading.students) {
       return (
-        <div className="flex justify-center items-center py-4">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-          <span className="ml-2">Loading students...</span>
+        <div className="enrollment-loading">
+          <div className="enrollment-loading__spinner"></div>
+          <span className="enrollment-loading__text">Loading students...</span>
         </div>
       );
     }
 
     if (error) {
       return (
-        <div className="text-center py-4 text-red-500">
-          <strong>Error:</strong> {formatError(error)}
+        <div className="enrollment-state enrollment-state--error">
+          <div className="enrollment-state__icon">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h3 className="enrollment-state__title">Error Loading Students</h3>
+          <p className="enrollment-state__message">{formatError(error)}</p>
           <button 
             onClick={fetchStudents}
-            className="ml-2 px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+            className="enrollment-button enrollment-button--secondary"
           >
             Retry
           </button>
@@ -314,11 +311,17 @@ const LecturerEnrollmentManager: React.FC = () => {
 
     if (students.length === 0) {
       return (
-        <div className="text-center py-4 text-gray-500">
-          No students available
+        <div className="enrollment-state">
+          <div className="enrollment-state__icon">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+          </div>
+          <h3 className="enrollment-state__title">No Students Available</h3>
+          <p className="enrollment-state__message">There are no students to enroll at this time</p>
           <button 
             onClick={fetchStudents}
-            className="ml-2 px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+            className="enrollment-button enrollment-button--primary"
           >
             Retry
           </button>
@@ -327,27 +330,34 @@ const LecturerEnrollmentManager: React.FC = () => {
     }
 
     return (
-      <div className="max-h-60 overflow-y-auto border rounded divide-y">
-        {students.map(student => (
-          <div key={student.student_id} className="p-3 hover:bg-gray-50">
-            <label className="flex items-start space-x-3 cursor-pointer">
+      <div className="enrollment-students-list">
+        {students.map((student) => (
+          <div key={student.student_id} className="enrollment-student-item">
+            <label className="enrollment-student-label">
               <input
                 type="checkbox"
+                className="enrollment-student-checkbox"
                 checked={selectedStudents.includes(student.student_id)}
                 onChange={() => handleStudentSelection(student.student_id)}
-                className="mt-1 rounded text-blue-600 focus:ring-blue-500"
                 disabled={loading.submitting}
               />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                  {student.name}
-                </p>
-                <p className="text-xs text-gray-500 truncate">
-                  {student.email}
-                </p>
-                <p className="text-xs text-gray-400 mt-1">
-                  {student.program} • ID: {student.student_id}
-                </p>
+              <div className="enrollment-student-avatar">
+                {student.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="enrollment-student-info">
+                <h4 className="enrollment-student-name">{student.name}</h4>
+                <div className="enrollment-student-details">
+                  <div className="enrollment-student-email">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    {student.email}
+                  </div>
+                  <div className="enrollment-student-meta">
+                    <span className="enrollment-student-program">{student.program}</span>
+                    <span className="enrollment-student-id">ID: {student.student_id}</span>
+                  </div>
+                </div>
               </div>
             </label>
           </div>
@@ -357,206 +367,296 @@ const LecturerEnrollmentManager: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
-      <div className="mb-8">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Enrollment Management</h1>
-            <p className="text-sm text-gray-500">Manage student enrollments in your courses</p>
+    <div className="enrollment-container">
+      <div className="enrollment-container__background">
+        <div className="enrollment-container__overlay"></div>
+      </div>
+      
+      <div className="enrollment-content">
+        {/* Header */}
+        <div className="enrollment-header">
+          <div className="enrollment-header__top">
+            <div className="enrollment-header__title-section">
+              <div className="enrollment-header__icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477 4.5 1.253" />
+                </svg>
+              </div>
+              <div className="enrollment-header__text">
+                <h1>Enrollment Management</h1>
+                <p>Manage student enrollments in your courses with ease</p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="enrollment-button enrollment-button--secondary"
+            >
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Back to Dashboard
+            </button>
           </div>
-          <button
-            onClick={() => navigate("/dashboard")}
-            className="flex items-center text-blue-600 hover:text-blue-800"
-          >
-            <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Back to Dashboard
-          </button>
-        </div>
 
-        {error && (
-          <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          {error && (
+            <div className="enrollment-alert enrollment-alert--error">
+              <div className="enrollment-alert__icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <div className="ml-3">
-                <p className="text-sm text-red-700">
-                  <strong>Error:</strong> {formatError(error)}
-                  {error.status_code && ` (Status: ${error.status_code})`}
-                </p>
+              <div className="enrollment-alert__content">
+                <strong>Error:</strong> {formatError(error)}
+                {error.status_code && ` (Status: ${error.status_code})`}
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {success && (
-          <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-6">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          {success && (
+            <div className="enrollment-alert enrollment-alert--success">
+              <div className="enrollment-alert__icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <div className="ml-3">
-                <p className="text-sm text-green-700">
-                  {success}
-                </p>
+              <div className="enrollment-alert__content">
+                {success}
               </div>
             </div>
-          </div>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Enrollment Form */}
-        <div className="bg-white shadow overflow-hidden rounded-lg">
-          <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Enroll Students</h2>
-          </div>
-          <div className="px-4 py-5 sm:p-6">
-            <div className="mb-6">
-              <label htmlFor="course-select" className="block text-sm font-medium text-gray-700 mb-1">
-                Select Course
-              </label>
-              <select
-                id="course-select"
-                className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                value={selectedCourse || ''}
-                onChange={(e) => {
-                  setSelectedCourse(Number(e.target.value));
-                  fetchEnrollments();
-                }}
-                disabled={loading.courses || loading.submitting}
-              >
-                <option value="">-- Select a course --</option>
-                {courses.map(course => (
-                  <option key={course.id} value={course.id}>
-                    {course.code} - {course.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Select Students
-              </label>
-              {renderStudentsList()}
-            </div>
-
-            <button
-              onClick={handleEnrollStudents}
-              disabled={loading.submitting || !selectedCourse || selectedStudents.length === 0}
-              className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
-                loading.submitting || !selectedCourse || selectedStudents.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-            >
-              {loading.submitting ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Processing...
-                </>
-              ) : 'Enroll Students'}
-            </button>
-          </div>
+          )}
         </div>
 
-        {/* Enrollment List */}
-        <div className="bg-white shadow overflow-hidden rounded-lg">
-          <div className="px-4 py-5 sm:px-6 border-b border-gray-200 flex justify-between items-center">
-            <h2 className="text-lg font-medium text-gray-900">Current Enrollments</h2>
-            <button 
-              onClick={() => fetchEnrollments(true)} 
-              disabled={refreshing}
-              className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              {refreshing ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        <div className="enrollment-grid">
+          {/* Enrollment Form */}
+          <div className="enrollment-card">
+            <div className="enrollment-card__header">
+              <div className="enrollment-card__header-content">
+                <h2>
+                  <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                   </svg>
-                  Refreshing...
-                </>
-              ) : (
-                <>
-                  <svg className="-ml-1 mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Refresh
-                </>
-              )}
-            </button>
-          </div>
-          <div className="px-4 py-5 sm:p-6">
-            {loading.enrollments && enrollments.length === 0 ? (
-              <div className="flex justify-center items-center py-8">
-                <svg className="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
+                  Enroll Students
+                </h2>
+                <p>Select a course and add students</p>
               </div>
-            ) : enrollments.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                No enrollments found
+            </div>
+            <div className="enrollment-card__body">
+              <div className="enrollment-form-group">
+                <label className="enrollment-label">Select Course</label>
+                <select
+                  className="enrollment-select"
+                  value={selectedCourse || ''}
+                  onChange={(e) => {
+                    setSelectedCourse(Number(e.target.value));
+                    fetchEnrollments();
+                  }}
+                  disabled={loading.courses || loading.submitting}
+                  title="Select Course"
+                >
+                  <option value="">-- Select a course --</option>
+                  {courses.map(course => (
+                    <option key={course.id} value={course.id}>
+                      {course.code} - {course.title}
+                    </option>
+                  ))}
+                </select>
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Student
-                      </th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Course
-                      </th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Enrolled On
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {enrollments.map(enrollment => {
-                      // Handle cases where student/course might be just IDs or full objects
-                      const student = typeof enrollment.student === 'object' 
-                        ? enrollment.student 
-                        : students.find(s => s.student_id === enrollment.student);
-                      
-                      const course = typeof enrollment.course === 'object' 
-                        ? enrollment.course 
-                        : courses.find(c => c.id === enrollment.course);
 
-                      return (
-                        <tr key={enrollment.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                            <div className="font-medium">{student?.name || 'Unknown'}</div>
-                            <div className="text-gray-500">{student?.student_id || 'Unknown'}</div>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                            {course?.code || 'Unknown'} - {course?.title || 'Unknown'}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                            {new Date(enrollment.enrolled_at).toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric'
-                            })}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+              <div className="enrollment-form-group">
+                <div className="enrollment-students-header">
+                  <label className="enrollment-label">Select Students</label>
+                  {selectedStudents.length > 0 && (
+                    <span className="enrollment-badge">
+                      {selectedStudents.length} selected
+                    </span>
+                  )}
+                </div>
+                {renderStudentsList()}
               </div>
-            )}
+
+              <button
+                onClick={handleEnrollStudents}
+                disabled={loading.submitting || !selectedCourse || selectedStudents.length === 0}
+                className={`enrollment-button enrollment-button--primary enrollment-button--full ${
+                  loading.submitting || !selectedCourse || selectedStudents.length === 0 
+                    ? 'enrollment-button--disabled' 
+                    : ''
+                }`}
+              >
+                {loading.submitting ? (
+                  <>
+                    <div className="enrollment-loading__spinner"></div>
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    Enroll Students
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Enrollment List */}
+          <div className="enrollment-card">
+            <div className="enrollment-card__header enrollment-card__header--alt">
+              <div className="enrollment-card__header-content">
+                <h2>
+                  <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                  </svg>
+                  Current Enrollments
+                </h2>
+                <p>View and manage enrollments</p>
+              </div>
+              <button 
+                onClick={() => fetchEnrollments(true)} 
+                disabled={refreshing}
+                className={`enrollment-button enrollment-button--secondary ${
+                  refreshing ? 'enrollment-button--disabled' : ''
+                }`}
+              >
+                {refreshing ? (
+                  <>
+                    <div className="enrollment-loading__spinner"></div>
+                    Refreshing...
+                  </>
+                ) : (
+                  <>
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Refresh
+                  </>
+                )}
+              </button>
+            </div>
+            <div className="enrollment-card__body">
+              {loading.enrollments && enrollments.length === 0 ? (
+                <div className="enrollment-loading">
+                  <div className="enrollment-loading__spinner"></div>
+                  <span className="enrollment-loading__text">Loading enrollments...</span>
+                </div>
+              ) : enrollments.length === 0 ? (
+                <div className="enrollment-state">
+                  <div className="enrollment-state__icon">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 8l2 2 4-4" />
+                    </svg>
+                  </div>
+                  <h3 className="enrollment-state__title">No Enrollments Found</h3>
+                  <p className="enrollment-state__message">Start by enrolling students in courses</p>
+                </div>
+              ) : (
+                <div className="enrollment-table-container">
+                  <table className="enrollment-table">
+                    <thead className="enrollment-table__header">
+                      <tr>
+                        <th>
+                          <div className="enrollment-table__header-content">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            Student
+                          </div>
+                        </th>
+                        <th>
+                          <div className="enrollment-table__header-content">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477 4.5 1.253" />
+                            </svg>
+                            Course
+                          </div>
+                        </th>
+                        <th>
+                          <div className="enrollment-table__header-content">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a4 4 0 118 0v4m-4 0v6m-3 0h6m-6-3h6" />
+                            </svg>
+                            Enrolled On
+                          </div>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {enrollments.map((enrollment) => {
+                        const student = typeof enrollment.student === 'object' 
+                          ? enrollment.student 
+                          : students.find(s => s.student_id === enrollment.student);
+                        
+                        const course = typeof enrollment.course === 'object' 
+                          ? enrollment.course 
+                          : courses.find(c => c.id === enrollment.course);
+
+                        return (
+                          <tr key={enrollment.id} className="enrollment-table__row">
+                            <td className="enrollment-table__cell">
+                              <div className="enrollment-table__student">
+                                <div className="enrollment-table__student-avatar">
+                                  {(student?.name || 'U').charAt(0).toUpperCase()}
+                                </div>
+                                <div className="enrollment-table__student-info">
+                                  <div className="enrollment-table__student-name">
+                                    {student?.name || 'Unknown'}
+                                  </div>
+                                  <div className="enrollment-table__student-id">
+                                    {student?.student_id || 'Unknown'}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="enrollment-table__cell">
+                              <div className="enrollment-table__course">
+                                <div className="enrollment-table__course-icon">
+                                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477 4.5 1.253" />
+                                  </svg>
+                                </div>
+                                <div className="enrollment-table__course-info">
+                                  <div className="enrollment-table__course-code">
+                                    {course?.code || 'Unknown'}
+                                  </div>
+                                  <div className="enrollment-table__course-title">
+                                    {course?.title || 'Unknown'}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="enrollment-table__cell">
+                              <div className="enrollment-table__date">
+                                <div className="enrollment-table__date-icon">
+                                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a4 4 0 118 0v4m-4 0v6m-3 0h6m-6-3h6" />
+                                  </svg>
+                                </div>
+                                <div className="enrollment-table__date-info">
+                                  <div className="enrollment-table__date-value">
+                                    {new Date(enrollment.enrolled_at).toLocaleDateString('en-US', {
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric'
+                                    })}
+                                  </div>
+                                  <div className="enrollment-table__date-time">
+                                    {new Date(enrollment.enrolled_at).toLocaleTimeString('en-US', {
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

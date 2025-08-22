@@ -109,11 +109,11 @@ class AttendanceMarkSerializer(serializers.Serializer):
         return data
     
 
-class UserSerializer(serializers.ModelSerializer):
+class SimpleUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = get_user_model()
-        fields = ['username']
-        ref_name = 'LocalUserSerializer'  
+        fields = ['id', 'username']
+        ref_name = 'SimpleUserSerializer' 
 
 class StudentNestedSerializer(serializers.ModelSerializer):
     user = UserSerializer()

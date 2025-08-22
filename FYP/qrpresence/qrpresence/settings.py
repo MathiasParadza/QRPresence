@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     #my apps
     'authentication',
     'attendance',
+    'django_extensions',
 
       # Third-party apps
     'rest_framework',

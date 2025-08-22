@@ -226,15 +226,11 @@ def register(request):
     except Exception as e:
         return Response({'error': f"Registration failed: {str(e)}"}, status=400)
 
-
 class StudentProfileUpdateView(APIView):
-    """
-    Allow a student to view and update their own profile.
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        student = getattr(request.user, 'student', None)
+        student = getattr(request.user, 'student_profile', None)
         if not student:
             return Response({"error": "Student profile not found."}, status=404)
 
@@ -242,7 +238,7 @@ class StudentProfileUpdateView(APIView):
         return Response(serializer.data)
 
     def put(self, request):
-        student = getattr(request.user, 'student', None)
+        student = getattr(request.user, 'student_profile', None)
         if not student:
             return Response({"error": "Student profile not found."}, status=404)
 

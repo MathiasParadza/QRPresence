@@ -27,11 +27,6 @@ class ProfileSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
 class UserSerializer(serializers.ModelSerializer):
-    """
-    Serializer for creating, updating, and returning users.
-    Handles both Student and Lecturer profile creation depending on the role.
-    """
-    # Extra fields for profile creation
     student_id = serializers.CharField(write_only=True, required=False)
     lecturer_id = serializers.CharField(write_only=True, required=False)
     department = serializers.CharField(write_only=True, required=False)
@@ -47,13 +42,11 @@ class UserSerializer(serializers.ModelSerializer):
         }
 
     def create(self, validated_data):
-        # Extract profile-specific data
         student_id = validated_data.pop('student_id', None)
         lecturer_id = validated_data.pop('lecturer_id', None)
         department = validated_data.pop('department', None)
         role = validated_data.get('role')
 
-        # Create the user
         user = CustomUser.objects.create_user(
             username=validated_data['username'],
             email=validated_data['email'],
@@ -61,7 +54,6 @@ class UserSerializer(serializers.ModelSerializer):
             role=role
         )
 
-        # Create Student or Lecturer profile based on role
         if role == 'student':
             if not student_id:
                 raise serializers.ValidationError({"student_id": "Student ID is required for students."})
@@ -70,8 +62,8 @@ class UserSerializer(serializers.ModelSerializer):
         elif role == 'lecturer':
             Lecturer.objects.create(
                 user=user,
-                lecturer_id=lecturer_id if lecturer_id else "",
-                department=department if department else ""
+                lecturer_id=lecturer_id or "",
+                department=department or ""
             )
 
         return user

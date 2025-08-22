@@ -5,6 +5,7 @@ import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { ArrowLeft } from 'lucide-react';
+import './QRCodeGenerator.css'; // Import the enhanced CSS file
 
 const QRCodeGenerator = () => {
   const [sessionId, setSessionId] = useState('');
@@ -81,41 +82,72 @@ const QRCodeGenerator = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
+    <div className="qr-generator-container">
+      {/* Back Button */}
       <button
         type="button"
         onClick={() => navigate("/lecturerview")}
-        className="flex items-center gap-2 px-4 py-2 mb-4 bg-gray-200 text-gray-800 rounded hover:bg-purple-50 hover:text-purple-700 transition-colors"
+        className="back-button"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to Dashboard
       </button>
-      <h1 className="text-2xl font-bold mb-4 text-purple-600">Attendance QR Code Generator</h1>
 
-      <input
-        type="text"
-        value={sessionId}
-        onChange={(e) => setSessionId(e.target.value)}
-        placeholder="Enter Session ID"
-        className="px-4 py-2 border rounded w-full max-w-md mb-4"
-      />
+      {/* Main Generator Card */}
+      <div className="generator-card">
+        <div className="generator-header">
+          <h1 className="generator-title">QR Code Generator</h1>
+          <p className="generator-subtitle">Generate attendance QR codes for your sessions</p>
+        </div>
 
-      <button
-        onClick={generateQRCode}
-        className={`${isLoading ? 'bg-purple-300' : 'bg-purple-500 hover:bg-gray-400'} text-white px-6 py-2 rounded mb-4`}
-        disabled={isLoading}
-      >
-        {isLoading ? 'Generating...' : 'Generate QR Code'}
-      </button>
+        <div className="input-group">
+          <label className="input-label">Session ID</label>
+          <input
+            type="text"
+            value={sessionId}
+            onChange={(e) => setSessionId(e.target.value)}
+            placeholder="Enter Session ID (e.g., CS101-2024-01)"
+            className="session-input"
+          />
+        </div>
 
-      {qrCodeUrl && (
-        <>
-          <canvas ref={canvasRef} className="mb-4" aria-label="Generated QR Code" />
-        </>
-      )}
+        <button
+          onClick={generateQRCode}
+          className="generate-button"
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <>
+              <div className="loading-spinner"></div>
+              Generating QR Code...
+            </>
+          ) : (
+            'Generate QR Code'
+          )}
+        </button>
+
+        {qrCodeUrl && (
+          <div className="qr-display-container">
+            <canvas 
+              ref={canvasRef} 
+              className="qr-canvas" 
+              aria-label="Generated QR Code" 
+            />
+          </div>
+        )}
+      </div>
 
       {/* Toast Notification Container */}
-      <ToastContainer position="top-right" autoClose={3000} />
+      <ToastContainer 
+        position="top-right" 
+        autoClose={3000}
+        toastStyle={{
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(20px)',
+          borderRadius: '16px',
+          border: '1px solid rgba(255, 255, 255, 0.2)'
+        }}
+      />
     </div>
   );
 };

@@ -40,42 +40,91 @@ import time
 
 
 
-
 # Configure logger
 logger = logging.getLogger(__name__)
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def mark_attendance(request):
     try:
+        # Log the request for debugging
+        logger.info(f"Attendance request from user: {request.user.username}")
+        logger.info(f"Request data: {request.data}")
+        
         session_id = request.data.get('session_id')
         latitude = request.data.get('latitude')
         longitude = request.data.get('longitude')
 
+        # Validate required fields
         if not all([session_id, latitude, longitude]):
-            return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
+            logger.warning("Missing required fields in attendance request")
+            return Response(
+                {'error': 'Missing required fields: session_id, latitude, and longitude are required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
+        # Validate session exists
         try:
             session = Session.objects.get(session_id=session_id)
+            logger.info(f"Session found: {session.session_id} for course: {session.course.course_code}")
         except Session.DoesNotExist:
-            return Response({'error': 'Session not found'}, status=status.HTTP_404_NOT_FOUND)
+            logger.warning(f"Session not found: {session_id}")
+            return Response(
+                {'error': 'Session not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
 
+        # Validate student profile exists
         try:
             student = Student.objects.get(user=request.user)
+            logger.info(f"Student found: {student.student_id}")
         except Student.DoesNotExist:
-            return Response({'error': 'Student profile not found'}, status=status.HTTP_404_NOT_FOUND)
+            logger.warning(f"Student profile not found for user: {request.user.username}")
+            return Response(
+                {'error': 'Student profile not found. Please complete your student registration.'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
 
-        if not StudentCourseEnrollment.objects.filter(student=student, course=session.course).exists():
-            return Response({'error': 'You are not enrolled in this course'}, status=status.HTTP_403_FORBIDDEN)
+        # Check if student is enrolled in the course
+        enrollment_exists = StudentCourseEnrollment.objects.filter(
+            student=student, 
+            course=session.course
+        ).exists()
+        
+        if not enrollment_exists:
+            logger.warning(f"Student {student.student_id} not enrolled in course {session.course.course_code}")
+            return Response(
+                {'error': 'You are not enrolled in this course. Please contact your administrator.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        logger.info("Enrollment check passed")
 
-        # ✅ QR scan + location + time validity check
-        is_valid, message = is_qr_valid(session, now(), float(latitude), float(longitude))
-        if not is_valid:
-            return Response({'error': message}, status=status.HTTP_400_BAD_REQUEST)
+        # QR scan + location + time validity check
+        try:
+            is_valid, message = is_qr_valid(session, now(), float(latitude), float(longitude))
+            if not is_valid:
+                logger.warning(f"QR validation failed: {message}")
+                return Response(
+                    {'error': message}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            logger.info("QR validation passed")
+        except Exception as e:
+            logger.error(f"Error in QR validation: {str(e)}")
+            return Response(
+                {'error': 'QR validation error'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
+        # Check if attendance already exists
         if Attendance.objects.filter(student=student, session=session).exists():
-            return Response({'message': 'Attendance already marked for this session'}, status=status.HTTP_200_OK)
+            logger.info(f"Attendance already marked for student {student.student_id} in session {session.session_id}")
+            return Response(
+                {'message': 'Attendance already marked for this session'}, 
+                status=status.HTTP_200_OK
+            )
 
-        # Optional: fallback geolocation check if needed
+        # Calculate distance from session location
         try:
             distance = haversine(
                 float(latitude),
@@ -83,40 +132,81 @@ def mark_attendance(request):
                 float(session.gps_latitude),
                 float(session.gps_longitude)
             )
+            logger.info(f"Distance calculated: {distance:.2f} meters (Allowed: {session.allowed_radius}m)")
+        except (ValueError, TypeError) as e:
+            logger.error(f"Invalid coordinates: {str(e)}")
+            return Response(
+                {'error': 'Invalid coordinates provided'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
         except Exception as e:
-            return Response({'error': f'Invalid coordinates: {str(e)}'}, status=400)
+            logger.error(f"Error calculating distance: {str(e)}")
+            return Response(
+                {'error': 'Error calculating distance'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
+        # Check if within allowed radius
         if distance > session.allowed_radius:
+            logger.warning(f"Student too far: {distance:.2f}m > allowed {session.allowed_radius}m")
             return Response({
-                'error': f'You are too far from the session location ({distance:.2f} meters). Allowed radius: {session.allowed_radius}m'
-            }, status=403)
+                'error': f'You are too far from the session location ({distance:.2f} meters). Allowed radius: {session.allowed_radius}m. Please move closer to the classroom.'
+            }, status=status.HTTP_403_FORBIDDEN)
 
-        # QR code expiration or fallback timeout
+        # Check QR code expiration or attendance window
         try:
-            qr_code = QRCode.objects.get(session=session)
-            if qr_code.expires_at and now() > qr_code.expires_at:
-                return Response({'error': 'QR code has expired. Attendance window closed.'}, status=403)
-        except QRCode.DoesNotExist:
-            if now() > session.timestamp + timedelta(minutes=15):
-                return Response({'error': 'Attendance window has closed.'}, status=403)
+            qr_code = QRCode.objects.filter(session=session).first()
+            if qr_code and qr_code.expires_at and now() > qr_code.expires_at:
+                logger.warning(f"QR code expired at {qr_code.expires_at}")
+                return Response(
+                    {'error': 'QR code has expired. Attendance window closed.'}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            elif not qr_code and now() > session.timestamp + timedelta(minutes=15):
+                logger.warning(f"Attendance window closed for session {session.session_id}")
+                return Response(
+                    {'error': 'Attendance window has closed.'}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            logger.info("Time validation passed")
+        except Exception as e:
+            logger.error(f"Error checking time validity: {str(e)}")
+            return Response(
+                {'error': 'Error checking attendance timing'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
-        # Create attendance
-        Attendance.objects.create(
-            student=student,
-            session=session,
-            latitude=latitude,
-            longitude=longitude
-        )
+        # Create attendance record
+        try:
+            attendance = Attendance.objects.create(
+                student=student,
+                session=session,
+                latitude=latitude,
+                longitude=longitude
+            )
+            logger.info(f"Attendance created successfully: {attendance.id}")
+        except Exception as e:
+            logger.error(f"Error creating attendance record: {str(e)}")
+            return Response(
+                {'error': 'Error saving attendance'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
+        # Success response
         return Response({
-            'message': 'Attendance marked successfully',
-            'distance_from_class': f'{distance:.2f} meters'
+            'message': 'Attendance marked successfully!',
+            'distance_from_class': f'{distance:.2f} meters',
+            'session': session.session_id,
+            'course': session.course.course_code,
+            'timestamp': now().isoformat()
         }, status=status.HTTP_201_CREATED)
 
     except Exception as e:
-        logger.exception("Error marking attendance")
-        return Response({'error': str(e)}, status=500)
-    
+        logger.exception("Unexpected error marking attendance")
+        return Response(
+            {'error': 'An unexpected error occurred. Please try again.'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -234,6 +324,24 @@ def student_overview(request):
         'today_status': today_status,
         'attendance_history': history_data
     })
+import csv
+import logging
+from datetime import timedelta
+from django.utils import timezone
+from django.core.exceptions import PermissionDenied
+from django.http import HttpResponse
+from rest_framework import viewsets, status
+from rest_framework.response import Response
+from rest_framework.decorators import action
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.permissions import IsAuthenticated
+
+from .models import Attendance
+from .serializers import AttendanceLecturerViewSerializer
+from authentication.permissions import IsLecturerOrAdmin
+from .filters import AttendanceFilter
+
+logger = logging.getLogger(__name__)
 
 class LecturerAttendanceViewSet(viewsets.ModelViewSet):
     serializer_class = AttendanceLecturerViewSerializer
@@ -243,12 +351,11 @@ class LecturerAttendanceViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Returns attendance records only for sessions belonging to the requesting lecturer.
-        Includes optimizations for related data fetching.
+        Returns attendance records for the requesting lecturer.
+        Admins see all records.
         """
         user = self.request.user
-        
-        # For admin users, return all attendance records
+
         if user.role == 'admin':
             return Attendance.objects.all().select_related(
                 'student__user',
@@ -256,8 +363,7 @@ class LecturerAttendanceViewSet(viewsets.ModelViewSet):
                 'session__course',
                 'session__lecturer'
             ).order_by('-check_in_time')
-        
-        # For lecturers, return only their own sessions' attendance
+
         try:
             lecturer = user.lecturer_profile
             return Attendance.objects.filter(
@@ -272,20 +378,16 @@ class LecturerAttendanceViewSet(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         """
-        Enhanced list view with:
-        - Pagination
-        - Detailed counts
-        - Course filtering
-        - Permission checks
+        Enhanced list view with pagination, filters, and counts.
         """
         try:
             queryset = self.filter_queryset(self.get_queryset())
-            
-            # Apply additional filters from query parameters
+
+            # Apply filters
             course_id = request.query_params.get('course_id')
             if course_id:
                 queryset = queryset.filter(session__course_id=course_id)
-                
+
             date_from = request.query_params.get('date_from')
             date_to = request.query_params.get('date_to')
             if date_from and date_to:
@@ -303,26 +405,24 @@ class LecturerAttendanceViewSet(viewsets.ModelViewSet):
                 })
 
             serializer = self.get_serializer(queryset, many=True)
-            
             return Response({
                 'results': serializer.data,
                 'counts': self._get_counts_data(queryset)
             })
-            
+
         except PermissionDenied as e:
-            return Response(
-                {"detail": str(e)},
-                status=status.HTTP_403_FORBIDDEN
-            )
+            return Response({"detail": str(e)}, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
-            logger.exception("Error in LecturerAttendanceViewSet")
+            logger.exception("Error in LecturerAttendanceViewSet list")
             return Response(
                 {"detail": "An error occurred while processing your request"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
+
     def _get_counts_data(self, queryset):
-        """Helper method to generate counts data for the response"""
+        """
+        Returns summary counts for attendance.
+        """
         today = timezone.now().date()
         return {
             'total': queryset.count(),
@@ -342,6 +442,58 @@ class LecturerAttendanceViewSet(viewsets.ModelViewSet):
                 ).count(),
             }
         }
+
+    @action(detail=False, methods=['get'], url_path='export-csv')
+    def export_csv(self, request):
+        """
+        Export lecturer attendance to CSV.
+        Supports the same filters as list view.
+        """
+        try:
+            queryset = self.filter_queryset(self.get_queryset())
+
+            # Apply filters
+            course_id = request.query_params.get('course_id')
+            if course_id:
+                queryset = queryset.filter(session__course_id=course_id)
+
+            date_from = request.query_params.get('date_from')
+            date_to = request.query_params.get('date_to')
+            if date_from and date_to:
+                queryset = queryset.filter(
+                    check_in_time__date__range=[date_from, date_to]
+                )
+
+            # Prepare CSV response
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = 'attachment; filename="lecturer_attendance.csv"'
+
+            writer = csv.writer(response)
+            writer.writerow([
+                'Student Name', 'Student Username', 'Session', 'Course',
+                'Status', 'Check In Time', 'Check Out Time', 'Latitude', 'Longitude'
+            ])
+
+            for record in queryset.select_related('student__user', 'session', 'session__course'):
+                writer.writerow([
+                    record.student.user.get_full_name() if record.student.user else record.student.name,
+                    record.student.user.username if record.student.user else '',
+                    record.session.title if record.session else '',
+                    record.session.course.title if record.session and record.session.course else '',
+                    record.status,
+                    record.check_in_time.strftime("%d/%m/%Y %H:%M") if record.check_in_time else '',
+                    record.check_out_time.strftime("%d/%m/%Y %H:%M") if record.check_out_time else '',
+                    record.latitude or '',
+                    record.longitude or '',
+                ])
+
+            return response
+
+        except PermissionDenied as e:
+            return Response({"detail": str(e)}, status=status.HTTP_403_FORBIDDEN)
+        except Exception as e:
+            logger.exception("Error exporting CSV")
+            return Response({"detail": "Failed to export CSV"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class StudentListCreateAPIView(generics.ListCreateAPIView):
     queryset = Student.objects.all().order_by('student_id')
@@ -958,13 +1110,24 @@ def get_qr_codes(request):
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
-
+@api_view(['DELETE'])
+@permission_classes([IsLecturer])
 @require_http_methods(["DELETE"])
 def delete_qr_code(request, qr_id):
     qr = get_object_or_404(QRCode, id=qr_id)
     qr.qr_image.delete(save=False)  # remove file from storage
     qr.delete()
     return JsonResponse({"message": "QR code deleted successfully"})
+
+from django.http import FileResponse
+def download_qr_code(request, qr_id):
+    qr = get_object_or_404(QRCode, id=qr_id)
+    file_path = qr.qr_image.path
+
+    try:
+        return FileResponse(open(file_path, 'rb'), as_attachment=True, filename=qr.qr_image.name)
+    except FileNotFoundError:
+        return JsonResponse({"error": "QR code file not found"}, status=404)
 class LecturerEnrollmentView(APIView):
     permission_classes = [IsAuthenticated]
 

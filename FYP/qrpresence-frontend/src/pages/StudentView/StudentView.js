@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import QRScanner from '../../components/QRScanner';
 import { toast } from 'react-toastify';
 import defaultAvatar from '../../assets/avatar.png';
-import './StudentView.css';
+import './StudentViews.css';
 const StudentView = () => {
     const [profile, setProfile] = useState(null);
     const [todayStatus, setTodayStatus] = useState(null);

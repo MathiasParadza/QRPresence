@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, MapPin, Users, Target, Navigation, Hash, BookOpen } from "lucide-react";
+import "./CreateSession.css";
 
 // Custom Button Component
 const Button: React.FC<{
@@ -11,18 +12,17 @@ const Button: React.FC<{
   className?: string;
   type?: "button" | "submit";
 }> = ({ children, onClick, disabled = false, variant = "primary", className = "", type = "button" }) => {
-  const baseStyles = "px-6 py-3 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 min-w-fit";
-  
+  const baseStyles = "create-session-button";
   const variantStyles = {
-    primary: "bg-purple-600 text-white hover:bg-purple-700 disabled:bg-gray-400 shadow-lg hover:shadow-xl",
-    secondary: "bg-gray-200 text-gray-800 hover:bg-gray-300 disabled:bg-gray-100 shadow-md hover:shadow-lg",
-    danger: "bg-red-500 text-white hover:bg-red-600 disabled:bg-gray-400 shadow-lg hover:shadow-xl"
+    primary: "create-session-button--primary",
+    secondary: "create-session-button--secondary",
+    danger: "create-session-button--danger"
   };
   
   return (
     <button
       type={type}
-      className={`${baseStyles} ${variantStyles[variant]} ${className} ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+      className={`${baseStyles} ${variantStyles[variant]} ${disabled ? 'create-session-button--disabled' : ''} ${className}`}
       onClick={onClick}
       disabled={disabled}
     >
@@ -47,14 +47,14 @@ const Input: React.FC<{
   error?: string;
 }> = ({ type = "text", name, value, onChange, placeholder, required = false, icon, label, min, max, step, error }) => {
   return (
-    <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700">
+    <div className="create-session-field">
+      <label className="create-session-field__label">
         {label}
-        {required && <span className="text-red-500 ml-1">*</span>}
+        {required && <span className="create-session-field__required">*</span>}
       </label>
-      <div className="relative">
+      <div className="create-session-field__wrapper">
         {icon && (
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+          <div className="create-session-field__icon">
             {icon}
           </div>
         )}
@@ -68,26 +68,81 @@ const Input: React.FC<{
           min={min}
           max={max}
           step={step}
-          className={`block w-full rounded-lg border-2 shadow-sm focus:border-purple-500 focus:ring-purple-500 transition-colors duration-200 ${
-            icon ? 'pl-10' : 'pl-4'
-          } pr-4 py-3 text-gray-900 placeholder-gray-500 ${
-            error ? 'border-red-500' : 'border-gray-300'
-          }`}
+          className={`create-session-field__input ${icon ? 'create-session-field__input--with-icon' : ''} ${error ? 'create-session-field__input--error' : ''}`}
         />
       </div>
-      {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
+      {error && <p className="create-session-field__error">{error}</p>}
     </div>
   );
 };
 
-// Custom Card Component
-const Card: React.FC<{
-  children: React.ReactNode;
-  className?: string;
-}> = ({ children, className = "" }) => {
+// Custom Select Component
+const Select: React.FC<{
+  value: string | number;
+  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  options: { value: string | number; label: string }[];
+  placeholder?: string;
+  required?: boolean;
+  disabled?: boolean;
+  icon?: React.ReactNode;
+  label: string;
+  error?: string;
+  loading?: boolean;
+}> = ({ value, onChange, options, placeholder, required = false, disabled = false, icon, label, error, loading = false }) => {
   return (
-    <div className={`bg-white rounded-xl shadow-lg border border-gray-200 ${className}`}>
-      {children}
+    <div className="create-session-field">
+      <label className="create-session-field__label">
+        {label}
+        {required && <span className="create-session-field__required">*</span>}
+      </label>
+      <div className="create-session-field__wrapper">
+        {icon && (
+          <div className="create-session-field__icon">
+            {icon}
+          </div>
+        )}
+        <select
+          value={value}
+          onChange={onChange}
+          disabled={disabled || loading}
+          required={required}
+          className={`create-session-field__select ${icon ? 'create-session-field__select--with-icon' : ''} ${error ? 'create-session-field__select--error' : ''} ${loading ? 'create-session-field__select--loading' : ''}`}
+          title={label}
+        >
+          <option value="">{loading ? "Loading..." : (placeholder || "Select an option")}</option>
+          {options.map((option, index) => (
+            <option key={index} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        {loading && (
+          <div className="create-session-field__loading">
+            <div className="create-session-spinner"></div>
+          </div>
+        )}
+      </div>
+      {error && <p className="create-session-field__error">{error}</p>}
+    </div>
+  );
+};
+
+// Custom Info Box Component
+const InfoBox: React.FC<{
+  type: "success" | "info";
+  icon: React.ReactNode;
+  title: string;
+  children: React.ReactNode;
+}> = ({ type, icon, title, children }) => {
+  return (
+    <div className={`create-session-info-box create-session-info-box--${type}`}>
+      <div className="create-session-info-box__icon">
+        {icon}
+      </div>
+      <div className="create-session-info-box__content">
+        <h4 className="create-session-info-box__title">{title}</h4>
+        <div className="create-session-info-box__text">{children}</div>
+      </div>
     </div>
   );
 };
@@ -173,7 +228,7 @@ const CreateSession: React.FC = () => {
         console.error("Error fetching courses:", error);
         setCoursesError(error instanceof Error ? error.message : "Failed to load courses. Please try again later.");
       } finally {
-        setCoursesLoading(false);
+ setCoursesLoading(false);
       }
     };
     
@@ -261,106 +316,116 @@ const CreateSession: React.FC = () => {
       }
     );
   };
-const handleCreateSession = async () => {
-  if (!validateForm()) {
-    toast.error("Please fix the errors in the form before submitting.");
-    return;
-  }
-  try {
-    setLoading(true);
-    const token = localStorage.getItem("access_token");
-    
-    if (!token) {
-      throw new Error("Authentication token not found");
+
+  const handleCreateSession = async () => {
+    if (!validateForm()) {
+      toast.error("Please fix the errors in the form before submitting.");
+      return;
     }
-
-    // Payload matches the model exactly
-    const payload = {
-      session_id: sessionId,
-      class_name: className,
-      gps_latitude: Number(gpsLatitude),
-      gps_longitude: Number(gpsLongitude),
-      allowed_radius: allowedRadius,
-      course: Number(selectedCourse), // Matches model field name
-    };
-
-    const response = await fetch("http://127.0.0.1:8000/api/sessions/", {
-      method: "POST",
-      headers: { 
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("access_token");
       
-      // Handle specific field errors
-      const apiErrors: FormErrors = {};
-      if (errorData.session_id) {
-        apiErrors.sessionId = errorData.session_id.join(", ");
+      if (!token) {
+        throw new Error("Authentication token not found");
       }
-      if (errorData.class_name) {
-        apiErrors.className = errorData.class_name.join(", ");
+
+      // Payload matches the model exactly
+      const payload = {
+        session_id: sessionId,
+        class_name: className,
+        gps_latitude: Number(gpsLatitude),
+        gps_longitude: Number(gpsLongitude),
+        allowed_radius: allowedRadius,
+        course: Number(selectedCourse), // Matches model field name
+      };
+
+      const response = await fetch("http://127.0.0.1:8000/api/sessions/", {
+        method: "POST",
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        
+        // Handle specific field errors
+        const apiErrors: FormErrors = {};
+        if (errorData.session_id) {
+          apiErrors.sessionId = errorData.session_id.join(", ");
+        }
+        if (errorData.class_name) {
+          apiErrors.className = errorData.class_name.join(", ");
+        }
+        if (errorData.gps_latitude) {
+          apiErrors.gpsLatitude = errorData.gps_latitude.join(", ");
+        }
+        if (errorData.gps_longitude) {
+          apiErrors.gpsLongitude = errorData.gps_longitude.join(", ");
+        }
+        if (errorData.allowed_radius) {
+          apiErrors.allowedRadius = errorData.allowed_radius.join(", ");
+        }
+        if (errorData.course) {
+          apiErrors.course = errorData.course.join(", ");
+        }
+        
+        setErrors(apiErrors);
+        throw new Error("Failed to create session. Please check the form for errors.");
       }
-      if (errorData.gps_latitude) {
-        apiErrors.gpsLatitude = errorData.gps_latitude.join(", ");
-      }
-      if (errorData.gps_longitude) {
-        apiErrors.gpsLongitude = errorData.gps_longitude.join(", ");
-      }
-      if (errorData.allowed_radius) {
-        apiErrors.allowedRadius = errorData.allowed_radius.join(", ");
-      }
-      if (errorData.course) {
-        apiErrors.course = errorData.course.join(", ");
-      }
+
+      toast.success("Session created successfully!");
+      navigate("/session-list");
       
-      setErrors(apiErrors);
-      throw new Error("Failed to create session. Please check the form for errors.");
+    } catch (error) {
+      console.error("Error creating session:", error);
+      toast.error(
+        error instanceof Error 
+          ? error.message || "Failed to create session. Please try again."
+          : "Failed to create session. Please try again."
+      );
+    } finally {
+      setLoading(false);
     }
+  };
 
-    toast.success("Session created successfully!");
-    navigate("/session-list");
-    
-  } catch (error) {
-    console.error("Error creating session:", error);
-    toast.error(
-      error instanceof Error 
-        ? error.message || "Failed to create session. Please try again."
-        : "Failed to create session. Please try again."
-    );
-  } finally {
-    setLoading(false);
-  }
-};
+  // Prepare course options for Select component
+  const courseOptions = courses.map(course => ({
+    value: course.id,
+    label: `${course.code} - ${course.title} (${course.credit_hours} credits)`
+  }));
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col">
-      <div className="flex-1 px-6 py-6 overflow-y-auto">
-        <div className="max-w-2xl mx-auto">
-          {/* Header */}
-          <div className="mb-8">
-            <div className="flex items-center gap-4 mb-4">
-              <Button
-                variant="secondary"
-                onClick={() => navigate("/lecturerview")}
-                className="hover:bg-blue-50 hover:text-blue-700"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back to Dashboard
-              </Button>
-            </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Create New Session</h1>
-            <p className="text-gray-600">Set up a new attendance session with location tracking</p>
+    <div className="create-session-container">
+      <div className="create-session-container__background"></div>
+      <div className="create-session-container__overlay"></div>
+      
+      <div className="create-session-content">
+        {/* Header */}
+        <div className="create-session-header">
+          <div className="create-session-header__back-button">
+            <Button
+              variant="secondary"
+              onClick={() => navigate("/lecturerview")}
+            >
+              <ArrowLeft className="create-session-icon" />
+              Back to Dashboard
+            </Button>
           </div>
+          
+          <h1 className="create-session-header__title">Create New Session</h1>
+          <p className="create-session-header__subtitle">Set up a new attendance session with location tracking</p>
+        </div>
 
-          {/* Form Card */}
-          <Card className="p-8">
-            <div className="space-y-6">
-              {/* Session ID and Class Name */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Form Card */}
+        <div className="create-session-card">
+          <div className="create-session-form">
+            {/* Basic Information Section */}
+            <div className="create-session-form__section">
+              <div className="create-session-form__row create-session-form__row--two-columns">
                 <Input
                   name="sessionId"
                   value={sessionId}
@@ -371,7 +436,7 @@ const handleCreateSession = async () => {
                   placeholder="Enter unique session ID"
                   label="Session ID"
                   required
-                  icon={<Hash className="w-5 h-5" />}
+                  icon={<Hash className="create-session-icon" />}
                   error={errors.sessionId}
                 />
                 
@@ -385,124 +450,97 @@ const handleCreateSession = async () => {
                   placeholder="Enter class name"
                   label="Class Name"
                   required
-                  icon={<Users className="w-5 h-5" />}
+                  icon={<Users className="create-session-icon" />}
                   error={errors.className}
                 />
               </div>
 
               {/* Course Selection */}
-              <div className="space-y-2">
-                <label htmlFor="course-select" className="block text-sm font-medium text-gray-700">
-                  Course
-                  <span className="text-red-500 ml-1">*</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                    <BookOpen className="w-5 h-5" />
-                  </div>
-                  <select
-                    id="course-select"
-                    value={selectedCourse}
-                    onChange={(e) => {
-                      setSelectedCourse(e.target.value);
-                      setErrors(prev => ({ ...prev, course: undefined }));
-                    }}
-                    disabled={coursesLoading}
-                    className={`block w-full rounded-lg border-2 shadow-sm focus:border-purple-500 focus:ring-purple-500 transition-colors duration-200 pl-10 pr-4 py-3 text-gray-900 ${
-                      coursesLoading ? 'bg-gray-100' : ''
-                    } ${errors.course ? 'border-red-500' : 'border-gray-300'}`}
-                    required
-                  >
-                    <option value="">{coursesLoading ? "Loading courses..." : "Select a course"}</option>
-                    {!coursesLoading && courses.map((course) => (
-                      <option key={course.id} value={course.id}>
-                        {course.code} - {course.title} ({course.credit_hours} credits)
-                      </option>
-                    ))}
-                  </select>
-                  {coursesLoading && (
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
-                    </div>
+              <Select
+                value={selectedCourse}
+                onChange={(e) => {
+                  setSelectedCourse(e.target.value);
+                  setErrors(prev => ({ ...prev, course: undefined }));
+                }}
+                options={courseOptions}
+                placeholder="Select a course"
+                required
+                disabled={coursesLoading}
+                icon={<BookOpen className="create-session-icon" />}
+                label="Course"
+                error={errors.course ?? coursesError ?? undefined}
+
+                loading={coursesLoading}
+              />
+              
+              {!coursesLoading && courses.length === 0 && !coursesError && (
+                <p className="create-session-field__error">No courses available. Please create courses first.</p>
+              )}
+            </div>
+
+            {/* Location Settings Section */}
+            <div className="create-session-form__section">
+              <div className="create-session-section-header">
+                <h3 className="create-session-section-title">Location Settings</h3>
+                <Button
+                  variant="secondary"
+                  onClick={handleUseCurrentLocation}
+                  disabled={gettingLocation}
+                >
+                  {gettingLocation ? (
+                    <>
+                      <div className="create-session-spinner"></div>
+                      Getting Location...
+                    </>
+                  ) : (
+                    <>
+                      <Navigation className="create-session-icon" />
+                      Use Current Location
+                    </>
                   )}
-                </div>
-                {errors.course && (
-                  <p className="text-sm text-red-500 mt-1">{errors.course}</p>
-                )}
-                {coursesError && (
-                  <p className="text-sm text-red-500 mt-1">{coursesError}</p>
-                )}
-                {!coursesLoading && courses.length === 0 && !coursesError && (
-                  <p className="text-sm text-gray-500 mt-1">No courses available. Please create courses first.</p>
-                )}
+                </Button>
               </div>
-
-              {/* GPS Coordinates Section */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium text-gray-900">Location Settings</h3>
-                  <Button
-                    variant="secondary"
-                    onClick={handleUseCurrentLocation}
-                    disabled={gettingLocation}
-                    className="hover:bg-green-50 hover:text-green-700"
-                  >
-                    {gettingLocation ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
-                        Getting Location...
-                      </>
-                    ) : (
-                      <>
-                        <Navigation className="w-4 h-4" />
-                        Use Current Location
-                      </>
-                    )}
-                  </Button>
-                </div>
+              
+              <div className="create-session-form__row create-session-form__row--two-columns">
+                <Input
+                  type="number"
+                  name="gpsLatitude"
+                  value={gpsLatitude}
+                  onChange={(e) => {
+                    const value = e.target.value === "" ? "" : parseFloat(e.target.value);
+                    setGpsLatitude(value);
+                    setErrors(prev => ({ ...prev, gpsLatitude: undefined }));
+                  }}
+                  placeholder="e.g., -15.397596"
+                  label="GPS Latitude"
+                  required
+                  icon={<MapPin className="create-session-icon" />}
+                  min={-90}
+                  max={90}
+                  step={0.01}
+                  error={errors.gpsLatitude}
+                />
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Input
-                    type="number"
-                    name="gpsLatitude"
-                    value={gpsLatitude}
-                    onChange={(e) => {
-                      const value = e.target.value === "" ? "" : parseFloat(e.target.value);
-                      setGpsLatitude(value);
-                      setErrors(prev => ({ ...prev, gpsLatitude: undefined }));
-                    }}
-                    placeholder="e.g., -15.397596"
-                    label="GPS Latitude"
-                    required
-                    icon={<MapPin className="w-5 h-5" />}
-                    min={-90}
-                    max={90}
-                    step={0.01}
-                    error={errors.gpsLatitude}
-                  />
-                  
-                  <Input
-                    type="number"
-                    name="gpsLongitude"
-                    value={gpsLongitude}
-                    onChange={(e) => {
-                      const value = e.target.value === "" ? "" : parseFloat(e.target.value);
-                      setGpsLongitude(value);
-                      setErrors(prev => ({ ...prev, gpsLongitude: undefined }));
-                    }}
-                    placeholder="e.g., 28.322817"
-                    label="GPS Longitude"
-                    required
-                    icon={<MapPin className="w-5 h-5" />}
-                    min={-180}
-                    max={180}
-                    step={0.01}
-                    error={errors.gpsLongitude}
-                  />
-                </div>
+                <Input
+                  type="number"
+                  name="gpsLongitude"
+                  value={gpsLongitude}
+                  onChange={(e) => {
+                    const value = e.target.value === "" ? "" : parseFloat(e.target.value);
+                    setGpsLongitude(value);
+                    setErrors(prev => ({ ...prev, gpsLongitude: undefined }));
+                  }}
+                  placeholder="e.g., 28.322817"
+                  label="GPS Longitude"
+                  required
+                  icon={<MapPin className="create-session-icon" />}
+                  min={-180}
+                  max={180}
+                  step={0.01}
+                  error={errors.gpsLongitude}
+                />
               </div>
 
-              {/* Allowed Radius */}
               <Input
                 type="number"
                 name="allowedRadius"
@@ -515,77 +553,67 @@ const handleCreateSession = async () => {
                 placeholder="Enter radius in meters"
                 label="Allowed Radius (meters)"
                 required
-                icon={<Target className="w-5 h-5" />}
+                icon={<Target className="create-session-icon" />}
                 min={10}
                 max={1000}
                 error={errors.allowedRadius}
               />
-
-              {/* Info Boxes */}
-              <div className="space-y-4">
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="text-green-600 mt-0.5">
-                      <Navigation className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-green-900 mb-1">Location Tip</h4>
-                      <p className="text-sm text-green-700">
-                        Click "Use Current Location" to automatically fill in your GPS coordinates.
-                        Manual entries must be between -90 to 90 for latitude and -180 to 180 for longitude.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="text-blue-600 mt-0.5">
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-blue-900 mb-1">Attendance Tracking</h4>
-                      <p className="text-sm text-blue-700">
-                        Students must be within the specified radius (10-1000 meters) of the GPS coordinates to mark their attendance.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-4 pt-6">
-                <Button
-                  onClick={handleCreateSession}
-                  disabled={loading || coursesLoading || !selectedCourse}
-                  className="flex-1 sm:flex-none"
-                >
-                  {loading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      Creating Session...
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-4 h-4" />
-                      Create Session
-                    </>
-                  )}
-                </Button>
-                
-                <Button
-                  variant="secondary"
-                  onClick={() => navigate("/session-list")}
-                  disabled={loading}
-                  className="flex-1 sm:flex-none"
-                >
-                  Cancel
-                </Button>
-              </div>
             </div>
-          </Card>
+
+            {/* Info Boxes */}
+            <div className="create-session-form__section">
+              <InfoBox
+                type="success"
+                icon={<Navigation className="create-session-icon" />}
+                title="Location Tip"
+              >
+                Click "Use Current Location" to automatically fill in your GPS coordinates.
+                Manual entries must be between -90 to 90 for latitude and -180 to 180 for longitude.
+              </InfoBox>
+
+              <InfoBox
+                type="info"
+                icon={
+                  <svg className="create-session-icon" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                }
+                title="Attendance Tracking"
+              >
+                Students must be within the specified radius (10-1000 meters) of the GPS coordinates to mark their attendance.
+              </InfoBox>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="create-session-actions">
+              <Button
+                variant="secondary"
+                onClick={() => navigate("/session-list")}
+                disabled={loading}
+                className="create-session-actions__button"
+              >
+                Cancel
+              </Button>
+              
+              <Button
+                onClick={handleCreateSession}
+                disabled={loading || coursesLoading || !selectedCourse}
+                className="create-session-actions__button"
+              >
+                {loading ? (
+                  <>
+                    <div className="create-session-spinner"></div>
+                    Creating Session...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="create-session-icon" />
+                    Create Session
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

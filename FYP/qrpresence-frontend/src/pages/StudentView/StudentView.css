@@ -261,8 +261,8 @@
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   border: 1px solid #e2e8f0;
   text-align: center;
-  max-width: 100%;
-  width: 100%;
+  max-width: 60%;
+  width: 60%;
 }
 
 .qr-scanner-title {

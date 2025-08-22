@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import axios from 'axios';
 import { QrCodeSection } from './QrCodeSection';
 import { Loader2, AlertCircle, Brain, Sparkles, BarChart3, Download, RefreshCw, Search, Filter, ChevronLeft, ChevronRight, Calendar, Users, BookOpen, Clock, LogOut } from 'lucide-react';
+import './LecturerView.css';
 
 interface AttendanceRecord {
   id: number;
@@ -66,6 +67,18 @@ interface ChatHistoryItem {
   timestamp: Date;
 }
 
+interface Course {
+  id: number;
+  code: string;
+  name: string;
+}
+
+interface AIInsightsResponse {
+  answer: string;
+}
+
+//const API_BASE_URL = 'http://localhost:8000';
+
 const LecturerView: React.FC = () => {
   const navigate = useNavigate();
   const [qrCodes, setQrCodes] = useState<QrCodeItem[]>([]);
@@ -82,23 +95,14 @@ const LecturerView: React.FC = () => {
   const [aiLoading, setAiLoading] = useState<boolean>(false);
   const [loadingQrCodes, setLoadingQrCodes] = useState<boolean>(true);
   const [qrCodeError, setQrCodeError] = useState<string | null>(null);
-  interface StatsType {
-    total: number;
-    present: number;
-    absent: number;
-    by_time_period: {
-      today: number;
-      this_week: number;
-      this_month: number;
-      this_year: number;
-    };
-  }
-  const [stats, setStats] = useState<StatsType | null>(null);
+  const [stats, setStats] = useState<PaginatedResponse['counts'] | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [dateFilter, setDateFilter] = useState<string>('');
   const [courseFilter, setCourseFilter] = useState<string>('');
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loadingCourses, setLoadingCourses] = useState<boolean>(true);
+  const [courseError, setCourseError] = useState<string | null>(null);
 
-  // Suggested AI queries
   const suggestedQueries = [
     "What are the overall attendance statistics?",
     "Which courses have the best attendance rates?",
@@ -109,7 +113,6 @@ const LecturerView: React.FC = () => {
     "Analyze attendance patterns by time of day"
   ];
 
-  // Fetch QR codes
   const fetchQrCodes = async () => {
     setLoadingQrCodes(true);
     setQrCodeError(null);
@@ -131,7 +134,6 @@ const LecturerView: React.FC = () => {
     fetchQrCodes();
   }, []);
 
-  // Fetch attendance records
   const fetchAttendanceRecord = React.useCallback(async (): Promise<void> => {
     setLoadingReport(true);
     setError(null);
@@ -231,7 +233,7 @@ const LecturerView: React.FC = () => {
         return;
       }
 
-      await axios.delete(`http://127.0.0.1:8000/api/qr-codes/${id}/`, {
+      await axios.delete(`http://127.0.0.1:8000/api/qr-codes/${id}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -254,10 +256,6 @@ const LecturerView: React.FC = () => {
     navigate('/login');
   };
 
-  interface AIInsightsResponse {
-    answer: string;
-  }
-
   const handleAIQuery = async () => {
     if (!aiQuery.trim()) return;
     
@@ -279,7 +277,6 @@ const LecturerView: React.FC = () => {
       
       setAiResponse(res.data.answer);
       
-      // Add to chat history
       setChatHistory(prev => [...prev, { 
         query: aiQuery, 
         response: res.data.answer,
@@ -319,6 +316,28 @@ const LecturerView: React.FC = () => {
     }
   };
 
+  const fetchCourses = async () => {
+    setLoadingCourses(true);
+    setCourseError(null);
+    try {
+      const token = localStorage.getItem('access_token');
+      const res = await axios.get<{ results: Course[] }>('http://127.0.0.1:8000/api/lecturer/courses/', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+
+      setCourses(res.data.results || []);
+    } catch (err) {
+      console.error('Failed to load courses', err);
+      setCourseError('Failed to load courses. Please try again later.');
+    } finally {
+      setLoadingCourses(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCourses();
+  }, []);
+
   const clearFilters = () => {
     setSearchTerm('');
     setStatusFilter('');
@@ -327,7 +346,6 @@ const LecturerView: React.FC = () => {
     setCurrentPage(1);
   };
 
-  // Format date for display
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -341,18 +359,17 @@ const LecturerView: React.FC = () => {
   const getStatusBadgeClass = (status: string) => {
     switch (status.toLowerCase()) {
       case 'present':
-        return 'bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm';
+        return 'status-badge status-badge--present';
       case 'absent':
-        return 'bg-rose-50 text-rose-700 border border-rose-200 shadow-sm';
+        return 'status-badge status-badge--absent';
       case 'late':
-        return 'bg-amber-50 text-amber-700 border border-amber-200 shadow-sm';
+        return 'status-badge status-badge--late';
       default:
-        return 'bg-slate-50 text-slate-700 border border-slate-200 shadow-sm';
+        return 'status-badge status-badge--default';
     }
   };
 
-
-  function handleDownloadQrCode(id?: number): void {
+  const handleDownloadQrCode = (id?: number): void => {
     if (!id) return;
     const token = localStorage.getItem('access_token');
     const url = `http://127.0.0.1:8000/api/qr-codes/${id}/download/`;
@@ -360,7 +377,6 @@ const LecturerView: React.FC = () => {
     link.href = url;
     link.setAttribute('target', '_blank');
     if (token) {
-      // If you want to send the token, you need to use fetch instead of a direct link
       fetch(url, {
         headers: { Authorization: `Bearer ${token}` }
       })
@@ -379,57 +395,50 @@ const LecturerView: React.FC = () => {
           alert('Failed to download QR code. Please try again.');
         });
     } else {
-      // If no token, just open the link
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
     }
-  }
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+    <div className="lecturer-container">
+      <div className="lecturer-content">
         {/* Header */}
-        <div className="bg-white/80 backdrop-blur-lg shadow-xl rounded-2xl p-6 sm:p-8 mb-8 border border-white/20">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-            <div className="space-y-2">
-              <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-blue-600 bg-clip-text text-transparent">
-                Lecturer Dashboard
-              </h1>
-              <p className="text-slate-600 text-lg font-medium">
-                Manage attendance, generate QR codes, and analyze data with AI insights
-              </p>
+        <div className="lecturer-header">
+          <div className="lecturer-header__content">
+            <div className="lecturer-header__text">
+              <h1>Lecturer Dashboard</h1>
+              <p>Manage attendance, generate QR codes, and analyze data with AI insights</p>
             </div>
             <button
               onClick={handleLogout}
-              className="bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center gap-2 self-start lg:self-auto"
+              className="lecturer-button lecturer-button--danger"
             >
-              <LogOut className="w-5 h-5" />
+              <LogOut className="lecturer-icon" />
               Logout
             </button>
           </div>
         </div>
 
         {/* AI Chat Section */}
-        <div className="bg-white/80 backdrop-blur-lg shadow-xl rounded-2xl p-6 sm:p-8 mb-8 border border-white/20">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl shadow-lg">
-              <Brain className="w-8 h-8 text-white" />
+        <div className="lecturer-card ai-chat-section">
+          <div className="ai-chat__header">
+            <div className="ai-chat__icon">
+              <Brain className="lecturer-icon" />
             </div>
-            <h2 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-              AI Attendance Insights
-            </h2>
+            <h2 className="ai-chat__title">AI Attendance Insights</h2>
           </div>
           
           {/* Suggested Questions */}
-          <div className="mb-6">
-            <p className="text-sm font-medium text-slate-600 mb-3">Popular questions:</p>
-            <div className="flex flex-wrap gap-2">
+          <div className="ai-chat__suggestions">
+            <p className="ai-chat__suggestions-label">Popular questions:</p>
+            <div className="ai-chat__suggestion-pills">
               {suggestedQueries.map((query, index) => (
                 <button
                   key={index}
                   onClick={() => setAiQuery(query)}
-                  className="text-xs bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 px-4 py-2 rounded-full hover:from-indigo-100 hover:to-purple-100 transition-all duration-200 border border-indigo-200 font-medium shadow-sm hover:shadow-md transform hover:scale-105"
+                  className="ai-suggestion-pill"
                 >
                   {query}
                 </button>
@@ -437,31 +446,29 @@ const LecturerView: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex flex-col lg:flex-row gap-4 items-stretch mb-6">
-            <div className="flex-1">
-              <input
-                type="text"
-                placeholder="Ask about attendance patterns, trends, or insights..."
-                className="w-full border-2 border-slate-200 rounded-xl px-6 py-4 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 bg-white/70 backdrop-blur-sm text-slate-900 placeholder-slate-500 font-medium shadow-sm"
-                value={aiQuery}
-                onChange={(e) => setAiQuery(e.target.value)}
-                onKeyPress={handleKeyPress}
-                disabled={aiLoading}
-              />
-            </div>
+          <div className="ai-chat__input-section">
+            <input
+              type="text"
+              placeholder="Ask about attendance patterns, trends, or insights..."
+              className="ai-chat__input"
+              value={aiQuery}
+              onChange={(e) => setAiQuery(e.target.value)}
+              onKeyPress={handleKeyPress}
+              disabled={aiLoading}
+            />
             <button
               onClick={handleAIQuery}
               disabled={aiLoading || !aiQuery.trim()}
-              className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:from-slate-300 disabled:to-slate-400 text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center gap-3 min-w-[160px] justify-center"
+              className={`lecturer-button lecturer-button--primary ${aiLoading || !aiQuery.trim() ? 'lecturer-button--disabled' : ''}`}
             >
               {aiLoading ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <Loader2 className="lecturer-icon lecturer-icon--spinning" />
                   Thinking...
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-5 h-5" />
+                  <Sparkles className="lecturer-icon" />
                   Ask AI
                 </>
               )}
@@ -469,14 +476,14 @@ const LecturerView: React.FC = () => {
           </div>
           
           {aiResponse && (
-            <div className="bg-gradient-to-br from-slate-50 to-blue-50 border-2 border-blue-100 rounded-2xl p-6 shadow-inner">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg">
-                  <Brain className="w-5 h-5 text-white" />
+            <div className="ai-chat__response">
+              <div className="ai-chat__response-header">
+                <div className="ai-chat__response-icon">
+                  <Brain className="lecturer-icon" />
                 </div>
-                <span className="font-bold text-slate-800 text-lg">AI Insights:</span>
+                <span className="ai-chat__response-label">AI Insights:</span>
               </div>
-              <div className="text-slate-700 whitespace-pre-wrap leading-relaxed font-medium">
+              <div className="ai-chat__response-text">
                 {aiResponse}
               </div>
             </div>
@@ -484,17 +491,17 @@ const LecturerView: React.FC = () => {
 
           {/* Chat History */}
           {chatHistory.length > 0 && (
-            <div className="mt-8 pt-6 border-t-2 border-slate-100">
-              <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <Clock className="w-5 h-5" />
+            <div className="ai-chat__history">
+              <h3 className="ai-chat__history-title">
+                <Clock className="lecturer-icon" />
                 Recent Queries
               </h3>
-              <div className="space-y-4 max-h-80 overflow-y-auto custom-scrollbar">
+              <div className="ai-chat__history-list">
                 {chatHistory.slice().reverse().map((chat, index) => (
-                  <div key={index} className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200 shadow-sm hover:shadow-md transition-shadow duration-200">
-                    <p className="text-sm font-semibold text-blue-800 mb-2">Q: {chat.query}</p>
-                    <p className="text-sm text-blue-700 mb-3 line-clamp-3">A: {chat.response}</p>
-                    <p className="text-xs text-blue-500 font-medium">
+                  <div key={index} className="ai-chat__history-item">
+                    <p className="ai-chat__history-question">Q: {chat.query}</p>
+                    <p className="ai-chat__history-answer">A: {chat.response}</p>
+                    <p className="ai-chat__history-timestamp">
                       {chat.timestamp.toLocaleString()}
                     </p>
                   </div>
@@ -506,51 +513,51 @@ const LecturerView: React.FC = () => {
 
         {/* Statistics Overview Cards */}
         {stats && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white/80 backdrop-blur-lg p-6 rounded-2xl shadow-xl border border-purple-100 hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
-              <div className="flex items-center justify-between">
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-slate-600 uppercase tracking-wide">Total Records</p>
-                  <p className="text-3xl font-bold text-purple-700">{stats.total}</p>
+          <div className="stats-grid">
+            <div className="stats-card stats-card--purple">
+              <div className="stats-card__content">
+                <div className="stats-card__info">
+                  <span className="stats-card__label">Total Records</span>
+                  <span className="stats-card__value">{stats.total}</span>
                 </div>
-                <div className="p-3 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl shadow-lg">
-                  <BarChart3 className="w-8 h-8 text-white" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white/80 backdrop-blur-lg p-6 rounded-2xl shadow-xl border border-emerald-100 hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
-              <div className="flex items-center justify-between">
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-slate-600 uppercase tracking-wide">Present</p>
-                  <p className="text-3xl font-bold text-emerald-700">{stats.present}</p>
-                </div>
-                <div className="p-3 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl shadow-lg">
-                  <Users className="w-8 h-8 text-white" />
+                <div className="stats-card__icon">
+                  <BarChart3 className="lecturer-icon" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white/80 backdrop-blur-lg p-6 rounded-2xl shadow-xl border border-rose-100 hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
-              <div className="flex items-center justify-between">
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-slate-600 uppercase tracking-wide">Absent</p>
-                  <p className="text-3xl font-bold text-rose-700">{stats.absent}</p>
+            <div className="stats-card stats-card--emerald">
+              <div className="stats-card__content">
+                <div className="stats-card__info">
+                  <span className="stats-card__label">Present</span>
+                  <span className="stats-card__value">{stats.present}</span>
                 </div>
-                <div className="p-3 bg-gradient-to-br from-rose-500 to-red-600 rounded-2xl shadow-lg">
-                  <AlertCircle className="w-8 h-8 text-white" />
+                <div className="stats-card__icon">
+                  <Users className="lecturer-icon" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white/80 backdrop-blur-lg p-6 rounded-2xl shadow-xl border border-blue-100 hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
-              <div className="flex items-center justify-between">
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-slate-600 uppercase tracking-wide">Today</p>
-                  <p className="text-3xl font-bold text-blue-700">{stats.by_time_period?.today || 0}</p>
+            <div className="stats-card stats-card--rose">
+              <div className="stats-card__content">
+                <div className="stats-card__info">
+                  <span className="stats-card__label">Absent</span>
+                  <span className="stats-card__value">{stats.absent}</span>
                 </div>
-                <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-lg">
-                  <Calendar className="w-8 h-8 text-white" />
+                <div className="stats-card__icon">
+                  <AlertCircle className="lecturer-icon" />
+                </div>
+              </div>
+            </div>
+
+            <div className="stats-card stats-card--blue">
+              <div className="stats-card__content">
+                <div className="stats-card__info">
+                  <span className="stats-card__label">Today</span>
+                  <span className="stats-card__value">{stats.by_time_period?.today || 0}</span>
+                </div>
+                <div className="stats-card__icon">
+                  <Calendar className="lecturer-icon" />
                 </div>
               </div>
             </div>
@@ -558,127 +565,118 @@ const LecturerView: React.FC = () => {
         )}
 
         {/* Main Content */}
-        <div className="bg-white/80 backdrop-blur-lg shadow-xl rounded-2xl p-6 sm:p-8 border border-white/20">
-          <Tabs defaultValue="actions" className="w-full">
-            <TabsList className="grid grid-cols-3 gap-2 bg-slate-100/80 backdrop-blur-sm border-2 border-slate-200 rounded-2xl p-2 mb-8 shadow-inner">
-              <TabsTrigger
-                value="actions"
-                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg bg-white/70 text-slate-700 hover:bg-white/90 transition-all duration-300 rounded-xl py-4 font-bold text-sm sm:text-base transform hover:scale-105"
-              >
-                <Sparkles className="w-5 h-5 mr-2" />
+        <div className="lecturer-card main-content-card">
+          <Tabs defaultValue="actions" className="lecturer-tabs">
+            <TabsList className="lecturer-tabs__list">
+              <TabsTrigger value="actions" className="lecturer-tabs__trigger">
+                <Sparkles className="lecturer-icon" />
                 Actions
               </TabsTrigger>
-              <TabsTrigger
-                value="qrcode"
-                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg bg-white/70 text-slate-700 hover:bg-white/90 transition-all duration-300 rounded-xl py-4 font-bold text-sm sm:text-base transform hover:scale-105"
-              >
+              <TabsTrigger value="qrcode" className="lecturer-tabs__trigger">
                 QR Codes
               </TabsTrigger>
-              <TabsTrigger
-                value="stats"
-                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg bg-white/70 text-slate-700 hover:bg-white/90 transition-all duration-300 rounded-xl py-4 font-bold text-sm sm:text-base transform hover:scale-105"
-              >
-                <BarChart3 className="w-5 h-5 mr-2" />
+              <TabsTrigger value="stats" className="lecturer-tabs__trigger">
+                <BarChart3 className="lecturer-icon" />
                 Statistics
               </TabsTrigger>
             </TabsList>
 
             {/* Actions Tab */}
             <TabsContent value="actions">
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                <div className="group bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 border-2 border-purple-200 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
-                      <Sparkles className="w-6 h-6 text-white" />
+              <div className="actions-grid">
+                <div className="action-card action-card--purple">
+                  <div className="action-card__header">
+                    <div className="action-card__icon">
+                      <Sparkles className="lecturer-icon" />
                     </div>
-                    <h3 className="text-lg font-bold text-slate-800">Generate Attendance QR</h3>
+                    <h3 className="action-card__title">Generate Attendance QR</h3>
                   </div>
                   <button
                     onClick={() => navigate('/generate-qr')}
-                    className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white py-4 rounded-xl font-bold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl text-lg"
+                    className="action-card__button"
                   >
                     📷 Generate QR Code
                   </button>
                 </div>
 
-                <div className="group bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 border-2 border-blue-200 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-gradient-to-br from-blue-500 to-teal-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
-                      <BookOpen className="w-6 h-6 text-white" />
+                <div className="action-card action-card--blue">
+                  <div className="action-card__header">
+                    <div className="action-card__icon">
+                      <BookOpen className="lecturer-icon" />
                     </div>
-                    <h3 className="text-lg font-bold text-slate-800">Course Management</h3>
+                    <h3 className="action-card__title">Course Management</h3>
                   </div>
                   <button
                     onClick={() => navigate('/manage-courses')}
-                    className="w-full bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-white py-4 rounded-xl font-bold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl text-lg"
+                    className="action-card__button"
                   >
                     📚 Manage Courses
                   </button>
                 </div>
 
-                <div className="group bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 border-2 border-emerald-200 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
-                      <Users className="w-6 h-6 text-white" />
+                <div className="action-card action-card--emerald">
+                  <div className="action-card__header">
+                    <div className="action-card__icon">
+                      <Users className="lecturer-icon" />
                     </div>
-                    <h3 className="text-lg font-bold text-slate-800">Enrollment Manager</h3>
+                    <h3 className="action-card__title">Enrollment Manager</h3>
                   </div>
                   <button
                     onClick={() => navigate('/enroll-students')}
-                    className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white py-4 rounded-xl font-bold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl text-lg"
+                    className="action-card__button"
                   >
                     📝 Enroll Students
                   </button>
                 </div>
                 
-                <div className="group bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 border-2 border-emerald-200 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-gradient-to-br from-orange-500 to-amber-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
-                      <Clock className="w-6 h-6 text-white" />
+                <div className="action-card action-card--emerald">
+                  <div className="action-card__header">
+                    <div className="action-card__icon">
+                      <Clock className="lecturer-icon" />
                     </div>
-                    <h3 className="text-lg font-bold text-slate-800">Session Management</h3>
+                    <h3 className="action-card__title">Session Management</h3>
                   </div>
-                  <div className="space-y-3">
+                  <div className="action-card__actions">
                     <button
                       onClick={() => navigate('/create-session')}
-                      className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white py-4 rounded-xl font-bold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl text-lg"
+                      className="action-card__button"
                     >
                       🔧 Create Session
                     </button>
                     <button
                       onClick={() => navigate('/session-list')}
-                      className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white py-4 rounded-xl font-bold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl text-lg"
+                      className="action-card__button"
                     >
                       📋 View Sessions
                     </button>
                   </div>
                 </div>
 
-                <div className="group bg-gradient-to-br from-indigo-50 via-violet-50 to-purple-50 border-2 border-indigo-200 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
-                      <Users className="w-6 h-6 text-white" />
+                <div className="action-card action-card--indigo">
+                  <div className="action-card__header">
+                    <div className="action-card__icon">
+                      <Users className="lecturer-icon" />
                     </div>
-                    <h3 className="text-lg font-bold text-slate-800">Students Management</h3>
+                    <h3 className="action-card__title">Students Management</h3>
                   </div>
                   <button
                     onClick={() => navigate('/student-manager')}
-                    className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white py-4 rounded-xl font-bold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl text-lg"
+                    className="action-card__button"
                   >
                     🎓 Manage Students
                   </button>
                 </div>
 
-                <div className="group bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-50 border-2 border-slate-200 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-gradient-to-br from-slate-600 to-zinc-700 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
-                      <Download className="w-6 h-6 text-white" />
+                <div className="action-card action-card--slate">
+                  <div className="action-card__header">
+                    <div className="action-card__icon">
+                      <Download className="lecturer-icon" />
                     </div>
-                    <h3 className="text-lg font-bold text-slate-800">Quick Reports</h3>
+                    <h3 className="action-card__title">Quick Reports</h3>
                   </div>
                   <button
                     onClick={exportCsv}
-                    className="w-full bg-gradient-to-r from-slate-600 to-zinc-700 hover:from-slate-700 hover:to-zinc-800 text-white py-4 rounded-xl font-bold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl text-lg"
+                    className="action-card__button"
                   >
                     📊 Export Report
                   </button>
@@ -687,84 +685,73 @@ const LecturerView: React.FC = () => {
             </TabsContent>
 
             {/* QR Code Tab */}
-<TabsContent value="qrcode">
-  {loadingQrCodes ? (
-    // 🔹 Loading State
-    <div className="flex flex-col items-center justify-center py-16">
-      <div className="relative">
-        <div className="w-16 h-16 border-4 border-purple-200 rounded-full animate-spin"></div>
-        <div
-          className="w-16 h-16 border-4 border-purple-600 rounded-full animate-spin absolute top-0 left-0"
-          style={{ borderTopColor: "transparent" }}
-        ></div>
-      </div>
-      <p className="text-slate-600 mt-6 text-lg font-medium">
-        Loading QR codes...
-      </p>
-    </div>
-  ) : qrCodeError ? (
-    // 🔹 Error State
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="p-4 bg-gradient-to-br from-red-100 to-rose-100 rounded-2xl mb-6">
-        <AlertCircle className="h-16 w-16 text-red-600" />
-      </div>
-      <p className="text-red-600 text-lg font-semibold mb-6">{qrCodeError}</p>
-      <button
-        onClick={handleRefreshQrCodes}
-        className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-8 py-3 rounded-xl font-bold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center gap-3"
-      >
-        <RefreshCw className="w-5 h-5" />
-        Retry
-      </button>
-    </div>
-  ) : (
-    // 🔹 Success State → Integrating QrCodeSection
-    <QrCodeSection
-      qrCodes={qrCodes}
-      latestQrCode={qrCodes.length > 0 ? qrCodes[0] : null}
-      onDownload={handleDownloadQrCode}
-      onDelete={handleDeleteQrCode}
-      onRefresh={handleRefreshQrCodes}
-    />
-  )}
-</TabsContent>
-
+            <TabsContent value="qrcode">
+              {loadingQrCodes ? (
+                <div className="lecturer-loading">
+                  <div className="lecturer-loading__spinner"></div>
+                  <p className="lecturer-loading__text">Loading QR codes...</p>
+                </div>
+              ) : qrCodeError ? (
+                <div className="lecturer-error">
+                  <div className="lecturer-error__icon">
+                    <AlertCircle className="lecturer-icon" />
+                  </div>
+                  <h3 className="lecturer-error__title">Error</h3>
+                  <p className="lecturer-error__message">{qrCodeError}</p>
+                  <button
+                    onClick={handleRefreshQrCodes}
+                    className="lecturer-button lecturer-button--primary"
+                  >
+                    <RefreshCw className="lecturer-icon" />
+                    Retry
+                  </button>
+                </div>
+              ) : (
+                <QrCodeSection
+                  qrCodes={qrCodes}
+                  latestQrCode={qrCodes.length > 0 ? qrCodes[0] : null}
+                  onDownload={handleDownloadQrCode}
+                  onDelete={handleDeleteQrCode}
+                  onRefresh={handleRefreshQrCodes}
+                />
+              )}
+            </TabsContent>
 
             {/* Statistics Tab */}
             <TabsContent value="stats">
               {/* Enhanced Filters */}
-              <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-2xl p-6 border-2 border-slate-200 shadow-inner">
-                <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-3">
-                  <Filter className="w-6 h-6 text-indigo-600" />
+              <div className="filters-section">
+                <h3 className="filters-section__title">
+                  <Filter className="lecturer-icon" />
                   Advanced Filters
                 </h3>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                  <div className="space-y-3">
-                    <label htmlFor="search" className="block text-sm font-bold text-slate-700 flex items-center gap-2">
-                      <Search className="w-4 h-4 text-indigo-600" />
+
+                <div className="filters-grid">
+                  <div className="filter-group">
+                    <label htmlFor="search" className="filter-label">
+                      <Search className="lecturer-icon" />
                       Search Students
                     </label>
                     <input
                       id="search"
                       type="text"
                       placeholder="Search students or sessions..."
-                      className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white/70 backdrop-blur-sm font-medium shadow-sm"
+                      className="filter-input"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
                   </div>
 
-                  <div className="space-y-3">
-                    <label htmlFor="status-filter" className="block text-sm font-bold text-slate-700 flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-indigo-600" />
+                  <div className="filter-group">
+                    <label htmlFor="status-filter" className="filter-label">
+                      <AlertCircle className="lecturer-icon" />
                       Attendance Status
                     </label>
                     <select
                       id="status-filter"
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
-                      className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white/70 backdrop-blur-sm font-medium shadow-sm"
+                      className="filter-input"
                     >
                       <option value="">All Statuses</option>
                       <option value="Present">Present</option>
@@ -773,56 +760,63 @@ const LecturerView: React.FC = () => {
                     </select>
                   </div>
 
-                  <div className="space-y-3">
-                    <label htmlFor="date-filter" className="block text-sm font-bold text-slate-700 flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-indigo-600" />
+                  <div className="filter-group">
+                    <label htmlFor="date-filter" className="filter-label">
+                      <Calendar className="lecturer-icon" />
                       Filter by Date
                     </label>
                     <input
                       id="date-filter"
                       type="date"
-                      className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white/70 backdrop-blur-sm font-medium shadow-sm"
+                      className="filter-input"
                       value={dateFilter}
                       onChange={(e) => setDateFilter(e.target.value)}
                     />
                   </div>
 
-                  <div className="space-y-3">
-                    <label htmlFor="course-filter" className="block text-sm font-bold text-slate-700 flex items-center gap-2">
-                      <BookOpen className="w-4 h-4 text-indigo-600" />
+                  <div className="filter-group">
+                    <label htmlFor="course-filter" className="filter-label">
+                      <BookOpen className="lecturer-icon" />
                       Course Filter
                     </label>
-                    <input
+                    <select
                       id="course-filter"
-                      type="text"
-                      placeholder="Enter course code..."
-                      className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white/70 backdrop-blur-sm font-medium shadow-sm"
                       value={courseFilter}
                       onChange={(e) => setCourseFilter(e.target.value)}
-                    />
+                      className="filter-input"
+                      disabled={loadingCourses}
+                    >
+                      <option value="">All Courses</option>
+                      {courses.map((course) => (
+                        <option key={course.id} value={course.id}>
+                          {course.code} - {course.name}
+                        </option>
+                      ))}
+                    </select>
+                    {courseError && <p className="filter-error">{courseError}</p>}
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-                  <div className="flex gap-3">
+                <div className="filters-actions">
+                  <div className="filters-buttons">
                     <button
                       onClick={clearFilters}
-                      className="bg-gradient-to-r from-slate-500 to-gray-600 hover:from-slate-600 hover:to-gray-700 text-white px-6 py-3 rounded-xl font-bold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                      className="lecturer-button lecturer-button--secondary"
                     >
                       Clear Filters
                     </button>
                     <button
                       onClick={exportCsv}
-                      className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-3 rounded-xl font-bold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center gap-2"
+                      className="lecturer-button lecturer-button--primary"
                     >
-                      <Download className="w-5 h-5" />
+                      <Download className="lecturer-icon" />
                       Export CSV
                     </button>
                   </div>
 
                   {totalRecords > 0 && (
-                    <div className="bg-white/70 backdrop-blur-sm px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
-                      <span className="text-sm font-bold text-slate-700">
+                    <div className="filters-info">
+                      <span className="filters-info__text">
                         Showing {attendanceReport.length} of {totalRecords} records
                       </span>
                     </div>
@@ -831,73 +825,55 @@ const LecturerView: React.FC = () => {
               </div>
 
               {/* Enhanced Table */}
-              <div className="bg-white/80 backdrop-blur-lg border-2 border-slate-200 rounded-2xl overflow-hidden shadow-xl">
+              <div className="table-container">
                 {loadingReport ? (
-                  <div className="p-16 text-center">
-                    <div className="relative mb-6">
-                      <div className="w-16 h-16 border-4 border-indigo-200 rounded-full animate-spin mx-auto"></div>
-                      <div className="w-16 h-16 border-4 border-indigo-600 rounded-full animate-spin absolute top-0 left-1/2 transform -translate-x-1/2" style={{ borderTopColor: 'transparent' }}></div>
-                    </div>
-                    <p className="text-slate-600 text-lg font-medium">Loading attendance records...</p>
+                  <div className="lecturer-loading">
+                    <div className="lecturer-loading__spinner"></div>
+                    <p className="lecturer-loading__text">Loading attendance records...</p>
                   </div>
                 ) : error ? (
-                  <div className="p-12 text-center">
-                    <div className="p-4 bg-gradient-to-br from-red-100 to-rose-100 rounded-2xl inline-block mb-6">
-                      <AlertCircle className="h-12 w-12 text-red-600" />
+                  <div className="lecturer-error">
+                    <div className="lecturer-error__icon">
+                      <AlertCircle className="lecturer-icon" />
                     </div>
-                    <p className="text-red-600 text-lg font-semibold mb-6">{error}</p>
+                    <h3 className="lecturer-error__title">Error</h3>
+                    <p className="lecturer-error__message">{error}</p>
                     <button
                       onClick={fetchAttendanceRecord}
-                      className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-8 py-3 rounded-xl font-bold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                      className="lecturer-button lecturer-button--primary"
                     >
                       Retry
                     </button>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+                  <div className="table-wrapper">
+                    <table className="attendance-table">
+                      <thead className="attendance-table__header">
                         <tr>
-                          <th className="text-left px-6 py-5 font-bold text-sm uppercase tracking-wider">Student ID</th>
-                          <th className="text-left px-6 py-5 font-bold text-sm uppercase tracking-wider">Student Name</th>
-                          <th className="text-left px-6 py-5 font-bold text-sm uppercase tracking-wider">Course</th>
-                          <th className="text-left px-6 py-5 font-bold text-sm uppercase tracking-wider">Session</th>
-                          <th className="text-left px-6 py-5 font-bold text-sm uppercase tracking-wider">Check In</th>
-                          <th className="text-left px-6 py-5 font-bold text-sm uppercase tracking-wider">Check Out</th>
-                          <th className="text-left px-6 py-5 font-bold text-sm uppercase tracking-wider">Status</th>
+                          <th>Student ID</th>
+                          <th>Student Name</th>
+                          <th>Course</th>
+                          <th>Session</th>
+                          <th>Check In</th>
+                          <th>Check Out</th>
+                          <th>Status</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y-2 divide-slate-100">
+                      <tbody className="attendance-table__body">
                         {attendanceReport.length > 0 ? (
                           attendanceReport.map((record, index) => (
                             <tr
                               key={`${record.id}-${record.check_in_time}`}
-                              className={`hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 transition-all duration-200 ${
-                                index % 2 === 0 ? 'bg-white/70' : 'bg-slate-50/70'
-                              }`}
+                              className={`attendance-table__row ${index % 2 === 0 ? 'attendance-table__row--even' : 'attendance-table__row--odd'}`}
                             >
-                              <td className="px-6 py-4 text-slate-900 font-bold text-sm">
-                                {record.student?.student_id || 'N/A'}
-                              </td>
-                              <td className="px-6 py-4 text-slate-800 font-medium">
-                                {record.student?.user?.username || 'N/A'}
-                              </td>
-                              <td className="px-6 py-4 text-slate-800 font-medium">
-                                {record.session?.course?.code || 'N/A'}
-                              </td>
-                              <td className="px-6 py-4 text-slate-800 font-medium">
-                                {record.session?.class_name || 'N/A'}
-                              </td>
-                              <td className="px-6 py-4 text-slate-700 text-sm">
-                                {record.check_in_time ? formatDate(record.check_in_time) : '-'}
-                              </td>
-                              <td className="px-6 py-4 text-slate-700 text-sm">
-                                {record.check_out_time ? formatDate(record.check_out_time) : '-'}
-                              </td>
-                              <td className="px-6 py-4">
-                                <span
-                                  className={`inline-flex px-4 py-2 text-sm font-bold rounded-full ${getStatusBadgeClass(record.status)}`}
-                                >
+                              <td>{record.student?.student_id || 'N/A'}</td>
+                              <td>{record.student?.user?.username || 'N/A'}</td>
+                              <td>{record.session?.course?.code || 'N/A'}</td>
+                              <td>{record.session?.class_name || 'N/A'}</td>
+                              <td>{record.check_in_time ? formatDate(record.check_in_time) : '-'}</td>
+                              <td>{record.check_out_time ? formatDate(record.check_out_time) : '-'}</td>
+                              <td>
+                                <span className={getStatusBadgeClass(record.status)}>
                                   {record.status}
                                 </span>
                               </td>
@@ -905,13 +881,11 @@ const LecturerView: React.FC = () => {
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={7} className="px-6 py-16 text-center">
-                              <div className="flex flex-col items-center">
-                                <div className="p-4 bg-gradient-to-br from-slate-100 to-gray-100 rounded-2xl mb-6">
-                                  <Search className="h-16 w-16 text-slate-400" />
-                                </div>
-                                <p className="text-xl font-bold text-slate-600 mb-2">No attendance records found</p>
-                                <p className="text-slate-500 font-medium">Try adjusting your filters or search terms</p>
+                            <td colSpan={7} className="attendance-table__empty">
+                              <div className="attendance-table__empty-content">
+                                <Search className="attendance-table__empty-icon" />
+                                <p className="attendance-table__empty-text">No attendance records found</p>
+                                <p className="attendance-table__empty-subtext">Try adjusting your filters or search terms</p>
                               </div>
                             </td>
                           </tr>
@@ -924,33 +898,31 @@ const LecturerView: React.FC = () => {
 
               {/* Enhanced Pagination */}
               {totalPages > 1 && (
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 pt-6 border-t-2 border-slate-100">
+                <div className="pagination">
                   <button
                     onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                     disabled={currentPage === 1}
-                    className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 disabled:from-slate-300 disabled:to-gray-400 disabled:cursor-not-allowed text-white px-8 py-3 rounded-xl font-bold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center gap-3 justify-center"
+                    className={`pagination-button pagination-button--prev ${currentPage === 1 ? 'pagination-button--disabled' : ''}`}
                   >
-                    <ChevronLeft className="w-5 h-5" />
+                    <ChevronLeft className="pagination-icon" />
                     Previous
                   </button>
 
-                  <div className="flex items-center gap-4 bg-white/70 backdrop-blur-sm px-6 py-3 rounded-xl border border-slate-200 shadow-sm">
-                    <span className="text-slate-800 font-bold text-lg">
+                  <div className="pagination-info">
+                    <span className="pagination-info__text">
                       Page {currentPage} of {totalPages}
                     </span>
-                    <span className="text-slate-400 text-2xl">•</span>
-                    <span className="text-slate-600 font-medium">
-                      {totalRecords} total records
-                    </span>
+                    <span className="pagination-info__divider">•</span>
+                    <span className="pagination-info__count">{totalRecords} total records</span>
                   </div>
 
                   <button
                     onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
                     disabled={currentPage === totalPages}
-                    className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 disabled:from-slate-300 disabled:to-gray-400 disabled:cursor-not-allowed text-white px-8 py-3 rounded-xl font-bold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center gap-3 justify-center"
+                    className={`pagination-button pagination-button--next ${currentPage === totalPages ? 'pagination-button--disabled' : ''}`}
                   >
                     Next
-                    <ChevronRight className="w-5 h-5" />
+                    <ChevronRight className="pagination-icon" />
                   </button>
                 </div>
               )}
@@ -958,30 +930,6 @@ const LecturerView: React.FC = () => {
           </Tabs>
         </div>
       </div>
-
-      {/* Custom Scrollbar Styles */}
-      <style>{`
-        .custom-scrollbar::-webkit-scrollbar { /* For Webkit browsers (Chrome, Safari) */
-          width: 8px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: #f1f5f9;
-          border-radius: 8px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: linear-gradient(to bottom, #6366f1, #8b5cf6);
-          border-radius: 8px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: linear-gradient(to bottom, #4f46e5, #7c3aed);
-        }
-        .line-clamp-3 {
-          display: -webkit-box;
-          -webkit-line-clamp: 3;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-      `}</style>
     </div>
   );
 };

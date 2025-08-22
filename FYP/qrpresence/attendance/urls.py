@@ -34,7 +34,8 @@ urlpatterns = [
     path('attendance/absent/<str:session_id>/', AbsentStudentsView.as_view(), name='absent-students'),
     path('ai-chat/', AttendanceAIChatView.as_view(), name='attendance-ai-chat'),
     path('qr-codes/', views.get_qr_codes, name="get_qr_codes"),
-    path('qr-codes/<int:qr_id>', views.delete_qr_code, name="delete_qr_code"),
+    path('qr-codes/<int:qr_id>/', views.delete_qr_code, name="delete_qr_code"),
+    path('qr-codes/<int:qr_id>/download/', views.download_qr_code, name="download_qr_code"),
     #course management
     path('lecturer/courses/', LecturerCourseView.as_view(), name='lecturer-courses'),
     path('lecturer/courses/create/', LecturerCourseView.as_view(), name='create-course'),

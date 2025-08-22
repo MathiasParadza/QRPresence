@@ -36,10 +36,28 @@ const QRScanner: React.FC = () => {
     draggable: true,
   }), []);
 
+  // CSRF Token helper
+  const getCSRFToken = useCallback((): string => {
+    const name = 'csrftoken';
+    const cookieValue = document.cookie
+      .split('; ')
+      .find(row => row.startsWith(`${name}=`))
+      ?.split('=')[1];
+    return cookieValue || '';
+  }, []);
+
   // Token validation helper
   const validateToken = useCallback((token: string | null): boolean => {
     if (!token) return false;
-    return token.split('.').length === 3;
+    
+    // Check if token is expired
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const expirationTime = payload.exp * 1000;
+      return Date.now() < expirationTime;
+    } catch (error) {
+      return false;
+    }
   }, []);
 
   // Token refresh function
@@ -54,7 +72,11 @@ const QRScanner: React.FC = () => {
       
       const response = await fetch('http://127.0.0.1:8000/api/token/refresh/', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCSRFToken(),
+        },
+        credentials: 'include',
         body: JSON.stringify({ refresh: refreshToken })
       });
       
@@ -73,7 +95,7 @@ const QRScanner: React.FC = () => {
       toast.error('❌ Failed to refresh session', toastConfig);
       return false;
     }
-  }, [navigate, toastConfig]);
+  }, [navigate, toastConfig, getCSRFToken]);
 
   const stopCamera = useCallback((): void => {
     const stream = videoRef.current?.srcObject as MediaStream;
@@ -148,12 +170,15 @@ const QRScanner: React.FC = () => {
         }
   
         toast.info('📡 Marking attendance...', toastConfig);
+        
         const response = await fetch('http://127.0.0.1:8000/api/mark/', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
+            'Authorization': `Bearer ${token}`,
+            'X-CSRFToken': getCSRFToken(),
           },
+          credentials: 'include',
           body: JSON.stringify({
             session_id: sessionId,
             latitude: latitude,
@@ -161,7 +186,22 @@ const QRScanner: React.FC = () => {
           }),
         });
 
+        // Enhanced error handling with detailed server response
         if (!response.ok) {
+          let errorDetail = 'Failed to mark attendance';
+          
+          try {
+            const errorData = await response.json();
+            errorDetail = errorData.error || errorData.detail || errorData.message || JSON.stringify(errorData);
+            console.error('Server error details:', errorData);
+          } catch (parseError) {
+            const errorText = await response.text(); // parseError is intentionally unused
+            console.error('Server response text:', errorText);
+            errorDetail = errorText || `Server error: ${response.status}`;
+          }
+          
+          console.error(`Server error ${response.status}:`, errorDetail);
+          
           if (response.status === 401) {
             toast.info('🔄 Session expired. Attempting to refresh...', toastConfig);
             const refreshed = await attemptTokenRefresh();
@@ -171,8 +211,7 @@ const QRScanner: React.FC = () => {
             throw new Error('Session expired. Please login again.');
           }
           
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.detail || errorData.message || 'Failed to mark attendance');
+          throw new Error(errorDetail);
         }
 
         const result = await response.json();
@@ -181,13 +220,27 @@ const QRScanner: React.FC = () => {
           autoClose: 3000
         });
         console.log('Attendance result:', result);
+        
       } catch (error: unknown) {
         console.error('Attendance Error:', error);
         const errorMessage =
           error && typeof error === 'object' && 'message' in error
-            ? (error as { message?: string }).message
+            ? (error as { message: string }).message
             : 'Failed to mark attendance';
-        toast.error(`❌ ${errorMessage}`, toastConfig);
+        
+        // Show specific error messages for common issues
+        if (errorMessage.includes('not enrolled')) {
+          toast.error('❌ You are not enrolled in this course', toastConfig);
+        } else if (errorMessage.includes('too far')) {
+          toast.error('❌ You are too far from the classroom', toastConfig);
+        } else if (errorMessage.includes('expired') || errorMessage.includes('window closed')) {
+          toast.error('❌ Attendance window has closed', toastConfig);
+        } else if (errorMessage.includes('Session not found')) {
+          toast.error('❌ Invalid session QR code', toastConfig);
+        } else {
+          toast.error(`❌ ${errorMessage}`, toastConfig);
+        }
+        
         throw error;
       } finally {
         setLoading(false);
@@ -197,7 +250,7 @@ const QRScanner: React.FC = () => {
       toast.error(`⚠️ ${error.message}`, toastConfig);
       throw error;
     }
-  }, [toastConfig, validateToken, attemptTokenRefresh]);
+  }, [toastConfig, validateToken, attemptTokenRefresh, getCSRFToken]);
 
   const scanQRCode = useCallback((): void => {
     if (!canvasRef.current || !videoRef.current || !scanActive) {
@@ -238,7 +291,7 @@ const QRScanner: React.FC = () => {
       handleAttendanceMarking(text)
         .catch((error) => {
           console.error('Error marking attendance:', error);
-          toast.error(`❌ ${error.message}`, toastConfig);
+          // Error message already shown in handleAttendanceMarking, just reset
           resetScanner();
         });
     } else {

@@ -12246,3 +12246,41 @@ Internal Server Error: /api/lecturer-attendance/
 "GET /api/lecturer-attendance/?page=1&status=Present&date_from=0004-03-23&date_to=0004-03-23&course_id=c HTTP/1.1" 500 60
 Internal Server Error: /api/ai-chat/
 "POST /api/ai-chat/ HTTP/1.1" 500 188
+Internal Server Error: /api/lecturer-attendance/
+"GET /api/lecturer-attendance/?page=1&course_id=v HTTP/1.1" 500 60
+Internal Server Error: /api/lecturer-attendance/
+"GET /api/lecturer-attendance/?page=1&course_id=v HTTP/1.1" 500 60
+Internal Server Error: /api/lecturer-attendance/
+"GET /api/lecturer-attendance/?page=1&course_id=v HTTP/1.1" 500 60
+Internal Server Error: /api/lecturer-attendance/
+"GET /api/lecturer-attendance/?page=1&course_id=v HTTP/1.1" 500 60
+Internal Server Error: /api/lecturer-attendance/
+"GET /api/lecturer-attendance/?page=1&course_id=v HTTP/1.1" 500 60
+Internal Server Error: /api/lecturer-attendance/
+"GET /api/lecturer-attendance/?page=1&course_id=v HTTP/1.1" 500 16852
+Internal Server Error: /api/lecturer-attendance/
+"GET /api/lecturer-attendance/?page=1&date_from=0004-03-23&date_to=0004-03-23&course_id=c HTTP/1.1" 500 60
+Internal Server Error: /api/lecturer-attendance/
+"GET /api/lecturer-attendance/?page=1&date_from=0004-03-23&date_to=0004-03-23&course_id=cs HTTP/1.1" 500 60
+Internal Server Error: /api/lecturer-attendance/
+"GET /api/lecturer-attendance/?page=1&date_from=0004-03-23&date_to=0004-03-23&course_id=csc HTTP/1.1" 500 60
+Internal Server Error: /api/lecturer-attendance/
+"GET /api/lecturer-attendance/?page=1&date_from=0004-03-23&date_to=0004-03-23&course_id=csc HTTP/1.1" 500 60
+Internal Server Error: /api/lecturer-attendance/
+"GET /api/lecturer-attendance/?page=1&date_from=0004-03-23&date_to=0004-03-23&course_id=csc HTTP/1.1" 500 60
+Internal Server Error: /api/lecturer-attendance/
+"GET /api/lecturer-attendance/?page=1&date_from=0004-03-23&date_to=0004-03-23&course_id=csc HTTP/1.1" 500 60
+Internal Server Error: /api/lecturer-attendance/
+"GET /api/lecturer-attendance/?page=1&date_from=0004-03-23&date_to=0004-03-23&course_id=csc HTTP/1.1" 500 17202
+Internal Server Error: /api/lecturer-attendance/
+"GET /api/lecturer-attendance/?page=1&course_id=c HTTP/1.1" 500 60
+Internal Server Error: /api/lecturer-attendance/
+"GET /api/lecturer-attendance/?page=1&course_id=cs HTTP/1.1" 500 60
+Internal Server Error: /api/lecturer-attendance/
+"GET /api/lecturer-attendance/?page=1&status=Late HTTP/1.1" 500 60
+Internal Server Error: /api/ai-chat/
+"POST /api/ai-chat/ HTTP/1.1" 500 188
+Internal Server Error: /api/ai-chat/
+"POST /api/ai-chat/ HTTP/1.1" 500 188
+Internal Server Error: /api/mark/
+"POST /api/mark/ HTTP/1.1" 500 59

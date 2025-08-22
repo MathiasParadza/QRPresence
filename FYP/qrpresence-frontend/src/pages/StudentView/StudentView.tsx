@@ -2,7 +2,7 @@ import React, { useEffect, useState, ChangeEvent } from 'react';
 import QRScanner from '../../components/QRScanner';
 import { toast } from 'react-toastify';
 import defaultAvatar from '../../assets/avatar.png';
-import './StudentView.css';
+import './StudentViews.css';
 
 interface Profile {
   student_id: string;

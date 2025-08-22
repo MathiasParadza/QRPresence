@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Pencil, Trash2, ArrowLeft } from "lucide-react";
+import "./SessionList.css";
 
 interface Course {
   id: number;
@@ -33,18 +34,10 @@ const Button: React.FC<{
   className?: string;
   type?: "button" | "submit";
 }> = ({ children, onClick, disabled = false, variant = "primary", className = "", type = "button" }) => {
-  const baseStyles = "px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 min-w-fit";
-  
-  const variantStyles = {
-    primary: "bg-purple-600 text-white hover:bg-purple-700 disabled:bg-gray-400",
-    secondary: "bg-gray-200 text-gray-800 hover:bg-gray-300 disabled:bg-gray-100",
-    danger: "bg-red-500 text-white hover:bg-red-600 disabled:bg-gray-400"
-  };
-  
   return (
     <button
       type={type}
-      className={`${baseStyles} ${variantStyles[variant]} ${className} ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+      className={`session-button session-button--${variant} ${className} ${disabled ? 'session-button--disabled' : ''}`}
       onClick={onClick}
       disabled={disabled}
     >
@@ -59,7 +52,7 @@ const Card: React.FC<{
   className?: string;
 }> = ({ children, className = "" }) => {
   return (
-    <div className={`bg-white rounded-lg shadow-md border border-gray-200 ${className}`}>
+    <div className={`session-card ${className}`}>
       {children}
     </div>
   );
@@ -162,10 +155,13 @@ const SessionList: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading sessions...</p>
+      <div className="session-container">
+        <div className="session-container__background">
+          <div className="session-container__overlay"></div>
+        </div>
+        <div className="session-loading">
+          <div className="session-loading__spinner"></div>
+          <p className="session-loading__text">Loading sessions...</p>
         </div>
       </div>
     );
@@ -173,15 +169,17 @@ const SessionList: React.FC = () => {
 
   if (error) {
     return (
-      <div className="h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="p-8 text-center">
-          <div className="text-red-500">
-            <p className="text-lg font-medium mb-2">Error loading sessions</p>
-            <p className="text-sm">{error}</p>
+      <div className="session-container">
+        <div className="session-container__background">
+          <div className="session-container__overlay"></div>
+        </div>
+        <Card className="session-error">
+          <div className="session-error__content">
+            <p className="session-error__title">Error loading sessions</p>
+            <p className="session-error__message">{error}</p>
             <Button
               variant="secondary"
               onClick={() => fetchSessions()}
-              className="mt-4"
             >
               Retry
             </Button>
@@ -192,84 +190,82 @@ const SessionList: React.FC = () => {
   }
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col">
-      <div className="flex-1 px-6 py-6 overflow-hidden flex flex-col">
+    <div className="session-container">
+      <div className="session-container__background">
+        <div className="session-container__overlay"></div>
+      </div>
+      
+      <div className="session-content">
         {/* Header */}
-        <div className="mb-6 flex-shrink-0">
+        <div className="session-header">
           <Button
             variant="secondary"
             onClick={() => navigate("/lecturerview")}
-            className="hover:bg-blue-50 hover:text-blue-700"
+            className="session-header__back-button"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="session-icon" />
             Back to Dashboard
           </Button>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Session Management</h1>
-          <p className="text-gray-600">Manage your class sessions and attendance tracking</p>
+          <div className="session-header__title-section">
+            <h1 className="session-header__title">Session Management</h1>
+            <p className="session-header__subtitle">
+              Manage your class sessions and attendance tracking
+            </p>
+          </div>
         </div>
 
         {/* Sessions Grid */}
-        <div className="flex-1 overflow-y-auto mb-6">
-          <div className="space-y-4 pr-2">
+        <div className="session-list">
+          <div className="session-list__content">
             {sessions.length === 0 ? (
-              <Card className="p-8 text-center">
-                <div className="text-gray-500">
-                  <p className="text-lg font-medium mb-2">No sessions found</p>
-                  <p className="text-sm">Create your first session to get started.</p>
+              <Card className="session-empty">
+                <div className="session-empty__content">
+                  <p className="session-empty__title">No sessions found</p>
+                  <p className="session-empty__message">Create your first session to get started.</p>
                 </div>
               </Card>
             ) : (
               sessions.map((session) => (
-                <Card key={session.id} className="p-6 hover:shadow-lg transition-shadow duration-200">
-                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <Card key={session.id} className="session-item">
+                  <div className="session-item__content">
                     {/* Session Info */}
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-3">
-                        <h3 className="text-xl font-semibold text-gray-900">{session.class_name}</h3>
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    <div className="session-item__info">
+                      <div className="session-item__header">
+                        <h3 className="session-item__title">{session.class_name}</h3>
+                        <span className="session-item__status">
                           Active
                         </span>
                       </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                        <div>
-                          <span className="font-medium text-gray-600">Course:</span>
-                          <span className="ml-2 text-gray-800">
-                            {session.course.code} - {session.course.title}
-                          </span>
-                        </div>
+                      <div className="session-item__details">
+
                         
-                        <div>
-                          <span className="font-medium text-gray-600">Session ID:</span>
-                          <span className="ml-2 text-gray-800 font-mono bg-gray-100 px-2 py-1 rounded">
+                        <div className="session-detail">
+                          <span className="session-detail__label">Session ID:</span>
+                          <span className="session-detail__value session-detail__value--code">
                             {session.session_id}
                           </span>
                         </div>
                         
-                        <div>
-                          <span className="font-medium text-gray-600">Lecturer:</span>
-                          <span className="ml-2 text-gray-800">
-                            {session.lecturer.name}
-                          </span>
-                        </div>
+
                       </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                        <div>
-                          <span className="font-medium text-gray-600">Location:</span>
-                          <span className="ml-2 text-gray-800">
+                      <div className="session-item__details">
+                        <div className="session-detail">
+                          <span className="session-detail__label">Location:</span>
+                          <span className="session-detail__value session-detail__value--mono">
                             {session.gps_latitude.toFixed(6)}, {session.gps_longitude.toFixed(6)}
                           </span>
                         </div>
                         
-                        <div>
-                          <span className="font-medium text-gray-600">Radius:</span>
-                          <span className="ml-2 text-gray-800">{session.allowed_radius}m</span>
+                        <div className="session-detail">
+                          <span className="session-detail__label">Radius:</span>
+                          <span className="session-detail__value">{session.allowed_radius}m</span>
                         </div>
                         
-                        <div>
-                          <span className="font-medium text-gray-600">Created:</span>
-                          <span className="ml-2 text-gray-800">
+                        <div className="session-detail">
+                          <span className="session-detail__label">Created:</span>
+                          <span className="session-detail__value">
                             {new Date(session.timestamp).toLocaleString()}
                           </span>
                         </div>
@@ -277,20 +273,19 @@ const SessionList: React.FC = () => {
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex items-center gap-3 flex-shrink-0">
+                    <div className="session-item__actions">
                       <Button
                         variant="secondary"
                         onClick={() => navigate(`/sessions/edit/${session.id}`)}
-                        className="hover:bg-blue-50 hover:text-blue-700"
                       >
-                        <Pencil className="w-4 h-4" />
+                        <Pencil className="session-icon" />
                         Edit
                       </Button>
                       <Button
                         variant="danger"
                         onClick={() => handleDelete(session.id)}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="session-icon" />
                         Delete
                       </Button>
                     </div>
@@ -303,24 +298,24 @@ const SessionList: React.FC = () => {
 
         {/* Pagination Controls */}
         {count > 0 && (
-          <div className="flex-shrink-0">
-            <Card className="p-4">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="session-pagination">
+            <Card className="session-pagination__card">
+              <div className="session-pagination__content">
                 <Button
                   variant="secondary"
                   disabled={!prevUrl}
                   onClick={() => prevUrl && fetchSessions(prevUrl)}
-                  className="w-full sm:w-auto"
+                  className="session-pagination__button"
                 >
                   Previous
                 </Button>
 
-                <div className="flex items-center gap-4 text-sm text-gray-600">
-                  <span className="font-medium">
+                <div className="session-pagination__info">
+                  <span className="session-pagination__page">
                     Page {currentPage}
                   </span>
-                  <span className="w-px h-4 bg-gray-300"></span>
-                  <span>
+                  <span className="session-pagination__divider"></span>
+                  <span className="session-pagination__total">
                     Total: {count} sessions
                   </span>
                 </div>
@@ -329,7 +324,7 @@ const SessionList: React.FC = () => {
                   variant="secondary"
                   disabled={!nextUrl}
                   onClick={() => nextUrl && fetchSessions(nextUrl)}
-                  className="w-full sm:w-auto"
+                  className="session-pagination__button"
                 >
                   Next
                 </Button>

@@ -6,6 +6,7 @@ import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { ArrowLeft } from 'lucide-react';
+import './QRCodeGenerator.css'; // Import the enhanced CSS file
 const QRCodeGenerator = () => {
     const [sessionId, setSessionId] = useState('');
     const [qrCodeUrl, setQrCodeUrl] = useState('');
@@ -65,6 +66,11 @@ const QRCodeGenerator = () => {
             toast.error('Could not save QR code to server.');
         }
     };
-    return (_jsxs("div", { className: "min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4", children: [_jsxs("button", { type: "button", onClick: () => navigate("/lecturerview"), className: "flex items-center gap-2 px-4 py-2 mb-4 bg-gray-200 text-gray-800 rounded hover:bg-purple-50 hover:text-purple-700 transition-colors", children: [_jsx(ArrowLeft, { className: "w-4 h-4" }), "Back to Dashboard"] }), _jsx("h1", { className: "text-2xl font-bold mb-4 text-purple-600", children: "Attendance QR Code Generator" }), _jsx("input", { type: "text", value: sessionId, onChange: (e) => setSessionId(e.target.value), placeholder: "Enter Session ID", className: "px-4 py-2 border rounded w-full max-w-md mb-4" }), _jsx("button", { onClick: generateQRCode, className: `${isLoading ? 'bg-purple-300' : 'bg-purple-500 hover:bg-gray-400'} text-white px-6 py-2 rounded mb-4`, disabled: isLoading, children: isLoading ? 'Generating...' : 'Generate QR Code' }), qrCodeUrl && (_jsx(_Fragment, { children: _jsx("canvas", { ref: canvasRef, className: "mb-4", "aria-label": "Generated QR Code" }) })), _jsx(ToastContainer, { position: "top-right", autoClose: 3000 })] }));
+    return (_jsxs("div", { className: "qr-generator-container", children: [_jsxs("button", { type: "button", onClick: () => navigate("/lecturerview"), className: "back-button", children: [_jsx(ArrowLeft, { className: "w-4 h-4" }), "Back to Dashboard"] }), _jsxs("div", { className: "generator-card", children: [_jsxs("div", { className: "generator-header", children: [_jsx("h1", { className: "generator-title", children: "QR Code Generator" }), _jsx("p", { className: "generator-subtitle", children: "Generate attendance QR codes for your sessions" })] }), _jsxs("div", { className: "input-group", children: [_jsx("label", { className: "input-label", children: "Session ID" }), _jsx("input", { type: "text", value: sessionId, onChange: (e) => setSessionId(e.target.value), placeholder: "Enter Session ID (e.g., CS101-2024-01)", className: "session-input" })] }), _jsx("button", { onClick: generateQRCode, className: "generate-button", disabled: isLoading, children: isLoading ? (_jsxs(_Fragment, { children: [_jsx("div", { className: "loading-spinner" }), "Generating QR Code..."] })) : ('Generate QR Code') }), qrCodeUrl && (_jsx("div", { className: "qr-display-container", children: _jsx("canvas", { ref: canvasRef, className: "qr-canvas", "aria-label": "Generated QR Code" }) }))] }), _jsx(ToastContainer, { position: "top-right", autoClose: 3000, toastStyle: {
+                    background: 'rgba(255, 255, 255, 0.95)',
+                    backdropFilter: 'blur(20px)',
+                    borderRadius: '16px',
+                    border: '1px solid rgba(255, 255, 255, 0.2)'
+                } })] }));
 };
 export default QRCodeGenerator;
