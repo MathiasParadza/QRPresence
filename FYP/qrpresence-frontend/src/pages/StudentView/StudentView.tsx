@@ -1,15 +1,17 @@
-import React, { useEffect, useState, ChangeEvent } from 'react';
+ import React, { useEffect, useState, ChangeEvent } from 'react';
 import QRScanner from '../../components/QRScanner';
 import { toast } from 'react-toastify';
 import defaultAvatar from '../../assets/avatar.png';
-import './StudentViews.css';
+import { BarChart3, Users, Calendar, CheckCircle, XCircle, TrendingUp } from 'lucide-react';
+import './StudentView.css';
 
 interface Profile {
   student_id: string;
   program: string;
-  name: string;
+  name: string; 
   email: string;
 }
+
 
 type AttendanceRecord = {
   id: number;
@@ -17,11 +19,39 @@ type AttendanceRecord = {
   session_time: string;
   status: string;
   class_name: string;
+  course_code?: string;
 };
 
 type AttendanceOverview = {
   today_status: string;
   attendance_history: AttendanceRecord[];
+  stats?: StudentStats; // Add stats to the overview response
+};
+
+type StudentStats = {
+  total_classes: number;
+  present_count: number;
+  absent_count: number;
+  attendance_percentage: number;
+  this_week_percentage: number;
+  by_course: {
+    [courseCode: string]: {
+      total: number;
+      present: number;
+      percentage: number;
+      title: string;
+    };
+  };
+  recent_trend: {
+    last_7_days: number;
+    last_30_days: number;
+  };
+  by_time_period: {
+    today: number;
+    this_week: number;
+    this_month: number;
+    this_year: number;
+  };
 };
 
 const StudentView = () => {
@@ -30,6 +60,7 @@ const StudentView = () => {
   const [editing, setEditing] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
+  const [stats, setStats] = useState<StudentStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
     student_id: '',
@@ -78,6 +109,7 @@ const StudentView = () => {
       const data: AttendanceOverview = await response.json();
       setTodayStatus(data.today_status);
       setAttendanceHistory(data.attendance_history);
+      setStats(data.stats || null);
     } catch (error) {
       console.error('Error fetching overview:', error);
       toast.error('Failed to load attendance overview');
@@ -181,6 +213,13 @@ const StudentView = () => {
             Logout
           </button>
         </div>
+        
+      {/* Instructions */}
+      <div className="instructions-container">
+        <p className="instructions-text">
+          Your attendance is being tracked. Scan the QR code below to mark your attendance.
+        </p>
+      </div>
       </div>
 
       {/* Profile Section */}
@@ -264,12 +303,101 @@ const StudentView = () => {
         </div>
       )}
 
-      {/* Instructions */}
-      <div className="instructions-container">
-        <p className="instructions-text">
-          Your attendance is being tracked. Scan the QR code below to mark your attendance.
-        </p>
-      </div>
+
+
+      {/* Student Statistics Overview */}
+      {stats && (
+        <div className="student-stats-grid">
+          <div className="student-stats-card student-stats-card--primary">
+            <div className="student-stats-card__content">
+              <div className="student-stats-card__info">
+                <span className="student-stats-card__label">Overall Attendance</span>
+                <span className="student-stats-card__value">
+                  {stats.attendance_percentage}%
+                </span>
+              </div>
+              <div className="student-stats-card__icon">
+                <BarChart3 className="student-icon" />
+              </div>
+            </div>
+          </div>
+
+          <div className="student-stats-card student-stats-card--success">
+            <div className="student-stats-card__content">
+              <div className="student-stats-card__info">
+                <span className="student-stats-card__label">Present</span>
+                <span className="student-stats-card__value">{stats.present_count}</span>
+              </div>
+              <div className="student-stats-card__icon">
+                <CheckCircle className="student-icon" />
+              </div>
+            </div>
+          </div>
+
+          <div className="student-stats-card student-stats-card--danger">
+            <div className="student-stats-card__content">
+              <div className="student-stats-card__info">
+                <span className="student-stats-card__label">Absent</span>
+                <span className="student-stats-card__value">{stats.absent_count}</span>
+              </div>
+              <div className="student-stats-card__icon">
+                <XCircle className="student-icon" />
+              </div>
+            </div>
+          </div>
+
+          <div className="student-stats-card student-stats-card--info">
+            <div className="student-stats-card__content">
+              <div className="student-stats-card__info">
+                <span className="student-stats-card__label">Total Classes</span>
+                <span className="student-stats-card__value">{stats.total_classes}</span>
+              </div>
+              <div className="student-stats-card__icon">
+                <Calendar className="student-icon" />
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Trend Card */}
+          <div className="student-stats-card student-stats-card--warning">
+            <div className="student-stats-card__content">
+              <div className="student-stats-card__info">
+                <span className="student-stats-card__label">Last 7 Days</span>
+                <span className="student-stats-card__value">
+                  {stats.recent_trend?.last_7_days || 0}%
+                </span>
+              </div>
+              <div className="student-stats-card__icon">
+                <TrendingUp className="student-icon" />
+              </div>
+            </div>
+          </div>
+
+          {/* Course Breakdown (if available) */}
+          {stats.by_course && Object.keys(stats.by_course).length > 0 && (
+            <div className="student-stats-card student-stats-card--course">
+              <div className="student-stats-card__content">
+                <div className="student-stats-card__info">
+                  <span className="student-stats-card__label">Best Course</span>
+                  <span className="student-stats-card__value">
+                    {Object.entries(stats.by_course)
+                      .sort(([, a], [, b]) => b.percentage - a.percentage)[0][0]
+                    }
+                  </span>
+                  <span className="student-stats-card__subtext">
+                    {Object.entries(stats.by_course)
+                      .sort(([, a], [, b]) => b.percentage - a.percentage)[0][1].percentage}%
+                  </span>
+                </div>
+                <div className="student-stats-card__icon">
+                  <Users className="student-icon" />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
 
       {/* QR Scanner */}
       <div className="qr-scanner-container">
@@ -321,6 +449,14 @@ const StudentView = () => {
                     {record.class_name}
                   </p>
                 </div>
+                {record.course_code && (
+                  <div>
+                    <strong className="record-label">Course:</strong>
+                    <p className="record-value">
+                      {record.course_code}
+                    </p>
+                  </div>
+                )}
               </div>
             ))}
           </div>

@@ -21,7 +21,7 @@ interface ApiError {
 
 const API_BASE_URL = 'http://localhost:8000';
 
-const CourseManagement: React.FC = () => {
+const CourseManagement: React.FC = () =>{
   const [courses, setCourses] = useState<Course[]>([]);
   const [formData, setFormData] = useState({
     title: '',

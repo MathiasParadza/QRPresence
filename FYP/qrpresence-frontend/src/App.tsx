@@ -12,11 +12,10 @@ import CreateSession from "./pages/LecturerView/CreateSession";
 import SessionList from "./pages/LecturerView/SessionList";
 import SessionEdit from "./pages/LecturerView/SessionEdit";
 import StudentManager from "./pages/LecturerView/StudentManager";
-
+import QRCodeGenerator from "./components/QRCodeGenerator"; // Make sure this import is correct
 
 // Components
 import ErrorBoundary from "./components/ErrorBoundary";
-import QRCodeGenerator from "./components/QRCodeGenerator";
 import LoadingSpinner from "./components/LoadingSpinner";
 import AIChatAssistant from "./components/AIChatAssistant";
 
@@ -73,7 +72,6 @@ const App = () => {
           path="/login"
           element={<Login setUser={setUser} />}
         />
-        <Route path="/generate-qr" element={<QRCodeGenerator />} />
 
         {/* Authenticated Dashboard */}
         <Route
@@ -94,7 +92,19 @@ const App = () => {
             )
           }
         />
-         <Route
+        <Route
+          path="/generate-qr"
+          element={
+            user?.role === "lecturer" ? (
+              <ErrorBoundary>
+                <QRCodeGenerator />
+              </ErrorBoundary>
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+        <Route
           path="/manage-courses"
           element={
             user?.role === "lecturer" ? (
@@ -106,7 +116,7 @@ const App = () => {
             )
           }
         />
-         <Route
+        <Route
           path="/enroll-students"
           element={
             user?.role === "lecturer" ? (

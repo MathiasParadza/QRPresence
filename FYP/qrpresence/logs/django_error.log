@@ -12284,3 +12284,17 @@ Internal Server Error: /api/ai-chat/
 "POST /api/ai-chat/ HTTP/1.1" 500 188
 Internal Server Error: /api/mark/
 "POST /api/mark/ HTTP/1.1" 500 59
+Internal Server Error: /api/mark/
+"POST /api/mark/ HTTP/1.1" 500 59
+Internal Server Error: /api/lecturer-attendance/export-csv/
+"GET /api/lecturer-attendance/export-csv/? HTTP/1.1" 500 10961
+Internal Server Error: /api/lecturer-attendance/export-csv/
+"GET /api/lecturer-attendance/export-csv/? HTTP/1.1" 500 10961
+Internal Server Error: /api/ai-chat/
+"POST /api/ai-chat/ HTTP/1.1" 500 188
+Internal Server Error: /api/ai-chat/
+"POST /api/ai-chat/ HTTP/1.1" 500 323
+Internal Server Error: /api/ai-chat/
+"POST /api/ai-chat/ HTTP/1.1" 500 323
+Internal Server Error: /api/ai-chat/
+"POST /api/ai-chat/ HTTP/1.1" 500 323

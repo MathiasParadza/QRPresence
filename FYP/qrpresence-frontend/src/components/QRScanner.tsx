@@ -55,7 +55,7 @@ const QRScanner: React.FC = () => {
       const payload = JSON.parse(atob(token.split('.')[1]));
       const expirationTime = payload.exp * 1000;
       return Date.now() < expirationTime;
-    } catch (error) {
+    } catch {
       return false;
     }
   }, []);
@@ -194,8 +194,8 @@ const QRScanner: React.FC = () => {
             const errorData = await response.json();
             errorDetail = errorData.error || errorData.detail || errorData.message || JSON.stringify(errorData);
             console.error('Server error details:', errorData);
-          } catch (parseError) {
-            const errorText = await response.text(); // parseError is intentionally unused
+          } catch {
+            const errorText = await response.text();
             console.error('Server response text:', errorText);
             errorDetail = errorText || `Server error: ${response.status}`;
           }

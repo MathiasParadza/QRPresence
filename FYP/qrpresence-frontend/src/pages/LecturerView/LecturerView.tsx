@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom'; // Add useLocation
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import axios from 'axios';
 import { QrCodeSection } from './QrCodeSection';
 import { Loader2, AlertCircle, Brain, Sparkles, BarChart3, Download, RefreshCw, Search, Filter, ChevronLeft, ChevronRight, Calendar, Users, BookOpen, Clock, LogOut } from 'lucide-react';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import './LecturerView.css';
 
 interface AttendanceRecord {
@@ -77,10 +79,15 @@ interface AIInsightsResponse {
   answer: string;
 }
 
-//const API_BASE_URL = 'http://localhost:8000';
+interface NavigationState {
+  activeTab?: string;
+  qrCodeUrl?: string;
+}
 
 const LecturerView: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation(); // Add useLocation hook
+  const [activeTab, setActiveTab] = useState<string>('actions');
   const [qrCodes, setQrCodes] = useState<QrCodeItem[]>([]);
   const [attendanceReport, setAttendanceReport] = useState<AttendanceRecord[]>([]);
   const [loadingReport, setLoadingReport] = useState<boolean>(false);
@@ -112,6 +119,27 @@ const LecturerView: React.FC = () => {
     "Which sessions had the highest absenteeism?",
     "Analyze attendance patterns by time of day"
   ];
+
+  // Add useEffect to handle navigation state
+  useEffect(() => {
+    // Check if we have navigation state that indicates which tab to activate
+    const state = location.state as NavigationState;
+    if (state && state.activeTab) {
+      setActiveTab(state.activeTab);
+      
+      // Clear the state to prevent the tab from switching on every render
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
+
+  // Add this function to handle QR code generation success
+ const navigateToGenerateQr = () => {
+  navigate('/generate-qr', { 
+    state: { 
+      returnToTab: 'qrcode'  // ← Pass a STRING instead of function
+    } 
+  });
+};
 
   const fetchQrCodes = async () => {
     setLoadingQrCodes(true);
@@ -175,12 +203,31 @@ const LecturerView: React.FC = () => {
         params,
       });
       
-      setAttendanceReport(response.data.results);
-      setTotalRecords(response.data.count || 0);
-      setTotalPages(Math.ceil((response.data.count || 0) / 10));
+      // Handle both nested and flat response structures
+      let actualResults: AttendanceRecord[] = [];
+      let actualCounts: PaginatedResponse['counts'] = undefined;
+      let actualTotalCount: number = 0;
+
+      // Check if the response has the nested structure (results.results and results.counts)
+      if (response.data.results && typeof response.data.results === 'object' && 'results' in response.data.results) {
+        actualResults = (response.data.results as { results: AttendanceRecord[]; counts?: PaginatedResponse['counts'] }).results || [];
+        actualCounts = (response.data.results as { results: AttendanceRecord[]; counts?: PaginatedResponse['counts'] }).counts || undefined;
+        actualTotalCount = response.data.count || 0;
+      } else {
+        // Flat structure (results and counts at top level)
+        actualResults = response.data.results || [];
+        actualCounts = response.data.counts || undefined;
+        actualTotalCount = response.data.count || 0;
+      }
       
-      if (response.data.counts) {
-        setStats(response.data.counts);
+      setAttendanceReport(actualResults);
+      setTotalRecords(actualTotalCount);
+      setTotalPages(Math.ceil(actualTotalCount / 10));
+      
+      if (actualCounts) {
+        setStats(actualCounts);
+      } else {
+        setStats(null); // Clear stats if not available
       }
     } catch (err: unknown) {
       console.error('Failed to load attendance report:', err);
@@ -190,6 +237,7 @@ const LecturerView: React.FC = () => {
       } else {
         setError('Failed to load attendance report.');
       }
+      setStats(null); // Clear stats on error
     } finally {
       setLoadingReport(false);
     }
@@ -199,6 +247,7 @@ const LecturerView: React.FC = () => {
     fetchAttendanceRecord();
   }, [searchTerm, statusFilter, currentPage, dateFilter, courseFilter, fetchAttendanceRecord]);
 
+  
   const exportCsv = (): void => {
     const token = localStorage.getItem('access_token');
     if (!token) {
@@ -240,14 +289,16 @@ const LecturerView: React.FC = () => {
       });
 
       setQrCodes(prev => prev.filter(qr => qr.id !== id));
+      toast.success('QR code deleted successfully!');
     } catch (err) {
       console.error('Failed to delete QR code:', err);
-      alert('Failed to delete QR code. Please try again.');
+      toast.error('Failed to delete QR code. Please try again.');
     }
   };
 
   const handleRefreshQrCodes = async () => {
     await fetchQrCodes();
+    toast.info('QR codes refreshed!');
   };
 
   const handleLogout = (): void => {
@@ -566,7 +617,7 @@ const LecturerView: React.FC = () => {
 
         {/* Main Content */}
         <div className="lecturer-card main-content-card">
-          <Tabs defaultValue="actions" className="lecturer-tabs">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="lecturer-tabs">
             <TabsList className="lecturer-tabs__list">
               <TabsTrigger value="actions" className="lecturer-tabs__trigger">
                 <Sparkles className="lecturer-icon" />
@@ -592,7 +643,7 @@ const LecturerView: React.FC = () => {
                     <h3 className="action-card__title">Generate Attendance QR</h3>
                   </div>
                   <button
-                    onClick={() => navigate('/generate-qr')}
+                    onClick={navigateToGenerateQr}
                     className="action-card__button"
                   >
                     📷 Generate QR Code
@@ -788,7 +839,7 @@ const LecturerView: React.FC = () => {
                     >
                       <option value="">All Courses</option>
                       {courses.map((course) => (
-                        <option key={course.id} value={course.id}>
+                        <option key={course.id} value={course.id.toString()}>
                           {course.code} - {course.name}
                         </option>
                       ))}
@@ -930,6 +981,18 @@ const LecturerView: React.FC = () => {
           </Tabs>
         </div>
       </div>
+
+      {/* Add Toast Container */}
+      <ToastContainer 
+        position="top-right" 
+        autoClose={3000}
+        toastStyle={{
+          background: 'rgba(131, 13, 228, 0.95)',
+          backdropFilter: 'blur(20px)',
+          borderRadius: '16px',
+          border: '1px solid rgba(255, 255, 255, 0.2)'
+        }}
+      />
     </div>
   );
 };

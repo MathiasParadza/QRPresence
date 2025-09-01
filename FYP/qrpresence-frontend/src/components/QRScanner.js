@@ -31,11 +31,28 @@ const QRScanner = () => {
         pauseOnHover: true,
         draggable: true,
     }), []);
+    // CSRF Token helper
+    const getCSRFToken = useCallback(() => {
+        const name = 'csrftoken';
+        const cookieValue = document.cookie
+            .split('; ')
+            .find(row => row.startsWith(`${name}=`))
+            ?.split('=')[1];
+        return cookieValue || '';
+    }, []);
     // Token validation helper
     const validateToken = useCallback((token) => {
         if (!token)
             return false;
-        return token.split('.').length === 3;
+        // Check if token is expired
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            const expirationTime = payload.exp * 1000;
+            return Date.now() < expirationTime;
+        }
+        catch {
+            return false;
+        }
     }, []);
     // Token refresh function
     const attemptTokenRefresh = useCallback(async () => {
@@ -48,7 +65,11 @@ const QRScanner = () => {
             }
             const response = await fetch('http://127.0.0.1:8000/api/token/refresh/', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken(),
+                },
+                credentials: 'include',
                 body: JSON.stringify({ refresh: refreshToken })
             });
             if (response.ok) {
@@ -67,7 +88,7 @@ const QRScanner = () => {
             toast.error('❌ Failed to refresh session', toastConfig);
             return false;
         }
-    }, [navigate, toastConfig]);
+    }, [navigate, toastConfig, getCSRFToken]);
     const stopCamera = useCallback(() => {
         const stream = videoRef.current?.srcObject;
         stream?.getTracks().forEach((track) => track.stop());
@@ -129,15 +150,30 @@ const QRScanner = () => {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        Authorization: `Bearer ${token}`,
+                        'Authorization': `Bearer ${token}`,
+                        'X-CSRFToken': getCSRFToken(),
                     },
+                    credentials: 'include',
                     body: JSON.stringify({
                         session_id: sessionId,
                         latitude: latitude,
                         longitude: longitude
                     }),
                 });
+                // Enhanced error handling with detailed server response
                 if (!response.ok) {
+                    let errorDetail = 'Failed to mark attendance';
+                    try {
+                        const errorData = await response.json();
+                        errorDetail = errorData.error || errorData.detail || errorData.message || JSON.stringify(errorData);
+                        console.error('Server error details:', errorData);
+                    }
+                    catch {
+                        const errorText = await response.text();
+                        console.error('Server response text:', errorText);
+                        errorDetail = errorText || `Server error: ${response.status}`;
+                    }
+                    console.error(`Server error ${response.status}:`, errorDetail);
                     if (response.status === 401) {
                         toast.info('🔄 Session expired. Attempting to refresh...', toastConfig);
                         const refreshed = await attemptTokenRefresh();
@@ -146,8 +182,7 @@ const QRScanner = () => {
                         }
                         throw new Error('Session expired. Please login again.');
                     }
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.detail || errorData.message || 'Failed to mark attendance');
+                    throw new Error(errorDetail);
                 }
                 const result = await response.json();
                 toast.success('✅ Attendance marked successfully!', {
@@ -161,7 +196,22 @@ const QRScanner = () => {
                 const errorMessage = error && typeof error === 'object' && 'message' in error
                     ? error.message
                     : 'Failed to mark attendance';
-                toast.error(`❌ ${errorMessage}`, toastConfig);
+                // Show specific error messages for common issues
+                if (errorMessage.includes('not enrolled')) {
+                    toast.error('❌ You are not enrolled in this course', toastConfig);
+                }
+                else if (errorMessage.includes('too far')) {
+                    toast.error('❌ You are too far from the classroom', toastConfig);
+                }
+                else if (errorMessage.includes('expired') || errorMessage.includes('window closed')) {
+                    toast.error('❌ Attendance window has closed', toastConfig);
+                }
+                else if (errorMessage.includes('Session not found')) {
+                    toast.error('❌ Invalid session QR code', toastConfig);
+                }
+                else {
+                    toast.error(`❌ ${errorMessage}`, toastConfig);
+                }
                 throw error;
             }
             finally {
@@ -173,7 +223,7 @@ const QRScanner = () => {
             toast.error(`⚠️ ${error.message}`, toastConfig);
             throw error;
         }
-    }, [toastConfig, validateToken, attemptTokenRefresh]);
+    }, [toastConfig, validateToken, attemptTokenRefresh, getCSRFToken]);
     const scanQRCode = useCallback(() => {
         if (!canvasRef.current || !videoRef.current || !scanActive) {
             return;
@@ -206,7 +256,7 @@ const QRScanner = () => {
             handleAttendanceMarking(text)
                 .catch((error) => {
                 console.error('Error marking attendance:', error);
-                toast.error(`❌ ${error.message}`, toastConfig);
+                // Error message already shown in handleAttendanceMarking, just reset
                 resetScanner();
             });
         }
