@@ -12,13 +12,23 @@ import CreateSession from "./pages/LecturerView/CreateSession";
 import SessionList from "./pages/LecturerView/SessionList";
 import SessionEdit from "./pages/LecturerView/SessionEdit";
 import StudentManager from "./pages/LecturerView/StudentManager";
-import QRCodeGenerator from "./components/QRCodeGenerator"; // Make sure this import is correct
+import QRCodeGenerator from "./components/QRCodeGenerator";
+import CourseManagement from "./pages/LecturerView/CourseManagement";
+import LecturerEnrollmentManager from "./pages/LecturerView/LecturerEnrollmentManager";
+// Admin Components
+import AdminLayout from "./pages/AdminView/AdminLayout";
+import AdminDashboard from "./pages/AdminView/Dashboard";
+import UserManagement from "./pages/AdminView/UserManager";
+import LecturerManagement from "./pages/AdminView/LecturerManagement";
+import StudentManagement from "./pages/AdminView/StudentManagement";
+import CourseManagementAdmin from "./pages/AdminView/CourseManagement";
+import EnrollmentManagement from "./pages/AdminView/EnrollmentManagement";
+import AttendanceManagement from "./pages/AdminView/AttendanceManagement";
+import AdminSettings from "./pages/AdminView/SiteSettings";
 // Components
 import ErrorBoundary from "./components/ErrorBoundary";
 import LoadingSpinner from "./components/LoadingSpinner";
 import AIChatAssistant from "./components/AIChatAssistant";
-import CourseManagement from "./pages/LecturerView/CourseManagement";
-import LecturerEnrollmentManager from "./pages/LecturerView/LecturerEnrollmentManager";
 const App = () => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -52,6 +62,6 @@ const App = () => {
     if (loading) {
         return _jsx(LoadingSpinner, {});
     }
-    return (_jsx(Router, { children: _jsxs(Routes, { children: [_jsx(Route, { path: "/", element: _jsx(HomePage, {}) }), _jsx(Route, { path: "/register", element: _jsx(Register, {}) }), _jsx(Route, { path: "/login", element: _jsx(Login, { setUser: setUser }) }), _jsx(Route, { path: "/dashboard", element: user ? _jsx(Dashboard, {}) : _jsx(Navigate, { to: "/login", replace: true }) }), _jsx(Route, { path: "/lecturerview", element: user?.role === "lecturer" ? (_jsx(ErrorBoundary, { children: _jsx(LecturerView, {}) })) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsx(Route, { path: "/generate-qr", element: user?.role === "lecturer" ? (_jsx(ErrorBoundary, { children: _jsx(QRCodeGenerator, {}) })) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsx(Route, { path: "/manage-courses", element: user?.role === "lecturer" ? (_jsx(ErrorBoundary, { children: _jsx(CourseManagement, {}) })) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsx(Route, { path: "/enroll-students", element: user?.role === "lecturer" ? (_jsx(ErrorBoundary, { children: _jsx(LecturerEnrollmentManager, {}) })) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsx(Route, { path: "/create-session", element: user?.role === "lecturer" ? (_jsx(CreateSession, {})) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsx(Route, { path: "/session-list", element: user?.role === "lecturer" ? (_jsx(SessionList, {})) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsx(Route, { path: "/lecturer/sessions/edit/:id", element: user?.role === "lecturer" ? (_jsx(SessionEdit, {})) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsx(Route, { path: "/student-manager", element: user?.role === "lecturer" ? (_jsx(StudentManager, {})) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsx(Route, { path: "/studentview", element: user?.role === "student" ? (_jsx(StudentView, {})) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsx(Route, { path: "/ai-assistant", element: user ? _jsx(AIChatAssistant, {}) : _jsx(Navigate, { to: "/login", replace: true }) }), _jsx(Route, { path: "*", element: _jsx(Navigate, { to: "/", replace: true }) })] }) }));
+    return (_jsx(Router, { children: _jsxs(Routes, { children: [_jsx(Route, { path: "/", element: _jsx(HomePage, {}) }), _jsx(Route, { path: "/register", element: _jsx(Register, {}) }), _jsx(Route, { path: "/login", element: _jsx(Login, { setUser: setUser }) }), _jsx(Route, { path: "/dashboard", element: user ? _jsx(Dashboard, {}) : _jsx(Navigate, { to: "/login", replace: true }) }), _jsx(Route, { path: "/lecturerview", element: user?.role === "lecturer" ? (_jsx(ErrorBoundary, { children: _jsx(LecturerView, {}) })) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsx(Route, { path: "/generate-qr", element: user?.role === "lecturer" ? (_jsx(ErrorBoundary, { children: _jsx(QRCodeGenerator, {}) })) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsx(Route, { path: "/manage-courses", element: user?.role === "lecturer" ? (_jsx(ErrorBoundary, { children: _jsx(CourseManagement, {}) })) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsx(Route, { path: "/enroll-students", element: user?.role === "lecturer" ? (_jsx(ErrorBoundary, { children: _jsx(LecturerEnrollmentManager, {}) })) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsx(Route, { path: "/create-session", element: user?.role === "lecturer" ? (_jsx(CreateSession, {})) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsx(Route, { path: "/session-list", element: user?.role === "lecturer" ? (_jsx(SessionList, {})) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsx(Route, { path: "/lecturer/sessions/edit/:id", element: user?.role === "lecturer" ? (_jsx(SessionEdit, {})) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsx(Route, { path: "/student-manager", element: user?.role === "lecturer" ? (_jsx(StudentManager, {})) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsxs(Route, { path: "/admin/*", element: user?.role === "admin" ? (_jsx(ErrorBoundary, { children: _jsx(AdminLayout, {}) })) : (_jsx(Navigate, { to: "/login", replace: true })), children: [_jsx(Route, { index: true, element: _jsx(AdminDashboard, {}) }), _jsx(Route, { path: "users", element: _jsx(UserManagement, {}) }), _jsx(Route, { path: "lecturers", element: _jsx(LecturerManagement, {}) }), _jsx(Route, { path: "students", element: _jsx(StudentManagement, {}) }), _jsx(Route, { path: "courses", element: _jsx(CourseManagementAdmin, {}) }), _jsx(Route, { path: "enrollments", element: _jsx(EnrollmentManagement, {}) }), _jsx(Route, { path: "attendance", element: _jsx(AttendanceManagement, {}) }), _jsx(Route, { path: "settings", element: _jsx(AdminSettings, {}) })] }), _jsx(Route, { path: "/studentview", element: user?.role === "student" ? (_jsx(StudentView, {})) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsx(Route, { path: "/ai-assistant", element: user ? _jsx(AIChatAssistant, {}) : _jsx(Navigate, { to: "/login", replace: true }) }), _jsx(Route, { path: "*", element: _jsx(Navigate, { to: "/", replace: true }) })] }) }));
 };
 export default App;

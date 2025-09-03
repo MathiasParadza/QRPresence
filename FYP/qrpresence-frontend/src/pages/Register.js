@@ -13,6 +13,8 @@ const Register = () => {
         student_id: "",
         name: "",
         program: "",
+        lecturer_id: "",
+        department: ""
     });
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
@@ -21,7 +23,7 @@ const Register = () => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
     const validateForm = () => {
-        const { username, email, password, role, student_id, name, program } = formData;
+        const { username, email, password, role, student_id, name, program, lecturer_id, department } = formData;
         if (!username.trim())
             return "Username is required.";
         if (!email.trim())
@@ -44,6 +46,16 @@ const Register = () => {
             if (!program.trim())
                 return "Program is required for students.";
         }
+        if (role === "lecturer") {
+            if (!lecturer_id?.trim())
+                return "Lecturer ID is required.";
+            if (!department?.trim())
+                return "Department is required for lecturers.";
+        }
+        if (role === "admin") {
+            // Admin registration might require additional validation if needed
+            // For now, just basic validation
+        }
         return null;
     };
     const handleSubmit = async (e) => {
@@ -61,11 +73,17 @@ const Register = () => {
             password: formData.password,
             role: formData.role,
             name: formData.name.trim(),
-            ...(formData.role === "student" && {
-                student_id: formData.student_id.trim(),
-                program: formData.program.trim(),
-            }),
         };
+        // Add role-specific fields
+        if (formData.role === "student") {
+            dataToSend.student_id = formData.student_id.trim();
+            dataToSend.program = formData.program.trim();
+        }
+        else if (formData.role === "lecturer") {
+            dataToSend.lecturer_id = formData.lecturer_id?.trim();
+            dataToSend.department = formData.department?.trim();
+        }
+        // Admin role doesn't need additional fields
         try {
             setLoading(true);
             const response = await fetch("http://127.0.0.1:8000/api/register/", {
@@ -77,9 +95,17 @@ const Register = () => {
             });
             const responseData = await response.json();
             if (response.ok) {
-                toast.success(formData.role === "student"
-                    ? "Student registration successful! Please login."
-                    : "Lecturer registration successful! Please login.");
+                let successMessage = "Registration successful! Please login.";
+                if (formData.role === "student") {
+                    successMessage = "Student registration successful! Please login.";
+                }
+                else if (formData.role === "lecturer") {
+                    successMessage = "Lecturer registration successful! Please login.";
+                }
+                else if (formData.role === "admin") {
+                    successMessage = "Admin registration successful! Please login.";
+                }
+                toast.success(successMessage);
                 navigate("/login");
             }
             else {
@@ -113,6 +139,6 @@ const Register = () => {
             setLoading(false);
         }
     };
-    return (_jsxs("div", { className: "register-container", children: [_jsx(ToastContainer, {}), _jsxs("form", { onSubmit: handleSubmit, className: "register-form", children: [_jsxs("div", { className: "register-header", children: [_jsx("h2", { className: "register-title", children: "Create Account" }), _jsx("p", { className: "register-subtitle", children: "Join our platform today" })] }), error && _jsx("div", { className: "error-message", children: error }), _jsxs("div", { className: "input-group", children: [_jsx("label", { className: "input-label", children: "Username" }), _jsx("input", { type: "text", name: "username", placeholder: "Enter your username", value: formData.username, onChange: handleChange, className: "input-field", required: true })] }), _jsxs("div", { className: "input-group", children: [_jsx("label", { className: "input-label", children: "Email" }), _jsx("input", { type: "email", name: "email", placeholder: "Enter your email", value: formData.email, onChange: handleChange, className: "input-field", required: true })] }), _jsxs("div", { className: "input-group", children: [_jsx("label", { className: "input-label", children: "Full Name" }), _jsx("input", { type: "text", name: "name", placeholder: "Enter your full name", value: formData.name, onChange: handleChange, className: "input-field", required: true })] }), _jsxs("div", { className: "input-group", children: [_jsx("label", { className: "input-label", children: "Password" }), _jsx("input", { type: "password", name: "password", placeholder: "Create a secure password", value: formData.password, onChange: handleChange, className: "input-field", required: true })] }), _jsxs("div", { className: "input-group", children: [_jsx("label", { htmlFor: "role", className: "input-label", children: "Role" }), _jsxs("select", { id: "role", name: "role", value: formData.role, onChange: handleChange, className: "select-field", children: [_jsx("option", { value: "student", children: "Student" }), _jsx("option", { value: "lecturer", children: "Lecturer" })] })] }), formData.role === "student" && (_jsxs("div", { className: "student-fields", children: [_jsxs("div", { className: "input-group", children: [_jsx("label", { className: "input-label", children: "Student ID" }), _jsx("input", { type: "text", name: "student_id", placeholder: "Enter your student ID", value: formData.student_id, onChange: handleChange, className: "input-field", required: true })] }), _jsxs("div", { className: "input-group", children: [_jsx("label", { className: "input-label", children: "Program" }), _jsx("input", { type: "text", name: "program", placeholder: "Enter your program", value: formData.program, onChange: handleChange, className: "input-field", required: true })] })] })), _jsx("button", { type: "submit", disabled: loading, className: "register-button", children: loading ? (_jsxs(_Fragment, { children: [_jsx("div", { className: "loading-spinner" }), "Creating Account..."] })) : ("Create Account") }), _jsxs("div", { className: "login-section", children: [_jsx("p", { className: "login-text", children: "Already have an account?" }), _jsx("a", { href: "/login", className: "login-link", children: "Sign In" })] })] })] }));
+    return (_jsxs("div", { className: "register-container", children: [_jsx(ToastContainer, {}), _jsxs("form", { onSubmit: handleSubmit, className: "register-form", children: [_jsxs("div", { className: "register-header", children: [_jsx("h2", { className: "register-title", children: "Create Account" }), _jsx("p", { className: "register-subtitle", children: "Join our platform today" })] }), error && _jsx("div", { className: "error-message", children: error }), _jsxs("div", { className: "input-group", children: [_jsx("label", { className: "input-label", children: "Username" }), _jsx("input", { type: "text", name: "username", placeholder: "Enter your username", value: formData.username, onChange: handleChange, className: "input-field", required: true })] }), _jsxs("div", { className: "input-group", children: [_jsx("label", { className: "input-label", children: "Email" }), _jsx("input", { type: "email", name: "email", placeholder: "Enter your email", value: formData.email, onChange: handleChange, className: "input-field", required: true })] }), _jsxs("div", { className: "input-group", children: [_jsx("label", { className: "input-label", children: "Full Name" }), _jsx("input", { type: "text", name: "name", placeholder: "Enter your full name", value: formData.name, onChange: handleChange, className: "input-field", required: true })] }), _jsxs("div", { className: "input-group", children: [_jsx("label", { className: "input-label", children: "Password" }), _jsx("input", { type: "password", name: "password", placeholder: "Create a secure password", value: formData.password, onChange: handleChange, className: "input-field", required: true })] }), _jsxs("div", { className: "input-group", children: [_jsx("label", { htmlFor: "role", className: "input-label", children: "Role" }), _jsxs("select", { id: "role", name: "role", value: formData.role, onChange: handleChange, className: "select-field", children: [_jsx("option", { value: "student", children: "Student" }), _jsx("option", { value: "lecturer", children: "Lecturer" }), _jsx("option", { value: "admin", children: "Administrator" })] })] }), formData.role === "student" && (_jsxs("div", { className: "student-fields", children: [_jsxs("div", { className: "input-group", children: [_jsx("label", { className: "input-label", children: "Student ID" }), _jsx("input", { type: "text", name: "student_id", placeholder: "Enter your student ID", value: formData.student_id, onChange: handleChange, className: "input-field", required: true })] }), _jsxs("div", { className: "input-group", children: [_jsx("label", { className: "input-label", children: "Program" }), _jsx("input", { type: "text", name: "program", placeholder: "Enter your program", value: formData.program, onChange: handleChange, className: "input-field", required: true })] })] })), formData.role === "lecturer" && (_jsxs("div", { className: "lecturer-fields", children: [_jsxs("div", { className: "input-group", children: [_jsx("label", { className: "input-label", children: "Lecturer ID" }), _jsx("input", { type: "text", name: "lecturer_id", placeholder: "Enter your lecturer ID", value: formData.lecturer_id, onChange: handleChange, className: "input-field", required: true })] }), _jsxs("div", { className: "input-group", children: [_jsx("label", { className: "input-label", children: "Department" }), _jsx("input", { type: "text", name: "department", placeholder: "Enter your department", value: formData.department, onChange: handleChange, className: "input-field", required: true })] })] })), formData.role === "admin" && (_jsx("div", { className: "admin-note", children: _jsxs("p", { className: "note-text", children: [_jsx("strong", { children: "Note:" }), " Admin accounts have full system access and privileges. Please ensure proper authorization before creating admin accounts."] }) })), _jsx("button", { type: "submit", disabled: loading, className: "register-button", children: loading ? (_jsxs(_Fragment, { children: [_jsx("div", { className: "loading-spinner" }), "Creating Account..."] })) : ("Create Account") }), _jsxs("div", { className: "login-section", children: [_jsx("p", { className: "login-text", children: "Already have an account?" }), _jsx("a", { href: "/login", className: "login-link", children: "Sign In" })] })] })] }));
 };
 export default Register;

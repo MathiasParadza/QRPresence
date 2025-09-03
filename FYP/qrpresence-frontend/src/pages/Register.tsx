@@ -8,10 +8,12 @@ interface FormData {
   username: string;
   email: string;
   password: string;
-  role: "student" | "lecturer";
+  role: "student" | "lecturer" | "admin";
   student_id: string;
   name: string;
   program: string;
+  lecturer_id?: string;
+  department?: string;
 }
 
 const Register = () => {
@@ -23,6 +25,8 @@ const Register = () => {
     student_id: "",
     name: "",
     program: "",
+    lecturer_id: "",
+    department: ""
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -35,7 +39,7 @@ const Register = () => {
   };
 
   const validateForm = (): string | null => {
-    const { username, email, password, role, student_id, name, program } = formData;
+    const { username, email, password, role, student_id, name, program, lecturer_id, department } = formData;
 
     if (!username.trim()) return "Username is required.";
     if (!email.trim()) return "Email is required.";
@@ -56,6 +60,16 @@ const Register = () => {
       if (!program.trim()) return "Program is required for students.";
     }
 
+    if (role === "lecturer") {
+      if (!lecturer_id?.trim()) return "Lecturer ID is required.";
+      if (!department?.trim()) return "Department is required for lecturers.";
+    }
+
+    if (role === "admin") {
+      // Admin registration might require additional validation if needed
+      // For now, just basic validation
+    }
+
     return null;
   };
 
@@ -74,21 +88,29 @@ const Register = () => {
       username: string;
       email: string;
       password: string;
-      role: "student" | "lecturer";
+      role: "student" | "lecturer" | "admin";
       name: string;
       student_id?: string;
       program?: string;
+      lecturer_id?: string;
+      department?: string;
     } = {
       username: formData.username.trim(),
       email: formData.email.trim(),
       password: formData.password,
       role: formData.role,
       name: formData.name.trim(),
-      ...(formData.role === "student" && {
-        student_id: formData.student_id.trim(),
-        program: formData.program.trim(),
-      }),
     };
+
+    // Add role-specific fields
+    if (formData.role === "student") {
+      dataToSend.student_id = formData.student_id.trim();
+      dataToSend.program = formData.program.trim();
+    } else if (formData.role === "lecturer") {
+      dataToSend.lecturer_id = formData.lecturer_id?.trim();
+      dataToSend.department = formData.department?.trim();
+    }
+    // Admin role doesn't need additional fields
 
     try {
       setLoading(true);
@@ -103,11 +125,17 @@ const Register = () => {
       const responseData = await response.json();
 
       if (response.ok) {
-        toast.success(
-          formData.role === "student"
-            ? "Student registration successful! Please login."
-            : "Lecturer registration successful! Please login."
-        );
+        let successMessage = "Registration successful! Please login.";
+        
+        if (formData.role === "student") {
+          successMessage = "Student registration successful! Please login.";
+        } else if (formData.role === "lecturer") {
+          successMessage = "Lecturer registration successful! Please login.";
+        } else if (formData.role === "admin") {
+          successMessage = "Admin registration successful! Please login.";
+        }
+
+        toast.success(successMessage);
         navigate("/login");
       } else {
         let errorMessage = "Registration failed. Please try again.";
@@ -213,6 +241,7 @@ const Register = () => {
           >
             <option value="student">Student</option>
             <option value="lecturer">Lecturer</option>
+            <option value="admin">Administrator</option>
           </select>
         </div>
 
@@ -243,6 +272,45 @@ const Register = () => {
                 required
               />
             </div>
+          </div>
+        )}
+
+        {formData.role === "lecturer" && (
+          <div className="lecturer-fields">
+            <div className="input-group">
+              <label className="input-label">Lecturer ID</label>
+              <input
+                type="text"
+                name="lecturer_id"
+                placeholder="Enter your lecturer ID"
+                value={formData.lecturer_id}
+                onChange={handleChange}
+                className="input-field"
+                required
+              />
+            </div>
+
+            <div className="input-group">
+              <label className="input-label">Department</label>
+              <input
+                type="text"
+                name="department"
+                placeholder="Enter your department"
+                value={formData.department}
+                onChange={handleChange}
+                className="input-field"
+                required
+              />
+            </div>
+          </div>
+        )}
+
+        {formData.role === "admin" && (
+          <div className="admin-note">
+            <p className="note-text">
+              <strong>Note:</strong> Admin accounts have full system access and privileges.
+              Please ensure proper authorization before creating admin accounts.
+            </p>
           </div>
         )}
 

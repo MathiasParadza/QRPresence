@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Route, Routes, useNavigate, Navigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 
 // Pages
@@ -12,7 +12,20 @@ import CreateSession from "./pages/LecturerView/CreateSession";
 import SessionList from "./pages/LecturerView/SessionList";
 import SessionEdit from "./pages/LecturerView/SessionEdit";
 import StudentManager from "./pages/LecturerView/StudentManager";
-import QRCodeGenerator from "./components/QRCodeGenerator"; // Make sure this import is correct
+import QRCodeGenerator from "./components/QRCodeGenerator";
+import CourseManagement from "./pages/LecturerView/CourseManagement";
+import LecturerEnrollmentManager from "./pages/LecturerView/LecturerEnrollmentManager";
+
+// Admin Components
+import AdminLayout from "./pages/AdminView/AdminLayout";
+import AdminDashboard from "./pages/AdminView/Dashboard";
+import UserManagement from "./pages/AdminView/UserManager";
+import LecturerManagement from "./pages/AdminView/LecturerManagement";
+import StudentManagement from "./pages/AdminView/StudentManagement";
+import CourseManagementAdmin from "./pages/AdminView/CourseManagement";
+import EnrollmentManagement from "./pages/AdminView/EnrollmentManagement";
+import AttendanceManagement from "./pages/AdminView/AttendanceManagement";
+import AdminSettings from "./pages/AdminView/SiteSettings";
 
 // Components
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -21,8 +34,31 @@ import AIChatAssistant from "./components/AIChatAssistant";
 
 // Types
 import { User } from "./types/user";
-import CourseManagement from "./pages/LecturerView/CourseManagement";
-import LecturerEnrollmentManager from "./pages/LecturerView/LecturerEnrollmentManager";
+
+/**
+ * Protected route wrapper to enforce authentication and roles
+ */
+const ProtectedRoute: React.FC<{
+  user: User | null;
+  role?: string;
+  children: React.ReactNode;
+}> = ({ user, role, children }) => {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user) {
+      navigate("/login", { replace: true });
+    } else if (role && user.role !== role) {
+      navigate("/login", { replace: true });
+    }
+  }, [user, role, navigate]);
+
+  if (!user || (role && user.role !== role)) {
+    return null; // don’t render until redirect happens
+  }
+
+  return <>{children}</>;
+};
 
 const App = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -68,123 +104,131 @@ const App = () => {
         {/* Public */}
         <Route path="/" element={<HomePage />} />
         <Route path="/register" element={<Register />} />
-        <Route
-          path="/login"
-          element={<Login setUser={setUser} />}
-        />
+        <Route path="/login" element={<Login setUser={setUser} />} />
 
         {/* Authenticated Dashboard */}
         <Route
           path="/dashboard"
-          element={user ? <Dashboard /> : <Navigate to="/login" replace />}
+          element={
+            <ProtectedRoute user={user}>
+              <Dashboard />
+            </ProtectedRoute>
+          }
         />
 
         {/* Lecturer-only */}
         <Route
           path="/lecturerview"
           element={
-            user?.role === "lecturer" ? (
+            <ProtectedRoute user={user} role="lecturer">
               <ErrorBoundary>
                 <LecturerView />
               </ErrorBoundary>
-            ) : (
-              <Navigate to="/login" replace />
-            )
+            </ProtectedRoute>
           }
         />
         <Route
           path="/generate-qr"
           element={
-            user?.role === "lecturer" ? (
+            <ProtectedRoute user={user} role="lecturer">
               <ErrorBoundary>
                 <QRCodeGenerator />
               </ErrorBoundary>
-            ) : (
-              <Navigate to="/login" replace />
-            )
+            </ProtectedRoute>
           }
         />
         <Route
           path="/manage-courses"
           element={
-            user?.role === "lecturer" ? (
+            <ProtectedRoute user={user} role="lecturer">
               <ErrorBoundary>
                 <CourseManagement />
               </ErrorBoundary>
-            ) : (
-              <Navigate to="/login" replace />
-            )
+            </ProtectedRoute>
           }
         />
         <Route
           path="/enroll-students"
           element={
-            user?.role === "lecturer" ? (
+            <ProtectedRoute user={user} role="lecturer">
               <ErrorBoundary>
                 <LecturerEnrollmentManager />
               </ErrorBoundary>
-            ) : (
-              <Navigate to="/login" replace />
-            )
+            </ProtectedRoute>
           }
         />
         <Route
           path="/create-session"
           element={
-            user?.role === "lecturer" ? (
+            <ProtectedRoute user={user} role="lecturer">
               <CreateSession />
-            ) : (
-              <Navigate to="/login" replace />
-            )
+            </ProtectedRoute>
           }
         />
         <Route
           path="/session-list"
           element={
-            user?.role === "lecturer" ? (
+            <ProtectedRoute user={user} role="lecturer">
               <SessionList />
-            ) : (
-              <Navigate to="/login" replace />
-            )
+            </ProtectedRoute>
           }
         />
         <Route
           path="/lecturer/sessions/edit/:id"
           element={
-            user?.role === "lecturer" ? (
+            <ProtectedRoute user={user} role="lecturer">
               <SessionEdit />
-            ) : (
-              <Navigate to="/login" replace />
-            )
+            </ProtectedRoute>
           }
         />
         <Route
           path="/student-manager"
           element={
-            user?.role === "lecturer" ? (
+            <ProtectedRoute user={user} role="lecturer">
               <StudentManager />
-            ) : (
-              <Navigate to="/login" replace />
-            )
+            </ProtectedRoute>
           }
         />
+
+        {/* Admin-only */}
+        <Route
+          path="/admin/*"
+          element={
+            <ProtectedRoute user={user} role="admin">
+              <ErrorBoundary>
+                <AdminLayout />
+              </ErrorBoundary>
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<AdminDashboard />} />
+          <Route path="users" element={<UserManagement />} />
+          <Route path="lecturers" element={<LecturerManagement />} />
+          <Route path="students" element={<StudentManagement />} />
+          <Route path="courses" element={<CourseManagementAdmin />} />
+          <Route path="enrollments" element={<EnrollmentManagement />} />
+          <Route path="attendance" element={<AttendanceManagement />} />
+          <Route path="settings" element={<AdminSettings />} />
+        </Route>
 
         {/* Student-only */}
         <Route
           path="/studentview"
           element={
-            user?.role === "student" ? (
+            <ProtectedRoute user={user} role="student">
               <StudentView />
-            ) : (
-              <Navigate to="/login" replace />
-            )
+            </ProtectedRoute>
           }
         />
 
         {/* AI Assistant (authenticated only) */}
         <Route
           path="/ai-assistant"
-          element={user ? <AIChatAssistant /> : <Navigate to="/login" replace />}
+          element={
+            <ProtectedRoute user={user}>
+              <AIChatAssistant />
+            </ProtectedRoute>
+          }
         />
 
         {/* Catch-all */}

@@ -66,6 +66,10 @@ const Dashboard = () => {
                 return _jsx(LecturerView, {});
             case 'student':
                 return _jsx(StudentView, {});
+            case 'admin':
+                // Redirect to admin dashboard instead of rendering it directly
+                navigate('/admin');
+                return _jsx("div", { children: "Redirecting to admin panel..." });
             default:
                 return (_jsx("div", { className: "min-h-screen bg-gray-100 flex items-center justify-center px-4", children: _jsxs("div", { className: "bg-white rounded-xl shadow-lg p-8 text-center max-w-md w-full", children: [_jsxs("div", { className: "mb-6", children: [_jsx("div", { className: "w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4", children: _jsx("svg", { className: "w-8 h-8 text-red-600", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24", children: _jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: "2", d: "M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L5.636 5.636" }) }) }), _jsx("h2", { className: "text-xl font-bold text-gray-900 mb-2", children: "Unauthorized Access" }), _jsxs("p", { className: "text-gray-600 mb-2", children: ["Your role \"", user.role, "\" is not recognized"] }), _jsx("p", { className: "text-sm text-gray-500 mb-6", children: "Please contact your administrator" })] }), _jsxs("div", { className: "space-y-3", children: [_jsx("button", { onClick: handleRetry, className: "w-full bg-purple-600 hover:bg-purple-700 text-white py-3 px-4 rounded-lg font-semibold transition-colors duration-200", children: "Refresh" }), _jsx("button", { onClick: handleLogout, className: "w-full bg-gray-600 hover:bg-gray-700 text-white py-3 px-4 rounded-lg font-semibold transition-colors duration-200", children: "Logout" })] })] }) }));
         }

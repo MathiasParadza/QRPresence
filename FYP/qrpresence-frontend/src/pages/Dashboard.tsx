@@ -138,6 +138,10 @@ const Dashboard: React.FC = () => {
         return <LecturerView />;
       case 'student':
         return <StudentView />;
+      case 'admin':
+        // Redirect to admin dashboard instead of rendering it directly
+        navigate('/admin');
+        return <div>Redirecting to admin panel...</div>;
       default:
         return (
           <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4">

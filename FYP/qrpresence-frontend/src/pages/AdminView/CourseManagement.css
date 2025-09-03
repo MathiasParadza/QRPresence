@@ -1,0 +1,579 @@
+/* CourseManager.css */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+/* Course Manager Container */
+.course-manager {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  animation: fadeInUp 0.6s ease-out;
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Header */
+.course-manager__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+}
+
+.course-manager__header h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: white;
+  margin: 0;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  line-height: 1.2;
+}
+
+/* Search Section */
+.course-manager__search {
+  margin-bottom: 32px;
+  animation: fadeInUp 0.6s ease-out 0.1s both;
+}
+
+.search-group {
+  position: relative;
+  max-width: 400px;
+}
+
+.search-group svg {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(255, 255, 255, 0.6);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.search-input {
+  width: 100%;
+  padding: 16px 16px 16px 48px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  color: white;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  font-family: inherit;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.search-input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.search-input:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+/* Admin Button (from AdminLayout styles) */
+.admin-button {
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: max-content;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  transform: translateY(0);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+
+.admin-button:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.2);
+}
+
+.admin-button--primary {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: white;
+}
+
+.admin-button--primary:hover {
+  background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+}
+
+/* Table Container */
+.admin-table-container {
+  background: rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  animation: scaleIn 0.6s ease-out 0.2s both;
+}
+
+/* Table */
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.admin-table thead th {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-weight: 600;
+  padding: 20px 24px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.admin-table tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+  animation: slideInRight 0.4s ease-out;
+}
+
+.admin-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.05);
+  transform: scale(1.01);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.admin-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.admin-table tbody td {
+  padding: 20px 24px;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+  vertical-align: middle;
+}
+
+/* Course Code Cell */
+.course-code {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  color: white;
+}
+
+.course-code svg {
+  color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.2);
+  padding: 4px;
+  border-radius: 6px;
+  width: 24px;
+  height: 24px;
+}
+
+/* Action Buttons */
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-button {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+}
+
+.action-button:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.action-button--edit:hover {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: white;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.action-button--delete:hover {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: white;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+/* Empty State */
+.admin-table-empty {
+  text-align: center;
+  padding: 80px 40px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1.125rem;
+  font-weight: 500;
+}
+
+.admin-table-empty p {
+  margin: 0;
+  background: rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  padding: 24px 32px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: inline-block;
+}
+
+/* Loading State */
+.admin-loading {
+  text-align: center;
+  padding: 80px 20px;
+  color: white;
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.admin-loading__spinner {
+  width: 64px;
+  height: 64px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 24px;
+}
+
+.admin-loading p {
+  font-size: 1.25rem;
+  font-weight: 500;
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  background: rgba(255, 255, 255, 0.1);
+  padding: 12px 24px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: inline-block;
+  margin: 0;
+}
+
+/* Error State */
+.admin-error {
+  text-align: center;
+  padding: 40px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 16px;
+  color: #fca5a5;
+  margin-bottom: 32px;
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  animation: scaleIn 0.4s ease-out;
+}
+
+.admin-error p {
+  font-size: 1.125rem;
+  font-weight: 500;
+  margin-bottom: 20px;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .admin-table-container {
+    overflow-x: auto;
+  }
+  
+  .admin-table {
+    min-width: 700px;
+  }
+  
+  .admin-table thead th,
+  .admin-table tbody td {
+    padding: 16px 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .course-manager__header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 20px;
+  }
+  
+  .course-manager__header h2 {
+    font-size: 1.75rem;
+    text-align: center;
+  }
+  
+  .admin-button {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .search-group {
+    max-width: none;
+  }
+  
+  .admin-table {
+    min-width: 600px;
+  }
+  
+  .admin-table thead th,
+  .admin-table tbody td {
+    padding: 14px 16px;
+  }
+  
+  .action-buttons {
+    gap: 6px;
+  }
+  
+  .action-button {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+@media (max-width: 480px) {
+  .course-manager {
+    padding: 0;
+  }
+  
+  .course-manager__header h2 {
+    font-size: 1.5rem;
+  }
+  
+  .admin-table thead th,
+  .admin-table tbody td {
+    padding: 12px 14px;
+  }
+  
+  .admin-table thead th {
+    font-size: 0.75rem;
+  }
+  
+  .admin-table tbody td {
+    font-size: 0.875rem;
+  }
+  
+  .course-code {
+    gap: 8px;
+  }
+  
+  .course-code svg {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .action-button {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .admin-table-empty {
+    padding: 60px 20px;
+  }
+  
+  .admin-loading {
+    padding: 60px 20px;
+  }
+  
+  .admin-error {
+    padding: 30px 20px;
+  }
+}
+
+/* Focus States for Accessibility */
+.search-input:focus,
+.admin-button:focus,
+.action-button:focus {
+  outline: 2px solid rgba(255, 255, 255, 0.8);
+  outline-offset: 2px;
+}
+
+.admin-table tbody tr:focus-within {
+  background: rgba(255, 255, 255, 0.1);
+  outline: 2px solid rgba(255, 255, 255, 0.4);
+  outline-offset: -2px;
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .admin-table-container,
+  .search-input,
+  .admin-button,
+  .action-button {
+    border: 2px solid rgba(255, 255, 255, 0.8);
+  }
+  
+  .admin-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .admin-loading__spinner {
+    animation: none;
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .course-manager {
+    color: black !important;
+  }
+  
+  .course-manager__header h2 {
+    color: black !important;
+  }
+  
+  .admin-table-container {
+    background: white !important;
+    border: 1px solid black !important;
+    box-shadow: none !important;
+  }
+  
+  .admin-table thead th {
+    background: #f5f5f5 !important;
+    color: black !important;
+  }
+  
+  .admin-table tbody td {
+    color: black !important;
+  }
+  
+  .course-code {
+    color: black !important;
+  }
+  
+  .admin-button,
+  .action-buttons,
+  .course-manager__search {
+    display: none !important;
+  }
+}
+
+/* Scrollbar Styling */
+.admin-table-container::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.admin-table-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.admin-table-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+}
+
+.admin-table-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* Enhanced Row Animation */
+@keyframes tableRowSlide {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.admin-table tbody tr:nth-child(1) { animation-delay: 0.1s; }
+.admin-table tbody tr:nth-child(2) { animation-delay: 0.15s; }
+.admin-table tbody tr:nth-child(3) { animation-delay: 0.2s; }
+.admin-table tbody tr:nth-child(4) { animation-delay: 0.25s; }
+.admin-table tbody tr:nth-child(5) { animation-delay: 0.3s; }
+.admin-table tbody tr:nth-child(6) { animation-delay: 0.35s; }
+.admin-table tbody tr:nth-child(7) { animation-delay: 0.4s; }
+.admin-table tbody tr:nth-child(8) { animation-delay: 0.45s; }
+
+/* Loading Skeleton Animation (for future enhancement) */
+@keyframes shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.1) 25%, rgba(255, 255, 255, 0.2) 50%, rgba(255, 255, 255, 0.1) 75%);
+  background-size: 200px 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}

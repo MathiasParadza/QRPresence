@@ -170,3 +170,29 @@ class QRCodeSerializer(serializers.ModelSerializer):
 
     def get_is_expired(self, obj):
         return obj.is_expired()
+    
+class AttendanceSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source='student.name', read_only=True)
+    student_id = serializers.CharField(source='student.student_id', read_only=True)
+    session_name = serializers.CharField(source='session.class_name', read_only=True)
+    course_code = serializers.CharField(source='session.course.code', read_only=True)
+    course_title = serializers.CharField(source='session.course.title', read_only=True)
+    
+    class Meta:
+        model = Attendance
+        fields = [
+            'id',
+            'student',
+            'student_name',
+            'student_id',
+            'session',
+            'session_name',
+            'course_code',
+            'course_title',
+            'status',
+            'check_in_time',
+            'check_out_time',
+            'latitude',
+            'longitude'
+        ]
+        read_only_fields = ['check_in_time']

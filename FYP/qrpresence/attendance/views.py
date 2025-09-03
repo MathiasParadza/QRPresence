@@ -11,7 +11,7 @@ from django.core.files.base import ContentFile
 import base64
 from .models import Session, Attendance, QRCode, Student, Lecturer
 from .utils import haversine, is_qr_valid
-from .serializers import StudentSerializer, AttendanceMarkSerializer, SessionSerializer,AttendanceLecturerViewSerializer
+from .serializers import StudentSerializer, AttendanceMarkSerializer, SessionSerializer,AttendanceLecturerViewSerializer,LecturerSerializer,AttendanceSerializer
 from rest_framework import status, generics, serializers
 import logging
 from django.http import HttpResponse
@@ -39,7 +39,9 @@ from datetime import timedelta, datetime
 import time
 from django.db.models.functions import TruncDate, ExtractWeek, ExtractYear, ExtractHour, ExtractWeekDay
 from rest_framework.response import Response
-
+from authentication.models import CustomUser  
+from authentication.serializers import UserSerializer
+from authentication.permissions import IsAdminUser
 
 
 
@@ -1306,3 +1308,355 @@ class LecturerCourseView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
+
+
+#admin views for qrpresence
+
+############################################################################################################
+
+
+
+
+class AdminUserViewSet(viewsets.ModelViewSet):
+    queryset = CustomUser.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [IsAdminUser]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['role', 'is_active']
+    search_fields = ['username', 'email']
+    ordering_fields = ['date_joined', 'username']
+    
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        total_users = CustomUser.objects.count()
+        total_students = CustomUser.objects.filter(role='student').count()
+        total_lecturers = CustomUser.objects.filter(role='lecturer').count()
+        total_admins = CustomUser.objects.filter(role='admin').count()
+        
+        return Response({
+            'total_users': total_users,
+            'total_students': total_students,
+            'total_lecturers': total_lecturers,
+            'total_admins': total_admins,
+        })
+
+class AdminStudentViewSet(viewsets.ModelViewSet):
+    queryset = Student.objects.all()
+    serializer_class = StudentSerializer
+    permission_classes = [IsAdminUser]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['program']
+    search_fields = ['student_id', 'name', 'user__username', 'user__email']
+    ordering_fields = ['student_id', 'name']
+
+class AdminLecturerViewSet(viewsets.ModelViewSet):
+    queryset = Lecturer.objects.all().order_by('lecturer_id')
+    serializer_class = LecturerSerializer
+    permission_classes = [IsAdminUser]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['department', 'is_admin']
+    search_fields = ['lecturer_id', 'name', 'user__username', 'user__email']
+    ordering_fields = ['lecturer_id', 'name']
+    ordering = ['lecturer_id'] 
+class AdminCourseViewSet(viewsets.ModelViewSet):
+    queryset = Course.objects.all()
+    serializer_class = CourseSerializer
+    permission_classes = [IsAdminUser]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['credit_hours']
+    search_fields = ['code', 'title', 'description']
+    ordering_fields = ['code', 'title', 'created_at']
+
+class AdminSessionViewSet(viewsets.ModelViewSet):
+    queryset = Session.objects.all()
+    serializer_class = SessionSerializer
+    permission_classes = [IsAdminUser]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['course', 'lecturer']
+    search_fields = ['session_id', 'class_name', 'course__code', 'lecturer__name']
+    ordering_fields = ['timestamp', 'class_name']
+
+class AdminQRCodeViewSet(viewsets.ModelViewSet):
+    queryset = QRCode.objects.all()
+    serializer_class = QRCodeSerializer
+    permission_classes = [IsAdminUser]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['session']
+    ordering_fields = ['created_at', 'expires_at']
+
+class AdminStatsViewSet(viewsets.ViewSet):
+    permission_classes = [IsAdminUser]
+    
+    def list(self, request):
+        # User statistics
+        total_users = CustomUser.objects.count()
+        total_students = CustomUser.objects.filter(role='student').count()
+        total_lecturers = CustomUser.objects.filter(role='lecturer').count()
+        total_admins = CustomUser.objects.filter(role='admin').count()
+        
+        # Student statistics
+        student_objects = Student.objects.count()
+        
+        # Lecturer statistics
+        lecturer_objects = Lecturer.objects.count()
+        admin_lecturers = Lecturer.objects.filter(is_admin=True).count()
+        
+        # Course statistics
+        total_courses = Course.objects.count()
+        
+        # Enrollment statistics
+        total_enrollments = StudentCourseEnrollment.objects.count()
+        
+        # Session statistics
+        total_sessions = Session.objects.count()
+        today =  timezone.now().date()
+        active_sessions_today = Session.objects.filter(timestamp__date=today).count()
+        
+        # Attendance statistics
+        total_attendance = Attendance.objects.count()
+        present_count = Attendance.objects.filter(status='Present').count()
+        absent_count = Attendance.objects.filter(status='Absent').count()
+        attendance_rate = (present_count / total_attendance * 100) if total_attendance > 0 else 0
+        
+        # Recent activity (last 7 days)
+        seven_days_ago =  timezone.now()- timedelta(days=7)
+        
+        recent_users = CustomUser.objects.filter(date_joined__gte=seven_days_ago).count()
+        recent_sessions = Session.objects.filter(timestamp__gte=seven_days_ago).count()
+        recent_attendance = Attendance.objects.filter(check_in_time__gte=seven_days_ago).count()
+        
+        # Today's statistics
+        today_users = CustomUser.objects.filter(date_joined__date=today).count()
+        today_sessions = Session.objects.filter(timestamp__date=today).count()
+        today_attendance = Attendance.objects.filter(check_in_time__date=today).count()
+        
+        return Response({
+            # User stats
+            'user_stats': {
+                'total_users': total_users,
+                'total_students': total_students,
+                'total_lecturers': total_lecturers,
+                'total_admins': total_admins,
+                'recent_users': recent_users,
+                'today_users': today_users,
+            },
+            
+            # Model object stats
+            'object_stats': {
+                'total_student_objects': student_objects,
+                'total_lecturer_objects': lecturer_objects,
+                'admin_lecturers': admin_lecturers,
+                'total_courses': total_courses,
+                'total_enrollments': total_enrollments,
+                'total_sessions': total_sessions,
+                'active_sessions_today': active_sessions_today,
+            },
+            
+            # Attendance stats
+            'attendance_stats': {
+                'total_attendance': total_attendance,
+                'present_count': present_count,
+                'absent_count': absent_count,
+                'attendance_rate': round(attendance_rate, 2),
+                'recent_attendance': recent_attendance,
+                'today_attendance': today_attendance,
+            },
+            
+            # Activity stats
+            'activity_stats': {
+                'recent_sessions': recent_sessions,
+                'today_sessions': today_sessions,
+            },
+            
+            # Timestamp
+            'generated_at': timezone.now().isoformat()
+        })
+    
+    @action(detail=False, methods=['get'])
+    def summary(self, request):
+        """Simplified summary for dashboard cards"""
+        total_students = Student.objects.count()
+        total_lecturers = Lecturer.objects.count()
+        total_courses = Course.objects.count()
+        
+        # Count today's sessions
+        today = timezone.now().date()
+        active_sessions_today = Session.objects.filter(timestamp__date=today).count()
+        
+        # Calculate overall attendance rate
+        total_attendance = Attendance.objects.count()
+        present_count = Attendance.objects.filter(status='Present').count()
+        attendance_rate = (present_count / total_attendance * 100) if total_attendance > 0 else 0
+        
+        return Response({
+            'total_students': total_students,
+            'total_lecturers': total_lecturers,
+            'total_courses': total_courses,
+            'active_sessions_today': active_sessions_today,
+            'attendance_rate': round(attendance_rate, 2)
+        })
+    
+    @action(detail=False, methods=['get'])
+    def users(self, request):
+        """User-specific statistics"""
+        total_users = CustomUser.objects.count()
+        total_students = CustomUser.objects.filter(role='student').count()
+        total_lecturers = CustomUser.objects.filter(role='lecturer').count()
+        total_admins = CustomUser.objects.filter(role='admin').count()
+        
+        # Active/inactive users
+        active_users = CustomUser.objects.filter(is_active=True).count()
+        inactive_users = CustomUser.objects.filter(is_active=False).count()
+        
+        # Recent registrations
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+        recent_registrations = CustomUser.objects.filter(date_joined__gte=thirty_days_ago).count()
+        
+        return Response({
+            'total_users': total_users,
+            'total_students': total_students,
+            'total_lecturers': total_lecturers,
+            'total_admins': total_admins,
+            'active_users': active_users,
+            'inactive_users': inactive_users,
+            'recent_registrations': recent_registrations
+        })
+    
+    @action(detail=False, methods=['get'])
+    def attendance(self, request):
+        """Detailed attendance statistics"""
+        total_attendance = Attendance.objects.count()
+        present_count = Attendance.objects.filter(status='Present').count()
+        absent_count = Attendance.objects.filter(status='Absent').count()
+        attendance_rate = (present_count / total_attendance * 100) if total_attendance > 0 else 0
+        
+        # Today's attendance
+        today = timezone.now().date()
+        today_attendance = Attendance.objects.filter(check_in_time__date=today).count()
+        today_present = Attendance.objects.filter(check_in_time__date=today, status='Present').count()
+        
+        # Weekly attendance
+        seven_days_ago = timezone.now() - timedelta(days=7)
+        weekly_attendance = Attendance.objects.filter(check_in_time__gte=seven_days_ago).count()
+        
+        return Response({
+            'total_attendance': total_attendance,
+            'present_count': present_count,
+            'absent_count': absent_count,
+            'attendance_rate': round(attendance_rate, 2),
+            'today_attendance': today_attendance,
+            'today_present': today_present,
+            'weekly_attendance': weekly_attendance
+        })
+
+class AdminAttendanceViewSet(viewsets.ModelViewSet):
+    queryset = Attendance.objects.all()
+    serializer_class = AttendanceSerializer
+    permission_classes = [IsAdminUser]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['status', 'session']
+    search_fields = ['student__student_id', 'student__name', 'session__class_name']
+    ordering_fields = ['check_in_time', 'student__name']
+    
+    @action(detail=False, methods=['get'])
+    def export(self, request):
+        # Get filter parameters
+        status_filter = request.query_params.get('status', None)
+        date_filter = request.query_params.get('date', None)
+        session_filter = request.query_params.get('session', None)
+        
+        # Filter queryset
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        
+        if date_filter:
+            try:
+                date_obj = timezone.now().strptime(date_filter, '%Y-%m-%d').date()
+                queryset = queryset.filter(check_in_time__date=date_obj)
+            except ValueError:
+                pass
+        
+        if session_filter:
+            queryset = queryset.filter(session_id=session_filter)
+        
+        # Create CSV response
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="attendance_report.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow(['Student ID', 'Student Name', 'Session', 'Course', 'Status', 'Check-in Time', 'Check-out Time'])
+        
+        for attendance in queryset:
+            writer.writerow([
+                attendance.student.student_id,
+                attendance.student.name,
+                attendance.session.class_name,
+                attendance.session.course.code,
+                attendance.status,
+                attendance.check_in_time.strftime('%Y-%m-%d %H:%M:%S'),
+                attendance.check_out_time.strftime('%Y-%m-%d %H:%M:%S') if attendance.check_out_time else 'N/A'
+            ])
+        
+        return response
+    
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        total_attendance = Attendance.objects.count()
+        present_count = Attendance.objects.filter(status='Present').count()
+        absent_count = Attendance.objects.filter(status='Absent').count()
+        
+        # Calculate attendance rate
+        attendance_rate = (present_count / total_attendance * 100) if total_attendance > 0 else 0
+        
+        # Count today's sessions with attendance
+        today =  timezone.now().date()
+        active_sessions_today = Session.objects.filter(
+            timestamp__date=today
+        ).annotate(
+            attendance_count=Count('attendance')
+        ).filter(attendance_count__gt=0).count()
+        
+        return Response({
+            'total_attendance': total_attendance,
+            'present_count': present_count,
+            'absent_count': absent_count,
+            'attendance_rate': round(attendance_rate, 2),
+            'active_sessions_today': active_sessions_today
+        })
+
+class AdminEnrollmentViewSet(viewsets.ModelViewSet):
+    queryset = StudentCourseEnrollment.objects.all()
+    serializer_class = EnrollmentSerializer
+    permission_classes = [IsAdminUser]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['course', 'enrolled_by']
+    search_fields = ['student__student_id', 'student__name', 'course__code']
+    ordering_fields = ['enrolled_at', 'student__name']
+
+class AdminDashboardViewSet(viewsets.ViewSet):
+    permission_classes = [IsAdminUser]
+    
+    def list(self, request):
+        # Get statistics for dashboard
+        total_students = Student.objects.count()
+        total_lecturers = Lecturer.objects.count()
+        total_courses = Course.objects.count()
+        
+        # Count today's sessions
+        today =  timezone.now().date()
+        active_sessions_today = Session.objects.filter(timestamp__date=today).count()
+        
+        # Calculate overall attendance rate
+        total_attendance = Attendance.objects.count()
+        present_count = Attendance.objects.filter(status='Present').count()
+        attendance_rate = (present_count / total_attendance * 100) if total_attendance > 0 else 0
+        
+        return Response({
+            'total_students': total_students,
+            'total_lecturers': total_lecturers,
+            'total_courses': total_courses,
+            'active_sessions_today': active_sessions_today,
+            'attendance_rate': round(attendance_rate, 2)
+        })

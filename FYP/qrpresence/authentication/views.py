@@ -142,12 +142,11 @@ def current_user(request):
     serializer = UserSerializer(request.user)
     return Response(serializer.data)
 
-
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register(request):
     """
-    Handle user registration (student or lecturer).
+    Handle user registration (student, lecturer, or admin).
     """
     data = request.data
     required_fields = ['username', 'email', 'password', 'role', 'name']
@@ -174,8 +173,8 @@ def register(request):
     if CustomUser.objects.filter(email=email).exists():
         return Response({'email': ['This email is already registered.']}, status=400)
 
-    if role not in ['student', 'lecturer']:
-        return Response({'error': 'Invalid role. Must be either "student" or "lecturer".'}, status=400)
+    if role not in ['student', 'lecturer', 'admin']:
+        return Response({'error': 'Invalid role. Must be either "student", "lecturer", or "admin".'}, status=400)
 
     try:
         with transaction.atomic():
@@ -211,15 +210,35 @@ def register(request):
                 }, status=201)
 
             elif role == 'lecturer':
-                lecturer, created = Lecturer.objects.get_or_create(
+                lecturer_id = data.get('lecturer_id', '').strip()
+                department = data.get('department', '').strip()
+
+                if not lecturer_id:
+                    return Response({'lecturer_id': ['Lecturer ID is required.']}, status=400)
+                if Lecturer.objects.filter(lecturer_id=lecturer_id).exists():
+                    return Response({'lecturer_id': ['This Lecturer ID already exists.']}, status=400)
+
+                if not department:
+                    return Response({'department': ['Department is required.']}, status=400)
+
+                Lecturer.objects.create(
                     user=user,
-                    defaults={'name': name}
+                    lecturer_id=lecturer_id,
+                    name=name,
+                    department=department
                 )
-                if not created:
-                    return Response({'error': 'Lecturer profile already exists.'}, status=400)
 
                 return Response({
                     'message': 'Lecturer registered successfully',
+                    'user_id': user.id,
+                    'lecturer_id': lecturer_id
+                }, status=201)
+
+            elif role == 'admin':
+                # For admin role, we just create the user with admin role
+                # No additional profile creation needed unless you have an AdminProfile model
+                return Response({
+                    'message': 'Admin registered successfully',
                     'user_id': user.id
                 }, status=201)
 
