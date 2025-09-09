@@ -10,7 +10,10 @@ class CustomUser(AbstractUser):
     role = models.CharField(max_length=20, choices=[('student', 'Student'), ('lecturer', 'Lecturer'),('admin', 'Admin')])
 
     def __str__(self):
-        return self.username  # Choose one of the two `__str__` methods
+        return self.username
+
+    class Meta:
+        ordering = ['id']  # or ['username', 'date_joined', etc.]
 
     # Avoid reverse accessor clashes with related_name
     groups = models.ManyToManyField(
@@ -23,7 +26,6 @@ class CustomUser(AbstractUser):
         related_name='customuser_permissions',
         blank=True
     )
-
 # User Profile model
 class UserProfile(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='profile')
@@ -34,4 +36,6 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f"Profile of {self.user.username}"
+
+
 

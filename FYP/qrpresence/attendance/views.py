@@ -41,14 +41,14 @@ from django.db.models.functions import TruncDate, ExtractWeek, ExtractYear, Extr
 from rest_framework.response import Response
 from authentication.models import CustomUser  
 from authentication.serializers import UserSerializer
-from authentication.permissions import IsAdminUser
+from authentication.permissions import IsAdminUser,IsLecturerOrAdmin
 
 
 
 # Configure logger
 logger = logging.getLogger(__name__)
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated,IsAdminUser])
 def mark_attendance(request):
     try:
         # Log the request for debugging
@@ -260,7 +260,7 @@ def generate_and_save_qr(request):
 
 class SessionListCreateView(generics.ListCreateAPIView):
     serializer_class = SessionSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsLecturerOrAdmin, IsAdminUser]
 
     def get_queryset(self):
         """Return sessions for the current lecturer"""
@@ -280,7 +280,7 @@ class SessionListCreateView(generics.ListCreateAPIView):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsAdminUser])
 def validate_student(request, student_id):
     try:
         exists = Student.objects.filter(student_id=student_id).exists()
@@ -294,7 +294,7 @@ class SessionDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsAdminUser])
 def student_overview(request):
     try:
         student = Student.objects.select_related('user').get(user=request.user)
@@ -439,7 +439,7 @@ class LecturerAttendanceViewSet(viewsets.ModelViewSet):
     serializer_class = AttendanceLecturerViewSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = AttendanceFilter
-    permission_classes = [IsAuthenticated, IsLecturerOrAdmin]
+    permission_classes = [IsAuthenticated, IsLecturerOrAdmin, IsAdminUser]
 
     def get_queryset(self):
         """
@@ -682,7 +682,7 @@ class LecturerAttendanceViewSet(viewsets.ModelViewSet):
 class StudentListCreateAPIView(generics.ListCreateAPIView):
     queryset = Student.objects.all().order_by('student_id')
     serializer_class = StudentSerializer
-    permission_classes = [IsAuthenticated, IsLecturerOrAdmin]
+    permission_classes = [IsAuthenticated, IsLecturerOrAdmin, IsAdminUser]
 
     def perform_create(self, serializer):
         email = serializer.validated_data.get('email')
@@ -695,7 +695,7 @@ class StudentListCreateAPIView(generics.ListCreateAPIView):
 class StudentDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Student.objects.all()
     serializer_class = StudentSerializer
-    permission_classes = [IsAuthenticated, IsLecturerOrAdmin]   
+    permission_classes = [IsAuthenticated, IsLecturerOrAdmin, IsAdminUser]   
 
 
 def export_students_csv(request):
@@ -711,7 +711,7 @@ def export_students_csv(request):
     return response
 
 class AbsentStudentsView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsLecturerOrAdmin, IsAdminUser]
 
     def get(self, request, session_id):
         try:
@@ -724,7 +724,7 @@ class AbsentStudentsView(APIView):
         return Response(serializer.data)
     
 class SessionAbsenteesView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsLecturerOrAdmin, IsAdminUser]
 
     def get(self, request, session_id):
         try:
@@ -755,7 +755,7 @@ from rest_framework.permissions import IsAuthenticated
 logger = logging.getLogger(__name__)
 
 class AttendanceAIChatView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsLecturerOrAdmin, IsAdminUser]
     CONTEXT_CACHE_TIMEOUT = 300  # 5 minutes
 
     def post(self, request):
@@ -1171,6 +1171,7 @@ from django.http import JsonResponse
 import os
 import json
 from .serializers import QRCodeSerializer
+from django.db import models
 
 
 def get_qr_codes(request):
@@ -1201,7 +1202,7 @@ from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 @api_view(['DELETE'])
-@permission_classes([IsLecturer])
+@permission_classes([IsLecturer,IsAdminUser])
 @require_http_methods(["DELETE"])
 def delete_qr_code(request, qr_id):
     qr = get_object_or_404(QRCode, id=qr_id)
@@ -1219,7 +1220,7 @@ def download_qr_code(request, qr_id):
     except FileNotFoundError:
         return JsonResponse({"error": "QR code file not found"}, status=404)
 class LecturerEnrollmentView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,IsLecturerOrAdmin,IsAdminUser]
 
     def get(self, request):
         """List enrollments - optionally filtered by course_id"""
@@ -1289,7 +1290,7 @@ class LecturerEnrollmentView(APIView):
             )
         
 class LecturerCourseView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,IsAdminUser]
 
     def get(self, request):
         if request.user.role != 'lecturer':
@@ -1384,6 +1385,7 @@ class AdminQRCodeViewSet(viewsets.ModelViewSet):
     filterset_fields = ['session']
     ordering_fields = ['created_at', 'expires_at']
 
+# AdminStatsViewset
 class AdminStatsViewSet(viewsets.ViewSet):
     permission_classes = [IsAdminUser]
     
@@ -1393,6 +1395,10 @@ class AdminStatsViewSet(viewsets.ViewSet):
         total_students = CustomUser.objects.filter(role='student').count()
         total_lecturers = CustomUser.objects.filter(role='lecturer').count()
         total_admins = CustomUser.objects.filter(role='admin').count()
+        
+        # Active/inactive users
+        active_users = CustomUser.objects.filter(is_active=True).count()
+        inactive_users = CustomUser.objects.filter(is_active=False).count()
         
         # Student statistics
         student_objects = Student.objects.count()
@@ -1407,9 +1413,13 @@ class AdminStatsViewSet(viewsets.ViewSet):
         # Enrollment statistics
         total_enrollments = StudentCourseEnrollment.objects.count()
         
+        # Calculate average enrollments per course and per student
+        avg_enrollments_per_course = total_enrollments / total_courses if total_courses > 0 else 0
+        avg_enrollments_per_student = total_enrollments / student_objects if student_objects > 0 else 0
+        
         # Session statistics
         total_sessions = Session.objects.count()
-        today =  timezone.now().date()
+        today = timezone.now().date()
         active_sessions_today = Session.objects.filter(timestamp__date=today).count()
         
         # Attendance statistics
@@ -1419,7 +1429,7 @@ class AdminStatsViewSet(viewsets.ViewSet):
         attendance_rate = (present_count / total_attendance * 100) if total_attendance > 0 else 0
         
         # Recent activity (last 7 days)
-        seven_days_ago =  timezone.now()- timedelta(days=7)
+        seven_days_ago = timezone.now() - timedelta(days=7)
         
         recent_users = CustomUser.objects.filter(date_joined__gte=seven_days_ago).count()
         recent_sessions = Session.objects.filter(timestamp__gte=seven_days_ago).count()
@@ -1429,6 +1439,14 @@ class AdminStatsViewSet(viewsets.ViewSet):
         today_users = CustomUser.objects.filter(date_joined__date=today).count()
         today_sessions = Session.objects.filter(timestamp__date=today).count()
         today_attendance = Attendance.objects.filter(check_in_time__date=today).count()
+        today_present = Attendance.objects.filter(check_in_time__date=today, status='Present').count()
+        
+        # Weekly attendance (last 7 days)
+        weekly_attendance = Attendance.objects.filter(check_in_time__gte=seven_days_ago).count()
+        
+        # Recent registrations (last 30 days)
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+        recent_registrations = CustomUser.objects.filter(date_joined__gte=thirty_days_ago).count()
         
         return Response({
             # User stats
@@ -1437,8 +1455,11 @@ class AdminStatsViewSet(viewsets.ViewSet):
                 'total_students': total_students,
                 'total_lecturers': total_lecturers,
                 'total_admins': total_admins,
+                'active_users': active_users,
+                'inactive_users': inactive_users,
                 'recent_users': recent_users,
                 'today_users': today_users,
+                'recent_registrations': recent_registrations,
             },
             
             # Model object stats
@@ -1448,6 +1469,8 @@ class AdminStatsViewSet(viewsets.ViewSet):
                 'admin_lecturers': admin_lecturers,
                 'total_courses': total_courses,
                 'total_enrollments': total_enrollments,
+                'avg_enrollments_per_course': round(avg_enrollments_per_course, 2),
+                'avg_enrollments_per_student': round(avg_enrollments_per_student, 2),
                 'total_sessions': total_sessions,
                 'active_sessions_today': active_sessions_today,
             },
@@ -1460,6 +1483,8 @@ class AdminStatsViewSet(viewsets.ViewSet):
                 'attendance_rate': round(attendance_rate, 2),
                 'recent_attendance': recent_attendance,
                 'today_attendance': today_attendance,
+                'today_present': today_present,
+                'weekly_attendance': weekly_attendance,
             },
             
             # Activity stats
@@ -1469,7 +1494,14 @@ class AdminStatsViewSet(viewsets.ViewSet):
             },
             
             # Timestamp
-            'generated_at': timezone.now().isoformat()
+            'generated_at': timezone.now().isoformat(),
+            
+            # Simplified stats for dashboard cards (maintaining compatibility)
+            'total_students': student_objects,
+            'total_lecturers': lecturer_objects,
+            'total_courses': total_courses,
+            'active_sessions_today': active_sessions_today,
+            'attendance_rate': round(attendance_rate, 2)
         })
     
     @action(detail=False, methods=['get'])
@@ -1512,6 +1544,17 @@ class AdminStatsViewSet(viewsets.ViewSet):
         thirty_days_ago = timezone.now() - timedelta(days=30)
         recent_registrations = CustomUser.objects.filter(date_joined__gte=thirty_days_ago).count()
         
+        # Daily registrations for the last 7 days
+        seven_days_ago = timezone.now() - timedelta(days=7)
+        daily_registrations = []
+        for i in range(7):
+            day = timezone.now() - timedelta(days=i)
+            count = CustomUser.objects.filter(date_joined__date=day.date()).count()
+            daily_registrations.append({
+                'date': day.date().isoformat(),
+                'count': count
+            })
+        
         return Response({
             'total_users': total_users,
             'total_students': total_students,
@@ -1519,7 +1562,8 @@ class AdminStatsViewSet(viewsets.ViewSet):
             'total_admins': total_admins,
             'active_users': active_users,
             'inactive_users': inactive_users,
-            'recent_registrations': recent_registrations
+            'recent_registrations': recent_registrations,
+            'daily_registrations': daily_registrations
         })
     
     @action(detail=False, methods=['get'])
@@ -1534,10 +1578,25 @@ class AdminStatsViewSet(viewsets.ViewSet):
         today = timezone.now().date()
         today_attendance = Attendance.objects.filter(check_in_time__date=today).count()
         today_present = Attendance.objects.filter(check_in_time__date=today, status='Present').count()
+        today_absent = Attendance.objects.filter(check_in_time__date=today, status='Absent').count()
         
         # Weekly attendance
         seven_days_ago = timezone.now() - timedelta(days=7)
         weekly_attendance = Attendance.objects.filter(check_in_time__gte=seven_days_ago).count()
+        weekly_present = Attendance.objects.filter(check_in_time__gte=seven_days_ago, status='Present').count()
+        
+        # Daily attendance for the last 7 days
+        daily_attendance = []
+        for i in range(7):
+            day = timezone.now() - timedelta(days=i)
+            day_count = Attendance.objects.filter(check_in_time__date=day.date()).count()
+            day_present = Attendance.objects.filter(check_in_time__date=day.date(), status='Present').count()
+            daily_attendance.append({
+                'date': day.date().isoformat(),
+                'total': day_count,
+                'present': day_present,
+                'rate': (day_present / day_count * 100) if day_count > 0 else 0
+            })
         
         return Response({
             'total_attendance': total_attendance,
@@ -1546,17 +1605,224 @@ class AdminStatsViewSet(viewsets.ViewSet):
             'attendance_rate': round(attendance_rate, 2),
             'today_attendance': today_attendance,
             'today_present': today_present,
-            'weekly_attendance': weekly_attendance
+            'today_absent': today_absent,
+            'weekly_attendance': weekly_attendance,
+            'weekly_present': weekly_present,
+            'daily_attendance': daily_attendance
+        })
+    
+    @action(detail=False, methods=['get'])
+    def courses(self, request):
+        """Course-specific statistics"""
+        total_courses = Course.objects.count()
+        
+        # Courses with most enrollments
+        popular_courses = Course.objects.annotate(
+            enrollment_count=models.Count('students')
+        ).order_by('-enrollment_count')[:5]
+        
+        # Courses with recent activity (sessions in last 7 days)
+        seven_days_ago = timezone.now() - timedelta(days=7)
+        active_courses = Course.objects.filter(
+            sessions__timestamp__gte=seven_days_ago
+        ).distinct().count()
+        
+        return Response({
+            'total_courses': total_courses,
+            'active_courses': active_courses,
+            'popular_courses': [
+                {
+                    'title': course.title,
+                    'code': course.code,
+                    'enrollment_count': course.enrollment_count
+                }
+                for course in popular_courses
+            ]
         })
 
+    @action(detail=False, methods=['get'])
+    def export_attendance(self, request):
+        """Export attendance data as CSV"""
+        attendance_data = Attendance.objects.select_related(
+            'student', 'session', 'session__course'
+        ).all()
+        
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="attendance_report.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow([
+            'Student ID', 'Student Name', 'Course Code', 'Course Title',
+            'Session Name', 'Status', 'Check-in Time', 'Check-out Time',
+            'Latitude', 'Longitude'
+        ])
+        
+        for attendance in attendance_data:
+            writer.writerow([
+                attendance.student.student_id,
+                attendance.student.name,
+                attendance.session.course.code if attendance.session and attendance.session.course else 'N/A',
+                attendance.session.course.title if attendance.session and attendance.session.course else 'N/A',
+                attendance.session.class_name if attendance.session else 'N/A',
+                attendance.status,
+                attendance.check_in_time.strftime('%Y-%m-%d %H:%M:%S') if attendance.check_in_time else 'N/A',
+                attendance.check_out_time.strftime('%Y-%m-%d %H:%M:%S') if attendance.check_out_time else 'N/A',
+                attendance.latitude or 'N/A',
+                attendance.longitude or 'N/A'
+            ])
+        
+        return response
+    
+    @action(detail=False, methods=['get'])
+    def export_users(self, request):
+        """Export user data as CSV"""
+        users_data = CustomUser.objects.all()
+        
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="users_report.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow([
+            'User ID', 'Username', 'Email', 'Role', 'First Name', 'Last Name',
+            'Is Active', 'Date Joined', 'Last Login'
+        ])
+        
+        for user in users_data:
+            writer.writerow([
+                user.id,
+                user.username,
+                user.email,
+                user.role,
+                user.first_name,
+                user.last_name,
+                'Yes' if user.is_active else 'No',
+                user.date_joined.strftime('%Y-%m-%d %H:%M:%S'),
+                user.last_login.strftime('%Y-%m-%d %H:%M:%S') if user.last_login else 'Never'
+            ])
+        
+        return response
+    
+    @action(detail=False, methods=['get'])
+    def export_courses(self, request):
+        """Export course data as CSV"""
+        courses_data = Course.objects.annotate(
+            enrollment_count=Count('students'),
+            lecturer_name=F('created_by__lecturer_profile__name')
+        ).all()
+        
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="courses_report.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow([
+            'Course ID', 'Course Code', 'Course Title', 'Description',
+            'Credit Hours', 'Enrollment Count', 'Created By', 'Created At'
+        ])
+        
+        for course in courses_data:
+            writer.writerow([
+                course.id,
+                course.code,
+                course.title,
+                course.description[:100] + '...' if len(course.description) > 100 else course.description,
+                course.credit_hours,
+                course.enrollment_count,
+                course.lecturer_name or 'Unknown',
+                course.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            ])
+        
+        return response
+    
+    @action(detail=False, methods=['get'])
+    def export_sessions(self, request):
+        """Export session data as CSV"""
+        sessions_data = Session.objects.select_related('course', 'lecturer').all()
+        
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="sessions_report.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow([
+            'Session ID', 'Class Name', 'Course Code', 'Course Title',
+            'Lecturer Name', 'GPS Latitude', 'GPS Longitude',
+            'Allowed Radius (m)', 'Timestamp', 'Attendance Window (minutes)'
+        ])
+        
+        for session in sessions_data:
+            writer.writerow([
+                session.session_id,
+                session.class_name,
+                session.course.code if session.course else 'N/A',
+                session.course.title if session.course else 'N/A',
+                session.lecturer.name if session.lecturer else 'Unknown',
+                session.gps_latitude,
+                session.gps_longitude,
+                session.allowed_radius,
+                session.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                session.attendance_window.total_seconds() / 60 if session.attendance_window else 15
+            ])
+        
+        return response
+    
+    @action(detail=False, methods=['get'])
+    def export_enrollments(self, request):
+        """Export enrollment data as CSV"""
+        enrollments_data = StudentCourseEnrollment.objects.select_related(
+            'student', 'course', 'enrolled_by'
+        ).all()
+        
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="enrollments_report.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow([
+            'Enrollment ID', 'Student ID', 'Student Name',
+            'Course Code', 'Course Title', 'Enrolled By', 'Enrolled At'
+        ])
+        
+        for enrollment in enrollments_data:
+            writer.writerow([
+                enrollment.id,
+                enrollment.student.student_id,
+                enrollment.student.name,
+                enrollment.course.code,
+                enrollment.course.title,
+                enrollment.enrolled_by.get_full_name() or enrollment.enrolled_by.username,
+                enrollment.enrolled_at.strftime('%Y-%m-%d %H:%M:%S')
+            ])
+        
+        return response
+  
 class AdminAttendanceViewSet(viewsets.ModelViewSet):
-    queryset = Attendance.objects.all()
+    queryset = Attendance.objects.all().select_related(
+        'student', 'session', 'session__course', 'session__lecturer'
+    )
     serializer_class = AttendanceSerializer
     permission_classes = [IsAdminUser]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'session']
-    search_fields = ['student__student_id', 'student__name', 'session__class_name']
-    ordering_fields = ['check_in_time', 'student__name']
+    search_fields = [
+        'student__student_id', 
+        'student__name', 
+        'session__class_name',
+        'session__course__code',
+        'session__course__title'
+    ]
+    ordering_fields = ['check_in_time', 'student__name', 'session__class_name']
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Handle date filter
+        date_filter = self.request.query_params.get('date', None)
+        if date_filter:
+            try:
+                date_obj = datetime.strptime(date_filter, '%Y-%m-%d').date()
+                queryset = queryset.filter(check_in_time__date=date_obj)
+            except ValueError:
+                pass
+        
+        return queryset
     
     @action(detail=False, methods=['get'])
     def export(self, request):
@@ -1564,16 +1830,18 @@ class AdminAttendanceViewSet(viewsets.ModelViewSet):
         status_filter = request.query_params.get('status', None)
         date_filter = request.query_params.get('date', None)
         session_filter = request.query_params.get('session', None)
+        search_term = request.query_params.get('search', None)
         
-        # Filter queryset
-        queryset = self.filter_queryset(self.get_queryset())
+        # Start with base queryset
+        queryset = self.get_queryset()
         
+        # Apply additional filters
         if status_filter:
             queryset = queryset.filter(status=status_filter)
         
         if date_filter:
             try:
-                date_obj = timezone.now().strptime(date_filter, '%Y-%m-%d').date()
+                date_obj = datetime.strptime(date_filter, '%Y-%m-%d').date()
                 queryset = queryset.filter(check_in_time__date=date_obj)
             except ValueError:
                 pass
@@ -1581,21 +1849,41 @@ class AdminAttendanceViewSet(viewsets.ModelViewSet):
         if session_filter:
             queryset = queryset.filter(session_id=session_filter)
         
+        # Apply search if provided
+        if search_term:
+            queryset = queryset.filter(
+                models.Q(student__student_id__icontains=search_term) |
+                models.Q(student__name__icontains=search_term) |
+                models.Q(session__class_name__icontains=search_term) |
+                models.Q(session__course__code__icontains=search_term) |
+                models.Q(session__course__title__icontains=search_term)
+            )
+        
         # Create CSV response
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="attendance_report.csv"'
         
         writer = csv.writer(response)
-        writer.writerow(['Student ID', 'Student Name', 'Session', 'Course', 'Status', 'Check-in Time', 'Check-out Time'])
+        writer.writerow([
+            'Student ID', 
+            'Student Name', 
+            'Session', 
+            'Course Code', 
+            'Course Title', 
+            'Status', 
+            'Check-in Time', 
+            'Check-out Time'
+        ])
         
         for attendance in queryset:
             writer.writerow([
                 attendance.student.student_id,
                 attendance.student.name,
                 attendance.session.class_name,
-                attendance.session.course.code,
+                attendance.session.course.code if attendance.session.course else 'N/A',
+                attendance.session.course.title if attendance.session.course else 'N/A',
                 attendance.status,
-                attendance.check_in_time.strftime('%Y-%m-%d %H:%M:%S'),
+                attendance.check_in_time.strftime('%Y-%m-%d %H:%M:%S') if attendance.check_in_time else 'N/A',
                 attendance.check_out_time.strftime('%Y-%m-%d %H:%M:%S') if attendance.check_out_time else 'N/A'
             ])
         
@@ -1603,38 +1891,187 @@ class AdminAttendanceViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def stats(self, request):
-        total_attendance = Attendance.objects.count()
-        present_count = Attendance.objects.filter(status='Present').count()
-        absent_count = Attendance.objects.filter(status='Absent').count()
+        # Get filtered queryset
+        queryset = self.get_queryset()
+        
+        total_attendance = queryset.count()
+        present_count = queryset.filter(status='present').count()
+        absent_count = queryset.filter(status='absent').count()
+        late_count = queryset.filter(status='late').count()
         
         # Calculate attendance rate
         attendance_rate = (present_count / total_attendance * 100) if total_attendance > 0 else 0
-        
-        # Count today's sessions with attendance
-        today =  timezone.now().date()
-        active_sessions_today = Session.objects.filter(
-            timestamp__date=today
-        ).annotate(
-            attendance_count=Count('attendance')
-        ).filter(attendance_count__gt=0).count()
         
         return Response({
             'total_attendance': total_attendance,
             'present_count': present_count,
             'absent_count': absent_count,
+            'late_count': late_count,
             'attendance_rate': round(attendance_rate, 2),
-            'active_sessions_today': active_sessions_today
         })
 
-class AdminEnrollmentViewSet(viewsets.ModelViewSet):
-    queryset = StudentCourseEnrollment.objects.all()
-    serializer_class = EnrollmentSerializer
-    permission_classes = [IsAdminUser]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['course', 'enrolled_by']
-    search_fields = ['student__student_id', 'student__name', 'course__code']
-    ordering_fields = ['enrolled_at', 'student__name']
+class AttendanceSerializer(serializers.ModelSerializer):
+    student = serializers.SerializerMethodField()
+    session = serializers.SerializerMethodField()
+    
+    def get_student(self, obj):
+        return {
+            'student_id': obj.student.student_id,
+            'name': obj.student.name
+        }
+    
+    def get_session(self, obj):
+        session_data = {
+            'class_name': obj.session.class_name,
+        }
+        
+        if obj.session.course:
+            session_data['course'] = {
+                'code': obj.session.course.code,
+                'title': obj.session.course.title
+            }
+        
+        if obj.session.lecturer:
+            session_data['lecturer'] = {
+                'name': obj.session.lecturer.name
+            }
+        
+        return session_data
+    
+    class Meta:
+        model = Attendance
+        fields = [
+            'id',
+            'student',
+            'session',
+            'status',
+            'check_in_time',
+            'check_out_time',
+            'latitude',
+            'longitude'
+        ]
+        read_only_fields = ['check_in_time']
+# views/admin_enrollment.py
+from datetime import datetime, timedelta
+import csv
 
+from django.http import HttpResponse
+from django.db.models import Count
+from django_filters.rest_framework import DjangoFilterBackend
+
+from rest_framework import viewsets, status, filters
+from rest_framework.permissions import IsAdminUser
+from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.decorators import action
+
+from .models import StudentCourseEnrollment
+from .serializers import EnrollmentSerializer
+from .serializers import AdminEnrollmentSerializer
+
+
+class AdminEnrollmentPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
+
+
+class AdminEnrollmentViewSet(viewsets.ModelViewSet):  # Changed from ViewSet to ModelViewSet
+    """
+    Admin view to manage student course enrollments.
+    """
+    queryset = StudentCourseEnrollment.objects.all().order_by('-enrolled_at')  # Added queryset
+    serializer_class = AdminEnrollmentSerializer
+    permission_classes = [IsAdminUser,IsLecturerOrAdmin]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['course', 'student']  # Added filter fields
+    search_fields = ['student__student_id', 'student__name', 'course__code', 'course__title']
+    ordering_fields = ['enrolled_at', 'student__name', 'course__title']
+    ordering = ['-enrolled_at']  # Default ordering
+
+    def list(self, request):
+        """
+        List all enrollments with optional course filter.
+        """
+        course_id = request.query_params.get('course_id')
+        
+        if course_id:
+            try:
+                course = Course.objects.get(id=course_id)
+                enrollments = self.queryset.filter(course=course)
+            except Course.DoesNotExist:
+                return Response(
+                    {"error": "Course not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        else:
+            enrollments = self.filter_queryset(self.get_queryset())  # Use built-in filtering
+
+        page = self.paginate_queryset(enrollments)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(enrollments, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"])
+    def export_csv(self, request):
+        """
+        Export enrollments as CSV.
+        Optional filter: ?course_id=<id>
+        """
+        course_id = request.query_params.get('course_id')
+
+        if course_id:
+            try:
+                course = Course.objects.get(id=course_id)
+                enrollments = StudentCourseEnrollment.objects.filter(course=course)
+            except Course.DoesNotExist:
+                return Response(
+                    {"error": "Course not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        else:
+            enrollments = StudentCourseEnrollment.objects.all()
+
+        # Create CSV response
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="enrollments.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow([
+            'Enrollment ID', 'Student ID', 'Student Name', 
+            'Course ID', 'Course Code', 'Course Title',
+            'Enrolled By Username', 'Enrolled By Name', 'Enrollment Date'
+        ])
+        
+        for enrollment in enrollments:
+            writer.writerow([
+                enrollment.id,
+                enrollment.student.student_id,
+                enrollment.student.name,
+                enrollment.course.id,
+                enrollment.course.code,
+                enrollment.course.title,
+                enrollment.enrolled_by.username,
+                self._get_enrolled_by_name(enrollment.enrolled_by),
+                enrollment.enrolled_at.strftime('%Y-%m-%d %H:%M:%S')
+            ])
+
+        return response
+
+    def _get_enrolled_by_name(self, user):
+        """Helper method to get the name of the user who enrolled the student"""
+        if hasattr(user, 'lecturer_profile'):
+            return user.lecturer_profile.name
+        elif hasattr(user, 'student_profile'):
+            return user.student_profile.name
+        else:
+            return user.get_full_name() or user.username
+            
 class AdminDashboardViewSet(viewsets.ViewSet):
     permission_classes = [IsAdminUser]
     
@@ -1660,3 +2097,5 @@ class AdminDashboardViewSet(viewsets.ViewSet):
             'active_sessions_today': active_sessions_today,
             'attendance_rate': round(attendance_rate, 2)
         })
+
+

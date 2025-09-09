@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Plus, Search, Edit, Trash2, BookOpen } from 'lucide-react';
 import axios from 'axios';
+import './CourseManagement.css';
 
 interface Course {
   id: number;

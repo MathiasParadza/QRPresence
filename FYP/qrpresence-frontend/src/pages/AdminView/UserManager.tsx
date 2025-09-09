@@ -1,7 +1,7 @@
-
 import React, { useEffect, useState } from 'react';
 import { Plus, Search, Filter, Edit, Trash2, Shield, UserCog, User } from 'lucide-react';
 import axios from 'axios';
+import './UserManager.css';
 
 interface User {
   id: number;
@@ -60,9 +60,9 @@ const UserManager: React.FC = () => {
 
   const getRoleIcon = (role: string) => {
     switch (role) {
-      case 'admin': return <Shield size={16} />;
-      case 'lecturer': return <UserCog size={16} />;
-      default: return <User size={16} />;
+      case 'admin': return <Shield className="user-icon" size={16} />;
+      case 'lecturer': return <UserCog className="user-icon" size={16} />;
+      default: return <User className="user-icon" size={16} />;
     }
   };
 
@@ -75,115 +75,161 @@ const UserManager: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="admin-loading">
-        <div className="admin-loading__spinner"></div>
-        <p>Loading users...</p>
+      <div className="user-container">
+        <div className="user-container__background">
+          <div className="user-container__overlay"></div>
+        </div>
+        <div className="user-loading">
+          <div className="user-loading__spinner"></div>
+          <p className="user-loading__text">Loading users...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="user-manager">
-      <div className="user-manager__header">
-        <h2>User Management</h2>
-        <button className="admin-button admin-button--primary">
-          <Plus size={16} />
-          Add User
-        </button>
+    <div className="user-container">
+      <div className="user-container__background">
+        <div className="user-container__overlay"></div>
       </div>
-
-      {/* Filters */}
-      <div className="user-manager__filters">
-        <div className="filter-group">
-          <Search size={18} />
-          <input
-            type="text"
-            placeholder="Search users..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="filter-input"
-          />
-        </div>
-
-        <div className="filter-group">
-          <Filter size={18} />
-          <select
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-            className="filter-input"
-            aria-label="Filter users by role"
-          >
-            <option value="">All Roles</option>
-            <option value="student">Students</option>
-            <option value="lecturer">Lecturers</option>
-            <option value="admin">Admins</option>
-          </select>
-        </div>
-      </div>
-
-      {error && (
-        <div className="admin-error">
-          <p>{error}</p>
-          <button onClick={fetchUsers} className="admin-button admin-button--primary">
-            Retry
-          </button>
-        </div>
-      )}
-
-      {/* Users Table */}
-      <div className="admin-table-container">
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Username</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Status</th>
-              <th>Joined</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredUsers.map((user) => (
-              <tr key={user.id}>
-                <td>{user.username}</td>
-                <td>{user.email}</td>
-                <td>
-                  <span className="role-badge">
-                    {getRoleIcon(user.role)}
-                    {user.role}
-                  </span>
-                </td>
-                <td>
-                  <span className={`status-badge ${user.is_active ? 'status-badge--active' : 'status-badge--inactive'}`}>
-                    {user.is_active ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
-                <td>{new Date(user.date_joined).toLocaleDateString()}</td>
-                <td>
-                  <div className="action-buttons">
-                    <button className="action-button action-button--edit" title="Edit User">
-                      <Edit size={16} />
-                    </button>
-                    <button 
-                      className="action-button action-button--delete"
-                      onClick={() => handleDeleteUser(user.id)}
-                      title="Delete User"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {filteredUsers.length === 0 && !loading && (
-          <div className="admin-table-empty">
-            <p>No users found</p>
+      
+      <div className="user-content">
+        <div className="user-manager">
+          {/* Header */}
+          <div className="user-header">
+            <div className="user-header__title-section">
+              <h2 className="user-header__title">User Management</h2>
+              <p className="user-header__subtitle">Manage system users and their permissions</p>
+            </div>
+            <button className="user-button user-button--primary">
+              <Plus className="user-icon" size={16} />
+              Add User
+            </button>
           </div>
-        )}
+
+          {/* Filters */}
+          <div className="user-filters">
+            <div className="user-filters__card">
+              <div className="user-filter-group">
+                <div className="user-filter-input-wrapper">
+                  <Search className="user-filter-icon" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Search users..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="user-filter-input"
+                  />
+                </div>
+              </div>
+
+              <div className="user-filter-group">
+                <div className="user-filter-input-wrapper">
+                  <Filter className="user-filter-icon" size={18} />
+                  <select
+                    value={roleFilter}
+                    onChange={(e) => setRoleFilter(e.target.value)}
+                    className="user-filter-input user-filter-select"
+                    aria-label="Filter users by role"
+                  >
+                    <option value="">All Roles</option>
+                    <option value="student">Students</option>
+                    <option value="lecturer">Lecturers</option>
+                    <option value="admin">Admins</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {error && (
+            <div className="user-error">
+              <div className="user-error__card">
+                <div className="user-error__content">
+                  <h3 className="user-error__title">Error Loading Users</h3>
+                  <p className="user-error__message">{error}</p>
+                  <button onClick={fetchUsers} className="user-button user-button--primary">
+                    Retry
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Users Table */}
+          <div className="user-table-section">
+            <div className="user-table-container">
+              <div className="user-table-wrapper">
+                <table className="user-table">
+                  <thead>
+                    <tr>
+                      <th>Username</th>
+                      <th>Email</th>
+                      <th>Role</th>
+                      <th>Status</th>
+                      <th>Joined</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredUsers.map((user) => (
+                      <tr key={user.id} className="user-table-row">
+                        <td>
+                          <span className="user-table-cell--username">{user.username}</span>
+                        </td>
+                        <td>
+                          <span className="user-table-cell--email">{user.email}</span>
+                        </td>
+                        <td>
+                          <span className={`user-role-badge user-role-badge--${user.role}`}>
+                            {getRoleIcon(user.role)}
+                            {user.role}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`user-status-badge ${user.is_active ? 'user-status-badge--active' : 'user-status-badge--inactive'}`}>
+                            {user.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="user-table-cell--date">
+                            {new Date(user.date_joined).toLocaleDateString()}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="user-action-buttons">
+                            <button className="user-action-button user-action-button--edit" title="Edit User">
+                              <Edit className="user-icon" size={16} />
+                            </button>
+                            <button 
+                              className="user-action-button user-action-button--delete"
+                              onClick={() => handleDeleteUser(user.id)}
+                              title="Delete User"
+                            >
+                              <Trash2 className="user-icon" size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {filteredUsers.length === 0 && !loading && (
+                  <div className="user-table-empty">
+                    <div className="user-table-empty__content">
+                      <User className="user-table-empty__icon" size={48} />
+                      <h3 className="user-table-empty__title">No users found</h3>
+                      <p className="user-table-empty__message">
+                        {searchTerm || roleFilter ? 'Try adjusting your filters' : 'No users available'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

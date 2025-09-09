@@ -1,7 +1,7 @@
-// src/components/admin/Settings/SiteSettings.tsx
 import React, { useState, useEffect } from 'react';
-import { Save, RefreshCw, Upload } from 'lucide-react';
+import { Save, RefreshCw, Upload, AlertCircle, LogIn } from 'lucide-react';
 import axios from 'axios';
+import './SiteSettings.css';
 
 interface SiteSettings {
   site_title: string;
@@ -23,6 +23,8 @@ const SiteSettings: React.FC = () => {
   });
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [authError, setAuthError] = useState(false);
 
   useEffect(() => {
     fetchSettings();
@@ -30,22 +32,65 @@ const SiteSettings: React.FC = () => {
 
   const fetchSettings = async () => {
     try {
+      setLoading(true);
+      setError(null);
+      setAuthError(false);
+      
       const token = localStorage.getItem('access_token');
+      
+      if (!token) {
+        setAuthError(true);
+        setError('Authentication required. Please login.');
+        return;
+      }
+
       const response = await axios.get('http://127.0.0.1:8000/api/admin/settings/', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
       setSettings(response.data as SiteSettings);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Settings fetch error:', err);
+
+      if (
+        typeof err === 'object' &&
+        err !== null &&
+        'response' in err &&
+        typeof (err as { response?: { status: number } }).response === 'object' &&
+        (err as { response?: { status: number } }).response !== null
+      ) {
+        const response = (err as { response: { status: number } }).response;
+        if (response.status === 401 || response.status === 403) {
+          setAuthError(true);
+          setError('Access denied. You need admin privileges to view settings.');
+        } else if (response.status === 404) {
+          setError('Settings endpoint not found.');
+        } else {
+          setError('Failed to load settings. Please try again.');
+        }
+      } else {
+        setError('Failed to load settings. Please try again.');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleSave = async () => {
     setLoading(true);
+    setError(null);
+    setAuthError(false);
+    
     try {
       const token = localStorage.getItem('access_token');
+      
+      if (!token) {
+        setAuthError(true);
+        setError('Authentication required. Please login.');
+        return;
+      }
+
       await axios.post('http://127.0.0.1:8000/api/admin/settings/', settings, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -53,8 +98,24 @@ const SiteSettings: React.FC = () => {
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch (err) {
-      alert('Failed to save settings');
+    } catch (err: unknown) {
+      if (
+        typeof err === 'object' &&
+        err !== null &&
+        'response' in err &&
+        typeof (err as { response?: { status: number } }).response === 'object' &&
+        (err as { response?: { status: number } }).response !== null
+      ) {
+        const response = (err as { response: { status: number } }).response;
+        if (response.status === 401 || response.status === 403) {
+          setAuthError(true);
+          setError('Access denied. You need admin privileges to save settings.');
+        } else {
+          setError('Failed to save settings. Please try again.');
+        }
+      } else {
+        setError('Failed to save settings. Please try again.');
+      }
       console.error('Settings save error:', err);
     } finally {
       setLoading(false);
@@ -62,10 +123,10 @@ const SiteSettings: React.FC = () => {
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+    const { name, value, type } = e.target;
     setSettings(prev => ({
       ...prev,
-      [name]: value,
+      [name]: type === 'number' ? Number(value) : value,
     }));
   };
 
@@ -74,8 +135,51 @@ const SiteSettings: React.FC = () => {
     if (file) {
       // Implement logo upload logic here
       console.log('Uploading logo:', file);
+      // For demo purposes, we'll create a temporary URL
+      const logoUrl = URL.createObjectURL(file);
+      setSettings(prev => ({
+        ...prev,
+        site_logo: logoUrl,
+      }));
     }
   };
+
+  const handleLoginRedirect = () => {
+    // Redirect to login page
+    window.location.href = '/login';
+  };
+
+  if (authError) {
+    return (
+      <div className="site-settings">
+        <div className="auth-error-container">
+          <div className="auth-error-card">
+            <AlertCircle size={48} className="auth-error-icon" />
+            <h2>Authentication Required</h2>
+            <p>{error}</p>
+            <button 
+              className="admin-button admin-button--primary"
+              onClick={handleLoginRedirect}
+            >
+              <LogIn size={16} />
+              Go to Login
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="site-settings">
+        <div className="loading-container">
+          <RefreshCw size={32} className="spinner" />
+          <p>Loading settings...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="site-settings">
@@ -94,6 +198,19 @@ const SiteSettings: React.FC = () => {
       {saved && (
         <div className="admin-message admin-message--success">
           Settings saved successfully!
+        </div>
+      )}
+
+      {error && !authError && (
+        <div className="admin-message admin-message--error">
+          <AlertCircle size={16} />
+          {error}
+          <button 
+            onClick={fetchSettings}
+            className="admin-message__retry"
+          >
+            Try Again
+          </button>
         </div>
       )}
 

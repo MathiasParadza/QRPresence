@@ -11,8 +11,7 @@ import {
   Menu,
   X,
   UserCog,
-  FileText,
-  Shield
+  Shield,
 } from 'lucide-react';
 import './AdminLayout.css';
 
@@ -27,9 +26,11 @@ const AdminLayout: React.FC = () => {
     { path: '/admin/lecturers', label: 'Lecturers', icon: UserCog },
     { path: '/admin/students', label: 'Students', icon: Users },
     { path: '/admin/courses', label: 'Courses', icon: BookOpen },
-    { path: '/admin/enrollments', label: 'Enrollments', icon: FileText },
+   // { path: '/admin/enrollments', label: 'Enrollments', icon: FileText },
     { path: '/admin/attendance', label: 'Attendance', icon: Calendar },
+    //{ path: '/admin/QrCodes', label: 'QrCodes', icon: QrCode },
     { path: '/admin/settings', label: 'Settings', icon: Settings },
+    
   ];
 
   const handleLogout = () => {

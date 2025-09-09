@@ -1,7 +1,7 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { BarChart3, Users, BookOpen, Calendar, Settings, LogOut, Menu, X, UserCog, FileText, Shield } from 'lucide-react';
+import { BarChart3, Users, BookOpen, Calendar, Settings, LogOut, Menu, X, UserCog, Shield, } from 'lucide-react';
 import './AdminLayout.css';
 const AdminLayout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -13,8 +13,9 @@ const AdminLayout = () => {
         { path: '/admin/lecturers', label: 'Lecturers', icon: UserCog },
         { path: '/admin/students', label: 'Students', icon: Users },
         { path: '/admin/courses', label: 'Courses', icon: BookOpen },
-        { path: '/admin/enrollments', label: 'Enrollments', icon: FileText },
+        // { path: '/admin/enrollments', label: 'Enrollments', icon: FileText },
         { path: '/admin/attendance', label: 'Attendance', icon: Calendar },
+        //{ path: '/admin/QrCodes', label: 'QrCodes', icon: QrCode },
         { path: '/admin/settings', label: 'Settings', icon: Settings },
     ];
     const handleLogout = () => {

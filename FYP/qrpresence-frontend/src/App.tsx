@@ -34,6 +34,7 @@ import AIChatAssistant from "./components/AIChatAssistant";
 
 // Types
 import { User } from "./types/user";
+import QRCodeManagement from "./pages/AdminView/QRCodeManagement";
 
 /**
  * Protected route wrapper to enforce authentication and roles
@@ -209,6 +210,7 @@ const App = () => {
           <Route path="enrollments" element={<EnrollmentManagement />} />
           <Route path="attendance" element={<AttendanceManagement />} />
           <Route path="settings" element={<AdminSettings />} />
+          <Route path="QrCodes" element={<QRCodeManagement/>} />
         </Route>
 
         {/* Student-only */}

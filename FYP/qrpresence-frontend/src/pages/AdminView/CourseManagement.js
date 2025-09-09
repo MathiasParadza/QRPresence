@@ -3,6 +3,7 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useEffect, useState } from 'react';
 import { Plus, Search, Edit, Trash2, BookOpen } from 'lucide-react';
 import axios from 'axios';
+import './CourseManagement.css';
 const CourseManager = () => {
     const [courses, setCourses] = useState([]);
     const [loading, setLoading] = useState(true);

@@ -196,3 +196,40 @@ class AttendanceSerializer(serializers.ModelSerializer):
             'longitude'
         ]
         read_only_fields = ['check_in_time']
+
+
+class AdminEnrollmentSerializer(serializers.ModelSerializer):
+    student_id = serializers.CharField(source='student.student_id', read_only=True)
+    student_name = serializers.SerializerMethodField()
+    course_id = serializers.IntegerField(source='course.id', read_only=True)
+    course_code = serializers.CharField(source='course.code', read_only=True)
+    course_title = serializers.CharField(source='course.title', read_only=True)
+    enrolled_by_username = serializers.CharField(source='enrolled_by.username', read_only=True)
+    enrolled_by_name = serializers.SerializerMethodField()
+    enrolled_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S')
+
+    class Meta:
+        model = StudentCourseEnrollment
+        fields = [
+            'id',
+            'student_id',
+            'student_name',
+            'course_id',
+            'course_code',
+            'course_title',
+            'enrolled_by_username',
+            'enrolled_by_name',
+            'enrolled_at'
+        ]
+        read_only_fields = fields
+
+    def get_student_name(self, obj):
+        return f"{obj.student.name}"
+
+    def get_enrolled_by_name(self, obj):
+        if hasattr(obj.enrolled_by, 'lecturer_profile'):
+            return obj.enrolled_by.lecturer_profile.name
+        elif hasattr(obj.enrolled_by, 'student_profile'):
+            return obj.enrolled_by.student_profile.name
+        else:
+            return obj.enrolled_by.get_full_name() or obj.enrolled_by.username

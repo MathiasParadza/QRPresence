@@ -12298,3 +12298,11 @@ Internal Server Error: /api/ai-chat/
 "POST /api/ai-chat/ HTTP/1.1" 500 323
 Internal Server Error: /api/ai-chat/
 "POST /api/ai-chat/ HTTP/1.1" 500 323
+Internal Server Error: /api/admin/enrollments/stats/
+"GET /api/admin/enrollments/stats/ HTTP/1.1" 500 83
+Internal Server Error: /api/admin/enrollments/stats/
+"GET /api/admin/enrollments/stats/ HTTP/1.1" 500 83
+Internal Server Error: /api/admin/enrollments/
+"GET /api/admin/enrollments/?page=1&page_size=10&ordering=-enrolled_at HTTP/1.1" 500 83
+Internal Server Error: /api/admin/enrollments/
+"GET /api/admin/enrollments/?page=1&page_size=10&ordering=-enrolled_at HTTP/1.1" 500 83

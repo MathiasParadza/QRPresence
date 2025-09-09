@@ -15,6 +15,9 @@ class Student(models.Model):
     program = models.CharField(max_length=100)
     courses = models.ManyToManyField('Course', related_name='students')
 
+    class Meta:
+        ordering = ['student_id']  # Order by student ID
+
     @property
     def email(self):
         return self.user.email
@@ -36,6 +39,9 @@ class Lecturer(models.Model):
     department = models.CharField(max_length=100, blank=True, null=True)
     is_admin = models.BooleanField(default=False)
 
+    class Meta:
+        ordering = ['name', 'lecturer_id']  # Order by name, then lecturer ID
+
     @property
     def email(self):
         return self.user.email if self.user else None
@@ -56,7 +62,14 @@ class Course(models.Model):
         related_name='created_courses'
     )
     created_at = models.DateTimeField(auto_now_add=True)
-# models.py
+
+    class Meta:
+        ordering = ['-created_at', 'code']  # Order by most recent first, then code
+
+    def __str__(self):
+        return f"{self.code} - {self.title}"
+
+
 class StudentCourseEnrollment(models.Model):
     student = models.ForeignKey('Student', on_delete=models.CASCADE)
     course = models.ForeignKey('Course', on_delete=models.CASCADE)
@@ -68,6 +81,7 @@ class StudentCourseEnrollment(models.Model):
     enrolled_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        ordering = ['-enrolled_at']  # Order by most recent enrollments first
         unique_together = ('student', 'course')
         indexes = [
             models.Index(fields=['student', 'course']),
@@ -77,6 +91,7 @@ class StudentCourseEnrollment(models.Model):
     def __str__(self):
         return f"{self.student} in {self.course} (by {self.enrolled_by})"
         
+
 class Session(models.Model):
     session_id = models.CharField(max_length=100, unique=True)  # <-- manually entered ID
     class_name = models.CharField(max_length=255)
@@ -88,11 +103,11 @@ class Session(models.Model):
     course = models.ForeignKey('Course', on_delete=models.CASCADE, related_name='sessions')
     attendance_window = models.DurationField(default=timedelta(minutes=15)) 
     
+    class Meta:
+        ordering = ['-timestamp']  # Order by most recent sessions first
 
     def __str__(self):
         return f"{self.class_name} ({self.session_id}) - {self.timestamp}"
-    class Meta:
-        ordering = ['-timestamp']
 
 
 class QRCode(models.Model):
@@ -101,11 +116,15 @@ class QRCode(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(null=True, blank=True)
 
+    class Meta:
+        ordering = ['-created_at']  # Order by most recent QR codes first
+
     def __str__(self):
         return f"QR for {self.session}"
 
     def is_expired(self):
         return self.expires_at and now() > self.expires_at
+
 
 class Attendance(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
@@ -120,9 +139,9 @@ class Attendance(models.Model):
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
 
+    class Meta:
+        ordering = ['-check_in_time']  # Order by most recent check-ins first
+        unique_together = ('student', 'session')
+
     def __str__(self):
         return f"{self.student} - {self.session}"
-
-    class Meta:
-        unique_together = ('student', 'session')
-        ordering = ['-check_in_time']

@@ -1,5 +1,5 @@
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
+import { Fragment as _Fragment, jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { BrowserRouter as Router, Route, Routes, useNavigate, Navigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 // Pages
 import HomePage from "./pages/HomePage";
@@ -29,6 +29,25 @@ import AdminSettings from "./pages/AdminView/SiteSettings";
 import ErrorBoundary from "./components/ErrorBoundary";
 import LoadingSpinner from "./components/LoadingSpinner";
 import AIChatAssistant from "./components/AIChatAssistant";
+import QRCodeManagement from "./pages/AdminView/QRCodeManagement";
+/**
+ * Protected route wrapper to enforce authentication and roles
+ */
+const ProtectedRoute = ({ user, role, children }) => {
+    const navigate = useNavigate();
+    useEffect(() => {
+        if (!user) {
+            navigate("/login", { replace: true });
+        }
+        else if (role && user.role !== role) {
+            navigate("/login", { replace: true });
+        }
+    }, [user, role, navigate]);
+    if (!user || (role && user.role !== role)) {
+        return null; // don’t render until redirect happens
+    }
+    return _jsx(_Fragment, { children: children });
+};
 const App = () => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -62,6 +81,6 @@ const App = () => {
     if (loading) {
         return _jsx(LoadingSpinner, {});
     }
-    return (_jsx(Router, { children: _jsxs(Routes, { children: [_jsx(Route, { path: "/", element: _jsx(HomePage, {}) }), _jsx(Route, { path: "/register", element: _jsx(Register, {}) }), _jsx(Route, { path: "/login", element: _jsx(Login, { setUser: setUser }) }), _jsx(Route, { path: "/dashboard", element: user ? _jsx(Dashboard, {}) : _jsx(Navigate, { to: "/login", replace: true }) }), _jsx(Route, { path: "/lecturerview", element: user?.role === "lecturer" ? (_jsx(ErrorBoundary, { children: _jsx(LecturerView, {}) })) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsx(Route, { path: "/generate-qr", element: user?.role === "lecturer" ? (_jsx(ErrorBoundary, { children: _jsx(QRCodeGenerator, {}) })) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsx(Route, { path: "/manage-courses", element: user?.role === "lecturer" ? (_jsx(ErrorBoundary, { children: _jsx(CourseManagement, {}) })) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsx(Route, { path: "/enroll-students", element: user?.role === "lecturer" ? (_jsx(ErrorBoundary, { children: _jsx(LecturerEnrollmentManager, {}) })) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsx(Route, { path: "/create-session", element: user?.role === "lecturer" ? (_jsx(CreateSession, {})) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsx(Route, { path: "/session-list", element: user?.role === "lecturer" ? (_jsx(SessionList, {})) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsx(Route, { path: "/lecturer/sessions/edit/:id", element: user?.role === "lecturer" ? (_jsx(SessionEdit, {})) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsx(Route, { path: "/student-manager", element: user?.role === "lecturer" ? (_jsx(StudentManager, {})) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsxs(Route, { path: "/admin/*", element: user?.role === "admin" ? (_jsx(ErrorBoundary, { children: _jsx(AdminLayout, {}) })) : (_jsx(Navigate, { to: "/login", replace: true })), children: [_jsx(Route, { index: true, element: _jsx(AdminDashboard, {}) }), _jsx(Route, { path: "users", element: _jsx(UserManagement, {}) }), _jsx(Route, { path: "lecturers", element: _jsx(LecturerManagement, {}) }), _jsx(Route, { path: "students", element: _jsx(StudentManagement, {}) }), _jsx(Route, { path: "courses", element: _jsx(CourseManagementAdmin, {}) }), _jsx(Route, { path: "enrollments", element: _jsx(EnrollmentManagement, {}) }), _jsx(Route, { path: "attendance", element: _jsx(AttendanceManagement, {}) }), _jsx(Route, { path: "settings", element: _jsx(AdminSettings, {}) })] }), _jsx(Route, { path: "/studentview", element: user?.role === "student" ? (_jsx(StudentView, {})) : (_jsx(Navigate, { to: "/login", replace: true })) }), _jsx(Route, { path: "/ai-assistant", element: user ? _jsx(AIChatAssistant, {}) : _jsx(Navigate, { to: "/login", replace: true }) }), _jsx(Route, { path: "*", element: _jsx(Navigate, { to: "/", replace: true }) })] }) }));
+    return (_jsx(Router, { children: _jsxs(Routes, { children: [_jsx(Route, { path: "/", element: _jsx(HomePage, {}) }), _jsx(Route, { path: "/register", element: _jsx(Register, {}) }), _jsx(Route, { path: "/login", element: _jsx(Login, { setUser: setUser }) }), _jsx(Route, { path: "/dashboard", element: _jsx(ProtectedRoute, { user: user, children: _jsx(Dashboard, {}) }) }), _jsx(Route, { path: "/lecturerview", element: _jsx(ProtectedRoute, { user: user, role: "lecturer", children: _jsx(ErrorBoundary, { children: _jsx(LecturerView, {}) }) }) }), _jsx(Route, { path: "/generate-qr", element: _jsx(ProtectedRoute, { user: user, role: "lecturer", children: _jsx(ErrorBoundary, { children: _jsx(QRCodeGenerator, {}) }) }) }), _jsx(Route, { path: "/manage-courses", element: _jsx(ProtectedRoute, { user: user, role: "lecturer", children: _jsx(ErrorBoundary, { children: _jsx(CourseManagement, {}) }) }) }), _jsx(Route, { path: "/enroll-students", element: _jsx(ProtectedRoute, { user: user, role: "lecturer", children: _jsx(ErrorBoundary, { children: _jsx(LecturerEnrollmentManager, {}) }) }) }), _jsx(Route, { path: "/create-session", element: _jsx(ProtectedRoute, { user: user, role: "lecturer", children: _jsx(CreateSession, {}) }) }), _jsx(Route, { path: "/session-list", element: _jsx(ProtectedRoute, { user: user, role: "lecturer", children: _jsx(SessionList, {}) }) }), _jsx(Route, { path: "/lecturer/sessions/edit/:id", element: _jsx(ProtectedRoute, { user: user, role: "lecturer", children: _jsx(SessionEdit, {}) }) }), _jsx(Route, { path: "/student-manager", element: _jsx(ProtectedRoute, { user: user, role: "lecturer", children: _jsx(StudentManager, {}) }) }), _jsxs(Route, { path: "/admin/*", element: _jsx(ProtectedRoute, { user: user, role: "admin", children: _jsx(ErrorBoundary, { children: _jsx(AdminLayout, {}) }) }), children: [_jsx(Route, { index: true, element: _jsx(AdminDashboard, {}) }), _jsx(Route, { path: "users", element: _jsx(UserManagement, {}) }), _jsx(Route, { path: "lecturers", element: _jsx(LecturerManagement, {}) }), _jsx(Route, { path: "students", element: _jsx(StudentManagement, {}) }), _jsx(Route, { path: "courses", element: _jsx(CourseManagementAdmin, {}) }), _jsx(Route, { path: "enrollments", element: _jsx(EnrollmentManagement, {}) }), _jsx(Route, { path: "attendance", element: _jsx(AttendanceManagement, {}) }), _jsx(Route, { path: "settings", element: _jsx(AdminSettings, {}) }), _jsx(Route, { path: "QrCodes", element: _jsx(QRCodeManagement, {}) })] }), _jsx(Route, { path: "/studentview", element: _jsx(ProtectedRoute, { user: user, role: "student", children: _jsx(StudentView, {}) }) }), _jsx(Route, { path: "/ai-assistant", element: _jsx(ProtectedRoute, { user: user, children: _jsx(AIChatAssistant, {}) }) }), _jsx(Route, { path: "*", element: _jsx(Navigate, { to: "/", replace: true }) })] }) }));
 };
 export default App;

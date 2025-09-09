@@ -51,7 +51,7 @@ const QRCodeManagement = () => {
       if (filters.session) params.append('session', filters.session);
       if (filters.ordering) params.append('ordering', filters.ordering);
 
-      const response = await axios.get<QRCode[]>(`http://localhost:8000/api/admin/qr-codes/?${params}`, {
+      const response = await axios.get<QRCode[]>(`http://localhost:8000/api/admin/qrcodes/?${params}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -100,7 +100,7 @@ const handleDeleteQRCode = async ({ qrCodeId }: DeleteQRCodeParams): Promise<voi
     
     try {
         const token = localStorage.getItem('access_token');
-        await axios.delete(`http://localhost:8000/api/admin/qr-codes/${qrCodeId}/`, {
+        await axios.delete(`http://localhost:8000/api/admin/qrcodes/${qrCodeId}/`, {
             headers: { Authorization: `Bearer ${token}` }
         });
         
@@ -118,7 +118,7 @@ const handleRegenerateQRCode = async (qrCodeId: string): Promise<void> => {
     try {
         const token = localStorage.getItem('access_token');
         const response = await axios.post<RegenerateQRCodeResponse>(
-            `http://localhost:8000/api/admin/qr-codes/${qrCodeId}/regenerate/`,
+            `http://localhost:8000/api/admin/qrcodes/${qrCodeId}/regenerate/`,
             {},
             { headers: { Authorization: `Bearer ${token}` } }
         );

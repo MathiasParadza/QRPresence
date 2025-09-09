@@ -20,7 +20,7 @@ const QRCodeManagement = () => {
                 params.append('session', filters.session);
             if (filters.ordering)
                 params.append('ordering', filters.ordering);
-            const response = await axios.get(`http://localhost:8000/api/admin/qr-codes/?${params}`, {
+            const response = await axios.get(`http://localhost:8000/api/admin/qrcodes/?${params}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setQrCodes(response.data);
@@ -57,7 +57,7 @@ const QRCodeManagement = () => {
             return;
         try {
             const token = localStorage.getItem('access_token');
-            await axios.delete(`http://localhost:8000/api/admin/qr-codes/${qrCodeId}/`, {
+            await axios.delete(`http://localhost:8000/api/admin/qrcodes/${qrCodeId}/`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setQrCodes(qrCodes.filter((qrCode) => qrCode.id !== qrCodeId));
@@ -70,7 +70,7 @@ const QRCodeManagement = () => {
     const handleRegenerateQRCode = async (qrCodeId) => {
         try {
             const token = localStorage.getItem('access_token');
-            const response = await axios.post(`http://localhost:8000/api/admin/qr-codes/${qrCodeId}/regenerate/`, {}, { headers: { Authorization: `Bearer ${token}` } });
+            const response = await axios.post(`http://localhost:8000/api/admin/qrcodes/${qrCodeId}/regenerate/`, {}, { headers: { Authorization: `Bearer ${token}` } });
             // Update the QR code in the list
             setQrCodes(qrCodes.map((qrCode) => qrCode.id === qrCodeId ? response.data : qrCode));
             alert('QR code regenerated successfully!');

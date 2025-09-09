@@ -50,6 +50,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('authentication.urls')),  
     path('api/', include('attendance.urls')),
+    path('', include('settings_manager.urls')),
         
     
 
