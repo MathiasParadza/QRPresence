@@ -132,7 +132,7 @@ Frontend will run at http://localhost:5173 (default Vite port).
 # DEMO CREDENTIALS 
 Admin
 Username: MyAdmin
-Password: 
+Password: myadmin123
 
 Lecturer
 Username: lecturer1
