@@ -66,6 +66,7 @@ Clone the repository:
 
 git clone https://github.com/MathiasParadza/QRPresence.git
 cd QRPresence/FYP
+cd qrpresence # for backend
 
 
 Create and activate a Python virtual environment:
@@ -131,16 +132,16 @@ Frontend will run at http://localhost:5173 (default Vite port).
 
 # DEMO CREDENTIALS 
 Admin
-Username: MyAdmin
-Password: myadmin123
+Username: ADMIN1
+Password: Admin123
 
 Lecturer
-Username: lecturer1
-Password: lecturer123
+Username: LECTURER2
+Password: Lecturer123
 
 Student
-Username: student1
-Password: student123
+Username: STUDENT1
+Password: Student123
 
 Usage Guide
 For Students
@@ -169,7 +170,8 @@ For Admin
 
 Manage all users (students, lecturers).
 
-View and edit courses and sessions.
+View and add courses 
+view attendances
 
 Access all attendance analytics.
 
