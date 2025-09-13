@@ -48,7 +48,7 @@ from authentication.permissions import IsAdminUser,IsLecturerOrAdmin
 # Configure logger
 logger = logging.getLogger(__name__)
 @api_view(['POST'])
-@permission_classes([IsAuthenticated,IsAdminUser])
+@permission_classes([IsAuthenticated])
 def mark_attendance(request):
     try:
         # Log the request for debugging
@@ -260,7 +260,7 @@ def generate_and_save_qr(request):
 
 class SessionListCreateView(generics.ListCreateAPIView):
     serializer_class = SessionSerializer
-    permission_classes = [IsAuthenticated, IsLecturerOrAdmin, IsAdminUser]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         """Return sessions for the current lecturer"""
@@ -280,7 +280,7 @@ class SessionListCreateView(generics.ListCreateAPIView):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated, IsAdminUser])
+@permission_classes([IsAuthenticated])
 def validate_student(request, student_id):
     try:
         exists = Student.objects.filter(student_id=student_id).exists()
@@ -294,7 +294,7 @@ class SessionDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated, IsAdminUser])
+@permission_classes([IsAuthenticated])
 def student_overview(request):
     try:
         student = Student.objects.select_related('user').get(user=request.user)
@@ -439,7 +439,7 @@ class LecturerAttendanceViewSet(viewsets.ModelViewSet):
     serializer_class = AttendanceLecturerViewSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = AttendanceFilter
-    permission_classes = [IsAuthenticated, IsLecturerOrAdmin, IsAdminUser]
+    permission_classes = [IsAuthenticated, IsLecturerOrAdmin]
 
     def get_queryset(self):
         """
@@ -682,7 +682,7 @@ class LecturerAttendanceViewSet(viewsets.ModelViewSet):
 class StudentListCreateAPIView(generics.ListCreateAPIView):
     queryset = Student.objects.all().order_by('student_id')
     serializer_class = StudentSerializer
-    permission_classes = [IsAuthenticated, IsLecturerOrAdmin, IsAdminUser]
+    permission_classes = [IsAuthenticated, IsLecturerOrAdmin]
 
     def perform_create(self, serializer):
         email = serializer.validated_data.get('email')
@@ -695,7 +695,7 @@ class StudentListCreateAPIView(generics.ListCreateAPIView):
 class StudentDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Student.objects.all()
     serializer_class = StudentSerializer
-    permission_classes = [IsAuthenticated, IsLecturerOrAdmin, IsAdminUser]   
+    permission_classes = [IsAuthenticated, IsLecturerOrAdmin]   
 
 
 def export_students_csv(request):
@@ -711,7 +711,7 @@ def export_students_csv(request):
     return response
 
 class AbsentStudentsView(APIView):
-    permission_classes = [IsAuthenticated, IsLecturerOrAdmin, IsAdminUser]
+    permission_classes = [IsAuthenticated, IsLecturerOrAdmin]
 
     def get(self, request, session_id):
         try:
@@ -724,7 +724,7 @@ class AbsentStudentsView(APIView):
         return Response(serializer.data)
     
 class SessionAbsenteesView(APIView):
-    permission_classes = [IsAuthenticated, IsLecturerOrAdmin, IsAdminUser]
+    permission_classes = [IsAuthenticated, IsLecturerOrAdmin]
 
     def get(self, request, session_id):
         try:
@@ -755,7 +755,7 @@ from rest_framework.permissions import IsAuthenticated
 logger = logging.getLogger(__name__)
 
 class AttendanceAIChatView(APIView):
-    permission_classes = [IsAuthenticated, IsLecturerOrAdmin, IsAdminUser]
+    permission_classes = [IsAuthenticated, IsLecturerOrAdmin]
     CONTEXT_CACHE_TIMEOUT = 300  # 5 minutes
 
     def post(self, request):
@@ -1220,7 +1220,7 @@ def download_qr_code(request, qr_id):
     except FileNotFoundError:
         return JsonResponse({"error": "QR code file not found"}, status=404)
 class LecturerEnrollmentView(APIView):
-    permission_classes = [IsAuthenticated,IsLecturerOrAdmin,IsAdminUser]
+    permission_classes = [IsAuthenticated,IsLecturerOrAdmin]
 
     def get(self, request):
         """List enrollments - optionally filtered by course_id"""
@@ -1290,7 +1290,7 @@ class LecturerEnrollmentView(APIView):
             )
         
 class LecturerCourseView(APIView):
-    permission_classes = [IsAuthenticated,IsAdminUser]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         if request.user.role != 'lecturer':

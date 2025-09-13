@@ -83,7 +83,7 @@ const Dashboard = () => {
             return;
         }
         try {
-            const response = await fetch(`http://127.0.0.1:8000/api/admin/stats/export/${type}/`, {
+            const response = await fetch(`http://127.0.0.1:8000/api/admin/stats/${type}/`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (response.status === 401) {

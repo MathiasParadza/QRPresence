@@ -69,26 +69,7 @@ const HomePage: React.FC = () => {
               </Link>
             </div>
 
-            {/* QR Code Feature Card */}
-            <div className="homepage-card homepage-card--green">
-              <div className="homepage-card__content">
-                <div className="homepage-card__icon-container">
-                  <svg className="homepage-card__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                  </svg>
-                </div>
-                <h2 className="homepage-card__title">QR Code Attendance</h2>
-                <p className="homepage-card__description">
-                  Revolutionary QR code technology for instant, contactless attendance tracking.
-                </p>
-              </div>
-              <div className="homepage-card__button homepage-card__button--green">
-                Scan to be Present
-                <svg className="homepage-card__button-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-            </div>
+            
           </div>
 
           {/* Key Features */}

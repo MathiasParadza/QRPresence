@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Search, Filter, Edit, Trash2, Shield, UserCog, User } from 'lucide-react';
+import { Plus, Search, Filter, Edit, Trash2, Shield, UserCog, User, X } from 'lucide-react';
 import axios from 'axios';
 import './UserManager.css';
 
@@ -10,6 +10,28 @@ interface User {
   role: 'student' | 'lecturer' | 'admin';
   is_active: boolean;
   date_joined: string;
+  student_id?: string;
+  lecturer_id?: string;
+  department?: string;
+  name?: string;
+  program?: string;
+}
+
+interface UserFormData {
+  username: string;
+  email: string;
+  password: string;
+  password_confirmation: string;
+  role: 'student' | 'lecturer' | 'admin';
+  student_id?: string;
+  lecturer_id?: string;
+  department?: string;
+  name?: string;
+  program?: string;
+}
+
+interface ValidationErrors {
+  [key: string]: string[];
 }
 
 const UserManager: React.FC = () => {
@@ -18,6 +40,21 @@ const UserManager: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [formData, setFormData] = useState<UserFormData>({
+    username: '',
+    email: '',
+    password: '',
+    password_confirmation: '',
+    role: 'student',
+    student_id: '',
+    lecturer_id: '',
+    department: '',
+    name: '',
+    program: ''
+  });
+  const [formErrors, setFormErrors] = useState<ValidationErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -58,6 +95,105 @@ const UserManager: React.FC = () => {
     }
   };
 
+  const handleAddUser = () => {
+    setShowAddModal(true);
+    setFormErrors({});
+    setFormData({
+      username: '',
+      email: '',
+      password: '',
+      password_confirmation: '',
+      role: 'student',
+      student_id: '',
+      lecturer_id: '',
+      department: '',
+      name: '',
+      program: ''
+    });
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    
+    // Clear error when user starts typing
+    if (formErrors[name]) {
+      setFormErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setFormErrors({});
+
+    // Frontend validation for password match
+    if (formData.password !== formData.password_confirmation) {
+      setFormErrors({ password: ['Passwords do not match'] });
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('access_token');
+      
+      // Prepare the data to send based on role
+      const submitData: Partial<UserFormData> = {
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
+        password_confirmation: formData.password_confirmation,
+        role: formData.role,
+      };
+
+      // Add role-specific fields
+      if (formData.role === 'student') {
+        submitData.student_id = formData.student_id;
+        submitData.name = formData.name;
+        submitData.program = formData.program;
+      } else if (formData.role === 'lecturer') {
+        submitData.lecturer_id = formData.lecturer_id;
+        submitData.name = formData.name;
+        submitData.department = formData.department;
+      }
+
+      const response = await axios.post('http://127.0.0.1:8000/api/admin/users/', submitData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      // Add the new user to the list
+      setUsers(prev => [...prev, response.data as User]);
+      setShowAddModal(false);
+      alert('User created successfully!');
+
+    } catch (err: unknown) {
+      if (
+        typeof err === 'object' &&
+        err !== null &&
+        'response' in err &&
+        typeof (err as { response?: { data?: unknown } }).response === 'object' &&
+        (err as { response?: { data?: unknown } }).response?.data
+      ) {
+        setFormErrors((err as { response: { data: ValidationErrors } }).response.data);
+      } else {
+        alert('Failed to create user. Please try again.');
+        console.error('User creation error:', err);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const getRoleIcon = (role: string) => {
     switch (role) {
       case 'admin': return <Shield className="user-icon" size={16} />;
@@ -68,7 +204,8 @@ const UserManager: React.FC = () => {
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
+                         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (user.name && user.name.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesRole = roleFilter ? user.role === roleFilter : true;
     return matchesSearch && matchesRole;
   });
@@ -101,7 +238,10 @@ const UserManager: React.FC = () => {
               <h2 className="user-header__title">User Management</h2>
               <p className="user-header__subtitle">Manage system users and their permissions</p>
             </div>
-            <button className="user-button user-button--primary">
+            <button 
+              className="user-button user-button--primary"
+              onClick={handleAddUser}
+            >
               <Plus className="user-icon" size={16} />
               Add User
             </button>
@@ -131,6 +271,7 @@ const UserManager: React.FC = () => {
                     onChange={(e) => setRoleFilter(e.target.value)}
                     className="user-filter-input user-filter-select"
                     aria-label="Filter users by role"
+                    title="Filter users by role"
                   >
                     <option value="">All Roles</option>
                     <option value="student">Students</option>
@@ -166,6 +307,8 @@ const UserManager: React.FC = () => {
                       <th>Username</th>
                       <th>Email</th>
                       <th>Role</th>
+                      <th>Name</th>
+                      <th>ID</th>
                       <th>Status</th>
                       <th>Joined</th>
                       <th>Actions</th>
@@ -184,6 +327,14 @@ const UserManager: React.FC = () => {
                           <span className={`user-role-badge user-role-badge--${user.role}`}>
                             {getRoleIcon(user.role)}
                             {user.role}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="user-table-cell--name">{user.name || '-'}</span>
+                        </td>
+                        <td>
+                          <span className="user-table-cell--id">
+                            {user.student_id || user.lecturer_id || '-'}
                           </span>
                         </td>
                         <td>
@@ -231,6 +382,253 @@ const UserManager: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Add User Modal */}
+      {showAddModal && (
+        <div className="user-modal-overlay">
+          <div className="user-modal">
+            <div className="user-modal__header">
+              <h3 className="user-modal__title">Add New User</h3>
+              <button 
+                className="user-modal__close"
+                onClick={() => setShowAddModal(false)}
+                title="Close"
+                aria-label="Close"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="user-modal__form">
+              <div className="user-form-grid">
+                {/* Common Fields */}
+                <div className="user-form-group">
+                  <label className="user-form-label">Username *</label>
+                  <input
+                    type="text"
+                    title="Username"
+                    placeholder='Enter username'
+                    name="username"
+                    value={formData.username}
+                    onChange={handleInputChange}
+                    className={`user-form-input ${formErrors.username ? 'user-form-input--error' : ''}`}
+                    required
+                  />
+                  {formErrors.username && (
+                    <span className="user-form-error">{formErrors.username[0]}</span>
+                  )}
+                </div>
+
+                <div className="user-form-group">
+                  <label className="user-form-label">Email *</label>
+                  <input
+                    type="email"
+                    title="Email"
+                    placeholder='Enter email'
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    className={`user-form-input ${formErrors.email ? 'user-form-input--error' : ''}`}
+                    required
+                  />
+                  {formErrors.email && (
+                    <span className="user-form-error">{formErrors.email[0]}</span>
+                  )}
+                </div>
+
+                <div className="user-form-group">
+                  <label className="user-form-label">Password *</label>
+                  <input
+                    type="password"
+                    title="Password"
+                    placeholder="Enter password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    className={`user-form-input ${formErrors.password ? 'user-form-input--error' : ''}`}
+                    required
+                  />
+                  {formErrors.password && (
+                    <span className="user-form-error">{formErrors.password[0]}</span>
+                  )}
+                </div>
+
+                <div className="user-form-group">
+                  <label className="user-form-label">Confirm Password *</label>
+                  <input
+                    type="password"
+                    name="password_confirmation"
+                    value={formData.password_confirmation}
+                    onChange={handleInputChange}
+                    className="user-form-input"
+                    required
+                    placeholder="Confirm password"
+                    title="Confirm Password"
+                  />
+                </div>
+
+                <div className="user-form-group">
+                  <label className="user-form-label">Role *</label>
+                  <select
+                    name="role"
+                    value={formData.role}
+                    onChange={handleInputChange}
+                    className="user-form-input"
+                    required
+                    title="Select user role"
+                  >
+                    <option value="student">Student</option>
+                    <option value="lecturer">Lecturer</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+
+                {/* Role-specific Fields */}
+                {formData.role === 'student' && (
+                  <>
+                    <div className="user-form-group">
+                      <label className="user-form-label">Student ID *</label>
+                      <input
+                        type="text"
+                        name="student_id"
+                        value={formData.student_id}
+                        onChange={handleInputChange}
+                        className={`user-form-input ${formErrors.student_id ? 'user-form-input--error' : ''}`}
+                        required
+                        title="Student ID"
+                        placeholder="Enter student ID"
+                      />
+                      {formErrors.student_id && (
+                        <span className="user-form-error">{formErrors.student_id[0]}</span>
+                      )}
+                    </div>
+
+                    <div className="user-form-group">
+                      <label className="user-form-label">Full Name *</label>
+                      <input
+                        type="text"
+                        name="name"
+                        value={formData.name}
+                        title="Full Name"
+                        placeholder="Enter full name"
+                        onChange={handleInputChange}
+                        className={`user-form-input ${formErrors.name ? 'user-form-input--error' : ''}`}
+                        required
+                      />
+                      {formErrors.name && (
+                        <span className="user-form-error">{formErrors.name[0]}</span>
+                      )}
+                    </div>
+
+                    <div className="user-form-group">
+                      <label className="user-form-label">Program *</label>
+                      <input
+                        type="text"
+                        title="Program"
+                        placeholder="Enter program"
+                        name="program"
+                        value={formData.program}
+                        onChange={handleInputChange}
+                        className={`user-form-input ${formErrors.program ? 'user-form-input--error' : ''}`}
+                        required
+                      />
+                      {formErrors.program && (
+                        <span className="user-form-error">{formErrors.program[0]}</span>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {formData.role === 'lecturer' && (
+                  <>
+                    <div className="user-form-group">
+                      <label className="user-form-label">Lecturer ID *</label>
+                      <input
+                        type="text"
+                        name="lecturer_id"
+                        value={formData.lecturer_id}
+                        onChange={handleInputChange}
+                        className={`user-form-input ${formErrors.lecturer_id ? 'user-form-input--error' : ''}`}
+                        required
+                        title="Lecturer ID"
+                        placeholder="Enter lecturer ID"
+                      />
+                      {formErrors.lecturer_id && (
+                        <span className="user-form-error">{formErrors.lecturer_id[0]}</span>
+                      )}
+                    </div>
+
+                    <div className="user-form-group">
+                      <label className="user-form-label">Full Name *</label>
+                      <input
+                        type="text"
+                        name="name"
+                        value={formData.name}
+                        title="Full Name"
+                        placeholder="Enter full name"
+                        onChange={handleInputChange}
+                        className={`user-form-input ${formErrors.name ? 'user-form-input--error' : ''}`}
+                        required
+                      />
+                      {formErrors.name && (
+                        <span className="user-form-error">{formErrors.name[0]}</span>
+                      )}
+                    </div>
+
+                    <div className="user-form-group">
+                      <label className="user-form-label">Department *</label>
+                      <input
+                        type="text"
+                        name="department"
+                        value={formData.department}
+                        onChange={handleInputChange}
+                        title="Department"
+                        className={`user-form-input ${formErrors.department ? 'user-form-input--error' : ''}`}
+                        required
+                      />
+                      {formErrors.department && (
+                        <span className="user-form-error">{formErrors.department[0]}</span>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {formData.role === 'admin' && (
+                  <div className="user-form-group">
+                    <label className="user-form-label">Full Name (Optional)</label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      className="user-form-input"
+                      placeholder="Optional admin name"
+                      title="Full Name (Optional)"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="user-modal__actions">
+                <button
+                  type="button"
+                  className="user-button user-button--secondary"
+                  onClick={() => setShowAddModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="user-button user-button--primary"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Creating...' : 'Create User'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
