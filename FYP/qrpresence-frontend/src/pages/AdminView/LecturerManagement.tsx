@@ -4,8 +4,7 @@ import {
   Download, 
   Edit, 
   Trash2, 
-  Plus,
-  Eye,
+   Eye,
   Filter,
   Users,
   RefreshCw
@@ -200,10 +199,6 @@ const LecturerManagement = () => {
               <p className="lecturer-header__subtitle">Manage all lecturer records and permissions</p>
             </div>
             <div className="lecturer-header__actions">
-              <button className="lecturer-button lecturer-button--primary">
-                <Plus className="lecturer-icon" size={20} />
-                Add New Lecturer
-              </button>
               <button className="lecturer-button lecturer-button--secondary">
                 <Download className="lecturer-icon" size={20} />
                 Export Data
