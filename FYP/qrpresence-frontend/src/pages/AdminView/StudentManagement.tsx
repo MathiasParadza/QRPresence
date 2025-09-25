@@ -5,8 +5,7 @@ import {
   Download, 
   Edit, 
   Trash2, 
-  Plus,
-  Eye,
+   Eye,
   ChevronLeft,
   ChevronRight,
   Filter,
@@ -177,10 +176,7 @@ const StudentManagement = () => {
               <p className="student-header__subtitle">Manage all student records and information</p>
             </div>
             <div className="student-header__actions">
-              <button className="student-button student-button--primary">
-                <Plus className="student-icon" size={20} />
-                Add New Student
-              </button>
+
               <button className="student-button student-button--secondary">
                 <Download className="student-icon" size={20} />
                 Export Data

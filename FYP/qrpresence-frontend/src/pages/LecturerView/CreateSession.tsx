@@ -184,7 +184,7 @@ const CreateSession: React.FC = () => {
   const [className, setClassName] = useState("");
   const [gpsLatitude, setGpsLatitude] = useState<number | "">("");
   const [gpsLongitude, setGpsLongitude] = useState<number | "">("");
-  const [allowedRadius, setAllowedRadius] = useState<number>(100);
+  const [allowedRadius, setAllowedRadius] = useState<number>(2);
   const [selectedCourse, setSelectedCourse] = useState<string | number>("");
   const [courses, setCourses] = useState<Course[]>([]);
   const [coursesLoading, setCoursesLoading] = useState(true);
@@ -580,7 +580,7 @@ const CreateSession: React.FC = () => {
                 }
                 title="Attendance Tracking"
               >
-                Students must be within the specified radius (10-1000 meters) of the GPS coordinates to mark their attendance.
+                Students must be within the specified radius (1-2meters) of the GPS coordinates to mark their attendance.
               </InfoBox>
             </div>
 

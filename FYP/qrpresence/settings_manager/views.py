@@ -8,12 +8,13 @@ from .serializers import SiteSettingsSerializer, SystemStatsSerializer
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from attendance.models import Student, Lecturer, Course, Session, Attendance
+from authentication.permissions import IsAdminUser,IsLecturerOrAdmin
 import json
 
 class SiteSettingsViewSet(viewsets.ModelViewSet):
     queryset = SiteSettings.objects.all()
     serializer_class = SiteSettingsSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsAdminUser,IsLecturerOrAdmin]
     http_method_names = ['get', 'post', 'put', 'patch']
     
     def get_queryset(self):
