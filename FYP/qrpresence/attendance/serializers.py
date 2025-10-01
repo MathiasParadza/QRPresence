@@ -137,12 +137,21 @@ class AttendanceLecturerViewSerializer(serializers.ModelSerializer):
 
 
 class CourseSerializer(serializers.ModelSerializer):
+    created_by = serializers.StringRelatedField(read_only=True)  # uses __str__ of user
+
     class Meta:
         model = Course
-        fields = ['id', 'title', 'code', 'description', 'credit_hours']
-        extra_kwargs = {
-            'created_by': {'read_only': True}
-        }
+        fields = [
+            'id',
+            'title',
+            'code',
+            'description',
+            'credit_hours',
+            'created_by',
+            'created_at',
+        ]
+
+
 class EnrollmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudentCourseEnrollment

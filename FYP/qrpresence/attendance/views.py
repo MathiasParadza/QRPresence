@@ -435,6 +435,24 @@ from authentication.permissions import IsLecturerOrAdmin
 from .filters import AttendanceFilter
 
 logger = logging.getLogger(__name__)
+import csv
+import logging
+from datetime import timedelta
+from django.utils import timezone
+from django.http import HttpResponse
+from rest_framework import viewsets, status
+from rest_framework.response import Response
+from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
+from django_filters.rest_framework import DjangoFilterBackend
+
+from .models import Attendance
+from .serializers import AttendanceLecturerViewSerializer
+from .filters import AttendanceFilter
+from authentication.permissions import IsLecturerOrAdmin
+
+logger = logging.getLogger(__name__)
+
 class LecturerAttendanceViewSet(viewsets.ModelViewSet):
     serializer_class = AttendanceLecturerViewSerializer
     filter_backends = [DjangoFilterBackend]
@@ -446,9 +464,13 @@ class LecturerAttendanceViewSet(viewsets.ModelViewSet):
         Returns attendance records for the requesting lecturer.
         Admins see all records.
         """
+        # Swagger-safe short-circuit
+        if getattr(self, 'swagger_fake_view', False):
+            return Attendance.objects.none()
+
         user = self.request.user
 
-        if user.role == 'admin':
+        if getattr(user, 'role', None) == 'admin':
             return Attendance.objects.all().select_related(
                 'student__user',
                 'session',
@@ -556,7 +578,6 @@ class LecturerAttendanceViewSet(viewsets.ModelViewSet):
                     check_in_time__date__range=[date_from, date_to]
                 )
 
-            # Prepare CSV response
             response = HttpResponse(content_type='text/csv')
             response['Content-Disposition'] = 'attachment; filename="lecturer_attendance_export.csv"'
 
@@ -568,7 +589,6 @@ class LecturerAttendanceViewSet(viewsets.ModelViewSet):
                 'Latitude', 'Longitude'
             ])
 
-            # Process records in batches to avoid memory issues
             batch_size = 100
             total_records = queryset.count()
             
@@ -579,26 +599,16 @@ class LecturerAttendanceViewSet(viewsets.ModelViewSet):
                 
                 for record in batch:
                     try:
-                        # Student information
                         student_id = getattr(record.student, 'student_id', 'N/A') if record.student else 'N/A'
                         student_name = getattr(record.student, 'name', 'N/A') if record.student else 'N/A'
-                        
-                        student_username = 'N/A'
-                        if record.student and record.student.user:
-                            student_username = getattr(record.student.user, 'username', 'N/A')
+                        student_username = getattr(record.student.user, 'username', 'N/A') if record.student and record.student.user else 'N/A'
 
-                        # Course information
-                        course_code = 'N/A'
-                        course_title = 'N/A'
-                        if record.session and record.session.course:
-                            course_code = getattr(record.session.course, 'code', 'N/A')
-                            course_title = getattr(record.session.course, 'title', 'N/A')
+                        course_code = getattr(record.session.course, 'code', 'N/A') if record.session and record.session.course else 'N/A'
+                        course_title = getattr(record.session.course, 'title', 'N/A') if record.session and record.session.course else 'N/A'
 
-                        # Session information
                         session_id = getattr(record.session, 'session_id', 'N/A') if record.session else 'N/A'
                         class_name = getattr(record.session, 'class_name', 'N/A') if record.session else 'N/A'
 
-                        # Time information
                         check_in_time = record.check_in_time.strftime("%Y-%m-%d %H:%M") if record.check_in_time else 'N/A'
                         check_out_time = record.check_out_time.strftime("%Y-%m-%d %H:%M") if record.check_out_time else 'N/A'
 
@@ -618,7 +628,6 @@ class LecturerAttendanceViewSet(viewsets.ModelViewSet):
                         ])
                         
                     except Exception as record_error:
-                        # Log individual record errors but continue processing
                         logger.warning(f"Error processing record {record.id}: {record_error}")
                         continue
 
@@ -638,7 +647,6 @@ class LecturerAttendanceViewSet(viewsets.ModelViewSet):
     def export_debug(self, request):
         """Debug endpoint to test field access"""
         try:
-            # Get one record to test
             record = self.get_queryset().first()
             
             if not record:
@@ -678,7 +686,7 @@ class LecturerAttendanceViewSet(viewsets.ModelViewSet):
         except Exception as e:
             logger.exception(f"Error in export debug: {e}")
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+
 class StudentListCreateAPIView(generics.ListCreateAPIView):
     queryset = Student.objects.all().order_by('student_id')
     serializer_class = StudentSerializer
@@ -1289,15 +1297,13 @@ class LecturerEnrollmentView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
+
 class LecturerCourseView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         if request.user.role != 'lecturer':
-            return Response(
-                {'error': 'Only lecturers can create courses'},
-                status=status.HTTP_403_FORBIDDEN
-            )
+            return Response({'error': 'Only lecturers can view courses'}, status=status.HTTP_403_FORBIDDEN)
         courses = Course.objects.filter(created_by=request.user)
         serializer = CourseSerializer(courses, many=True)
         return Response(serializer.data)
@@ -1308,8 +1314,34 @@ class LecturerCourseView(APIView):
             serializer.save(created_by=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
 
+
+class LecturerCourseDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self, pk, user):
+        try:
+            course = Course.objects.get(pk=pk, created_by=user)
+            return course
+        except Course.DoesNotExist:
+            return None
+
+    def put(self, request, pk):
+        course = self.get_object(pk, request.user)
+        if not course:
+            return Response({'error': 'Course not found'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = CourseSerializer(course, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        course = self.get_object(pk, request.user)
+        if not course:
+            return Response({'error': 'Course not found'}, status=status.HTTP_404_NOT_FOUND)
+        course.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 #admin views for qrpresence
 
@@ -1319,7 +1351,13 @@ class LecturerCourseView(APIView):
 
 
 class AdminUserViewSet(viewsets.ModelViewSet):
-    queryset = CustomUser.objects.all()
+    # Optimize the queryset to prefetch related profiles
+    def get_queryset(self):
+        queryset = CustomUser.objects.all().select_related(
+            'student_profile', 'lecturer_profile'
+        )
+        return queryset
+    
     serializer_class = UserSerializer
     permission_classes = [IsAdminUser]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]

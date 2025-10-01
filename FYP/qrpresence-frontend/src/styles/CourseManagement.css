@@ -532,6 +532,52 @@
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
   white-space: nowrap;
 }
+/* Edit and Delete Buttons */
+.course-item-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.course-item-button {
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.course-item-edit {
+  background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+  color: white;
+}
+
+.course-item-edit:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  transform: translateY(-1px) scale(1.02);
+}
+
+.course-item-delete {
+  background: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
+  color: white;
+}
+
+.course-item-delete:hover {
+  background: linear-gradient(135deg, #b91c1c 0%, #ef4444 100%);
+  transform: translateY(-1px) scale(1.02);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 480px) {
+  .course-item-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
 
 /* Responsive Design */
 @media (max-width: 768px) {

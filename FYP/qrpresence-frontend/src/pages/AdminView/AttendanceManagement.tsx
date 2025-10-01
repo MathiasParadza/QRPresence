@@ -1,35 +1,22 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Filter, Calendar, Download, BarChart3, RefreshCw } from 'lucide-react';
+import { Search, Filter, Calendar, Download, BarChart3, RefreshCw, Brain, Sparkles, Loader2, Clock } from 'lucide-react';
 import axios from 'axios';
 import './AttendanceManagement.css';
 
-interface Course {
-  code: string;
-  title: string;
-}
-
-interface Lecturer {
-  name: string;
-}
-
-interface Session {
-  class_name: string;
-  course?: Course;
-  lecturer?: Lecturer;
-}
-
-interface Student {
-  student_id: string;
-  name: string;
-}
-
 interface AttendanceRecord {
   id: number;
-  student: Student;
-  session: Session;
+  student: string;
+  student_name: string;
+  student_id: string;
+  session: number;
+  session_name: string;
+  course_code: string;
+  course_title: string;
   status: string;
   check_in_time: string;
   check_out_time: string | null;
+  latitude: number;
+  longitude: number;
 }
 
 interface PaginatedResponse<T> {
@@ -39,6 +26,24 @@ interface PaginatedResponse<T> {
   results: T[];
 }
 
+interface AIInsightsResponse {
+  response: string;
+}
+
+interface ChatHistoryItem {
+  query: string;
+  response: string;
+  timestamp: Date;
+}
+
+const suggestedQueries = [
+  "Which students were absent last week?",
+  "Show attendance trends for Course XYZ",
+  "List students with more than 3 absences",
+  "Average attendance per session",
+  "Highlight late arrivals in the past month"
+];
+
 const AttendanceManagement: React.FC = () => {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,6 +52,13 @@ const AttendanceManagement: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [exporting, setExporting] = useState<string | null>(null);
+
+  // AI Chat states
+  const [showAIChat, setShowAIChat] = useState(false);
+  const [aiQuery, setAiQuery] = useState('');
+  const [aiResponse, setAiResponse] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
 
   const fetchAttendanceRecords = React.useCallback(async () => {
     try {
@@ -73,10 +85,9 @@ const AttendanceManagement: React.FC = () => {
           },
         }
       );
-      
-      // Handle paginated response
+
       const data = response.data;
-      if (data && typeof data === 'object' && 'results' in data) {
+      if (data && 'results' in data) {
         setRecords(data.results || []);
       } else {
         console.error('Unexpected API response format:', data);
@@ -84,30 +95,9 @@ const AttendanceManagement: React.FC = () => {
         setError('Unexpected data format received from server');
       }
     } catch (err: unknown) {
-      // Use AxiosError type guard
-      if (
-        typeof err === 'object' &&
-        err !== null &&
-        'response' in err &&
-        typeof (err as { response?: { status?: number } }).response === 'object' &&
-        (err as { response?: { status?: number } }).response !== null &&
-        'status' in (err as { response?: { status?: number } }).response!
-      ) {
-        const status = (err as { response?: { status?: number } }).response!.status;
-        if (status === 401) {
-          setError('Authentication failed. Please login again.');
-        } else if (status === 403) {
-          setError('You do not have permission to view attendance records.');
-        } else if (status === 404) {
-          setError('Attendance endpoint not found.');
-        } else {
-          setError('Failed to load attendance records. Please try again.');
-        }
-      } else {
-        setError('Failed to load attendance records. Please try again.');
-      }
       console.error('Attendance fetch error:', err);
       setRecords([]);
+      setError('Failed to load attendance records. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -121,7 +111,6 @@ const AttendanceManagement: React.FC = () => {
     try {
       setExporting(format);
       const token = localStorage.getItem('access_token');
-      
       if (!token) {
         alert('Authentication token not found. Please login again.');
         setExporting(null);
@@ -131,19 +120,12 @@ const AttendanceManagement: React.FC = () => {
       const response = await axios.get<Blob>(
         `http://127.0.0.1:8000/api/admin/attendance/export/?format=${format}`,
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          params: {
-            search: searchTerm || undefined,
-            status: statusFilter || undefined,
-            date: dateFilter || undefined,
-          },
+          headers: { Authorization: `Bearer ${token}` },
+          params: { search: searchTerm || undefined, status: statusFilter || undefined, date: dateFilter || undefined },
           responseType: 'blob',
         }
       );
 
-      // Create a blob link to download the file
       const url = window.URL.createObjectURL(response.data);
       const link = document.createElement('a');
       link.href = url;
@@ -152,25 +134,9 @@ const AttendanceManagement: React.FC = () => {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-    } catch (err: unknown) {
-      if (
-        typeof err === 'object' &&
-        err !== null &&
-        'response' in err &&
-        typeof (err as { response?: { status?: number } }).response === 'object' &&
-        (err as { response?: { status?: number } }).response !== null &&
-        'status' in (err as { response?: { status?: number } }).response!
-      ) {
-        const status = (err as { response?: { status?: number } }).response!.status;
-        if (status === 401) {
-          alert('Authentication failed. Please login again.');
-        } else {
-          alert('Failed to export attendance records');
-        }
-      } else {
-        alert('Failed to export attendance records');
-      }
+    } catch (err) {
       console.error('Export error:', err);
+      alert('Failed to export attendance records');
     } finally {
       setExporting(null);
     }
@@ -189,28 +155,51 @@ const AttendanceManagement: React.FC = () => {
     if (!dateString) return '-';
     try {
       return new Date(dateString).toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: true
       });
-    } catch (error) {
-      console.error('Error formatting date:', error);
+    } catch {
       return '-';
     }
   };
 
-  const handleApplyFilters = () => {
-    fetchAttendanceRecords();
-  };
-
+  const handleApplyFilters = () => fetchAttendanceRecords();
   const handleClearFilters = () => {
     setSearchTerm('');
     setStatusFilter('');
     setDateFilter('');
-    // Don't fetch immediately, let user click Apply Filters
+  };
+
+  // AI Chat Handlers
+  const handleAIQuery = async () => {
+    if (!aiQuery.trim()) return;
+    try {
+      setAiLoading(true);
+      const token = localStorage.getItem('access_token');
+      if (!token) throw new Error('Token missing');
+
+      const res = await axios.post<AIInsightsResponse>(
+        'http://127.0.0.1:8000/api/ai-chat/',
+        { query: aiQuery },
+        {
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        }
+      );
+
+      const answer = res.data.response || 'No response from AI.';
+      setAiResponse(answer);
+      setChatHistory(prev => [...prev, { query: aiQuery, response: answer, timestamp: new Date() }]);
+      setAiQuery('');
+    } catch (err) {
+      console.error('AI query error:', err);
+      setAiResponse('Failed to get response from AI.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') handleAIQuery();
   };
 
   if (loading) {
@@ -232,7 +221,7 @@ const AttendanceManagement: React.FC = () => {
       <div className="attendance-container__background">
         <div className="attendance-container__overlay"></div>
       </div>
-      
+
       <div className="attendance-content">
         {/* Header Section */}
         <header className="attendance-header">
@@ -242,35 +231,27 @@ const AttendanceManagement: React.FC = () => {
               Monitor and manage student attendance records
             </p>
           </div>
-          
           <div className="attendance-header__actions">
             <button 
               className={`attendance-button attendance-button--secondary ${exporting === 'csv' ? 'attendance-button--disabled' : ''}`}
               onClick={() => exportAttendance('csv')}
               disabled={exporting === 'csv'}
             >
-              {exporting === 'csv' ? (
-                <RefreshCw className="attendance-icon" />
-              ) : (
-                <Download className="attendance-icon" />
-              )}
+              {exporting === 'csv' ? <RefreshCw className="attendance-icon" /> : <Download className="attendance-icon" />}
               {exporting === 'csv' ? 'Exporting...' : 'Export CSV'}
             </button>
-            
             <button 
               className={`attendance-button attendance-button--secondary ${exporting === 'pdf' ? 'attendance-button--disabled' : ''}`}
               onClick={() => exportAttendance('pdf')}
               disabled={exporting === 'pdf'}
             >
-              {exporting === 'pdf' ? (
-                <RefreshCw className="attendance-icon" />
-              ) : (
-                <Download className="attendance-icon" />
-              )}
+              {exporting === 'pdf' ? <RefreshCw className="attendance-icon" /> : <Download className="attendance-icon" />}
               {exporting === 'pdf' ? 'Exporting...' : 'Export PDF'}
             </button>
-            
-            <button className="attendance-button attendance-button--primary">
+            <button 
+              className="attendance-button attendance-button--primary"
+              onClick={() => setShowAIChat(!showAIChat)}
+            >
               <BarChart3 className="attendance-icon" />
               Analytics
             </button>
@@ -292,7 +273,6 @@ const AttendanceManagement: React.FC = () => {
                   aria-label="Search students or sessions"
                 />
               </div>
-
               <div className="filter-group">
                 <Filter className="attendance-icon" />
                 <select
@@ -307,7 +287,6 @@ const AttendanceManagement: React.FC = () => {
                   <option value="late">Late</option>
                 </select>
               </div>
-
               <div className="filter-group">
                 <Calendar className="attendance-icon" />
                 <input
@@ -320,7 +299,6 @@ const AttendanceManagement: React.FC = () => {
                   aria-label="Filter by date"
                 />
               </div>
-
               <div className="attendance-filters__actions">
                 <button 
                   className="attendance-button attendance-button--primary"
@@ -328,7 +306,6 @@ const AttendanceManagement: React.FC = () => {
                 >
                   Apply Filters
                 </button>
-                
                 <button 
                   className="attendance-button attendance-button--secondary"
                   onClick={handleClearFilters}
@@ -370,7 +347,6 @@ const AttendanceManagement: React.FC = () => {
                       <th className="attendance-table__header">Student Name</th>
                       <th className="attendance-table__header">Course</th>
                       <th className="attendance-table__header">Session</th>
-                      <th className="attendance-table__header">Lecturer</th>
                       <th className="attendance-table__header">Check In</th>
                       <th className="attendance-table__header">Check Out</th>
                       <th className="attendance-table__header">Status</th>
@@ -378,54 +354,22 @@ const AttendanceManagement: React.FC = () => {
                   </thead>
                   <tbody className="attendance-table__body">
                     {records.length > 0 ? (
-                      records.map((record) => (
+                      records.map(record => (
                         <tr key={record.id} className="attendance-table__row">
-                          <td className="attendance-table__cell attendance-table__cell--mono">
-                            {record.student?.student_id || 'N/A'}
-                          </td>
-                          <td className="attendance-table__cell attendance-table__cell--name">
-                            {record.student?.name || 'N/A'}
-                          </td>
-                          <td className="attendance-table__cell attendance-table__cell--code">
-                            {record.session?.course?.code || 'N/A'}
-                          </td>
-                          <td className="attendance-table__cell">
-                            {record.session?.class_name || 'N/A'}
-                          </td>
-                          <td className="attendance-table__cell">
-                            {record.session?.lecturer?.name || 'N/A'}
-                          </td>
-                          <td className="attendance-table__cell attendance-table__cell--datetime">
-                            {formatDateTime(record.check_in_time)}
-                          </td>
-                          <td className="attendance-table__cell attendance-table__cell--datetime">
-                            {formatDateTime(record.check_out_time)}
-                          </td>
+                          <td className="attendance-table__cell attendance-table__cell--mono">{record.student_id || 'N/A'}</td>
+                          <td className="attendance-table__cell attendance-table__cell--name">{record.student_name || 'N/A'}</td>
+                          <td className="attendance-table__cell attendance-table__cell--code">{record.course_code || 'N/A'}</td>
+                          <td className="attendance-table__cell">{record.session_name || 'N/A'}</td>
+                          <td className="attendance-table__cell attendance-table__cell--datetime">{formatDateTime(record.check_in_time)}</td>
+                          <td className="attendance-table__cell attendance-table__cell--datetime">{formatDateTime(record.check_out_time)}</td>
                           <td className="attendance-table__cell attendance-table__cell--status">
-                            <span className={getStatusBadgeClass(record.status)}>
-                              {record.status}
-                            </span>
+                            <span className={getStatusBadgeClass(record.status)}>{record.status}</span>
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr className="attendance-table__row--empty">
-                        <td 
-                          colSpan={8} 
-                          className="attendance-table__cell attendance-table__cell--empty"
-                        >
-                          <div className="attendance-empty">
-                            <div className="attendance-empty__content">
-                              <h3 className="attendance-empty__title">No Records Found</h3>
-                              <p className="attendance-empty__message">
-                                {searchTerm || statusFilter || dateFilter 
-                                  ? 'No attendance records match your current filters' 
-                                  : 'No attendance records available'
-                                }
-                              </p>
-                            </div>
-                          </div>
-                        </td>
+                        <td colSpan={8} className="attendance-table__cell attendance-table__cell--empty">No Records Found</td>
                       </tr>
                     )}
                   </tbody>
@@ -446,26 +390,107 @@ const AttendanceManagement: React.FC = () => {
                 </div>
                 <div className="stat-item">
                   <span className="stat-item__label">Present</span>
-                  <span className="stat-item__value stat-item__value--present">
-                    {records.filter(r => r.status.toLowerCase() === 'present').length}
-                  </span>
+                  <span className="stat-item__value stat-item__value--present">{records.filter(r => r.status.toLowerCase() === 'present').length}</span>
                 </div>
                 <div className="stat-item">
                   <span className="stat-item__label">Absent</span>
-                  <span className="stat-item__value stat-item__value--absent">
-                    {records.filter(r => r.status.toLowerCase() === 'absent').length}
-                  </span>
+                  <span className="stat-item__value stat-item__value--absent">{records.filter(r => r.status.toLowerCase() === 'absent').length}</span>
                 </div>
                 <div className="stat-item">
                   <span className="stat-item__label">Late</span>
-                  <span className="stat-item__value stat-item__value--late">
-                    {records.filter(r => r.status.toLowerCase() === 'late').length}
-                  </span>
+                  <span className="stat-item__value stat-item__value--late">{records.filter(r => r.status.toLowerCase() === 'late').length}</span>
                 </div>
               </div>
             </div>
           </section>
         )}
+
+        {/* AI Chat Section */}
+        {showAIChat && (
+          <section className="ai-chat-section">
+            <div className="lecturer-card">
+              <div className="ai-chat__header">
+                <Brain className="lecturer-icon" />
+                <h2 className="ai-chat__title">AI Attendance Insights</h2>
+              </div>
+
+              {/* Suggested Questions */}
+              <div className="ai-chat__suggestions">
+                <p className="ai-chat__suggestions-label">Popular questions:</p>
+                <div className="ai-chat__suggestion-pills">
+                  {suggestedQueries.map((query, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setAiQuery(query)}
+                      className="ai-suggestion-pill"
+                    >
+                      {query}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="ai-chat__input-section">
+                <input
+                  type="text"
+                  placeholder="Ask about attendance patterns, trends, or insights..."
+                  className="ai-chat__input"
+                  value={aiQuery}
+                  onChange={(e) => setAiQuery(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  disabled={aiLoading}
+                />
+                <button
+                  onClick={handleAIQuery}
+                  disabled={aiLoading || !aiQuery.trim()}
+                  className={`lecturer-button lecturer-button--primary ${aiLoading || !aiQuery.trim() ? 'lecturer-button--disabled' : ''}`}
+                >
+                  {aiLoading ? (
+                    <>
+                      <Loader2 className="lecturer-icon lecturer-icon--spinning" />
+                      Thinking...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="lecturer-icon" />
+                      Ask AI
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {aiResponse && (
+                <div className="ai-chat__response">
+                  <div className="ai-chat__response-header">
+                    <Brain className="lecturer-icon" />
+                    <span className="ai-chat__response-label">AI Insights:</span>
+                  </div>
+                  <div className="ai-chat__response-text">{aiResponse}</div>
+                </div>
+              )}
+
+              {/* Chat History */}
+              {chatHistory.length > 0 && (
+                <div className="ai-chat__history">
+                  <h3 className="ai-chat__history-title">
+                    <Clock className="lecturer-icon" />
+                    Recent Queries
+                  </h3>
+                  <div className="ai-chat__history-list">
+                    {chatHistory.slice().reverse().map((chat, index) => (
+                      <div key={index} className="ai-chat__history-item">
+                        <p className="ai-chat__history-question">Q: {chat.query}</p>
+                        <p className="ai-chat__history-answer">A: {chat.response}</p>
+                        <p className="ai-chat__history-timestamp">{chat.timestamp.toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
       </div>
     </div>
   );

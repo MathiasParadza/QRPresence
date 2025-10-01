@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 
 import "../../styles/CourseManagement.css";
 
-
 interface Course {
   id: number;
   title: string;
@@ -21,7 +20,7 @@ interface ApiError {
 
 const API_BASE_URL = 'http://localhost:8000';
 
-const CourseManagement: React.FC = () =>{
+const CourseManagement: React.FC = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [formData, setFormData] = useState({
     title: '',
@@ -33,24 +32,15 @@ const CourseManagement: React.FC = () =>{
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [editingCourseId, setEditingCourseId] = useState<number | null>(null);
+
   const navigate = useNavigate();
-
-
 
   const handleApiError = useCallback((err: unknown) => {
     if (typeof err === 'object' && err !== null) {
-      const errorObj = err as {
-        status?: number;
-        detail?: string;
-        error?: string;
-        message?: string;
-      };
-      
+      const errorObj = err as { status?: number; detail?: string; error?: string; message?: string; };
       if (errorObj.status === 401) {
-        setError({
-          detail: 'Authentication failed. Please login again.',
-          status_code: 401
-        });
+        setError({ detail: 'Authentication failed. Please login again.', status_code: 401 });
       } else if (errorObj.detail) {
         setError({ detail: errorObj.detail });
       } else if (errorObj.error) {
@@ -66,13 +56,10 @@ const CourseManagement: React.FC = () =>{
   }, []);
 
   const fetchCourses = useCallback(async (isRefresh = false) => {
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
     setError(null);
-    
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/lecturer/courses/`, {
         headers: {
@@ -83,10 +70,7 @@ const CourseManagement: React.FC = () =>{
 
       if (!res.ok) {
         const errorData: ApiError = await res.json();
-        throw {
-          status: res.status,
-          ...errorData
-        };
+        throw { status: res.status, ...errorData };
       }
 
       const data: Course[] = await res.json();
@@ -117,9 +101,14 @@ const CourseManagement: React.FC = () =>{
     setError(null);
     setSuccess(null);
 
+    const method = editingCourseId ? 'PUT' : 'POST';
+    const url = editingCourseId
+      ? `${API_BASE_URL}/api/lecturer/courses/${editingCourseId}`
+      : `${API_BASE_URL}/api/lecturer/courses/create/`;
+
     try {
-      const res = await fetch(`${API_BASE_URL}/api/lecturer/courses/create/`, {
-        method: 'POST',
+      const res = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -133,16 +122,21 @@ const CourseManagement: React.FC = () =>{
 
       if (!res.ok) {
         const errorData: ApiError = await res.json();
-        throw {
-          status: res.status,
-          ...errorData
-        };
+        throw { status: res.status, ...errorData };
       }
 
       const data: Course = await res.json();
-      setCourses(prev => [...prev, data]);
+
+      if (editingCourseId) {
+        setCourses(prev => prev.map(course => (course.id === data.id ? data : course)));
+        setSuccess('Course updated successfully!');
+        setEditingCourseId(null);
+      } else {
+        setCourses(prev => [...prev, data]);
+        setSuccess('Course created successfully!');
+      }
+
       setFormData({ title: '', code: '', description: '', credit_hours: '' });
-      setSuccess('Course created successfully!');
       setTimeout(() => setSuccess(null), 5000);
     } catch (err) {
       handleApiError(err);
@@ -151,13 +145,44 @@ const CourseManagement: React.FC = () =>{
     }
   };
 
+  const handleEditCourse = (course: Course) => {
+    setFormData({
+      title: course.title,
+      code: course.code,
+      description: course.description,
+      credit_hours: course.credit_hours.toString(),
+    });
+    setEditingCourseId(course.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDeleteCourse = async (id: number) => {
+    if (!window.confirm("Are you sure you want to delete this course?")) return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/lecturer/courses/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!res.ok) throw new Error('Failed to delete course');
+
+      setCourses(prev => prev.filter(course => course.id !== id));
+      setSuccess('Course deleted successfully!');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch {
+      setError({ detail: 'Error deleting course' });
+    }
+  };
+
   const formatError = (error: ApiError | null) => {
     if (!error) return null;
-    
     if (error.detail) return error.detail;
     if (error.error) return error.error;
     if (error.message) return error.message;
-    
     return 'An unknown error occurred';
   };
 
@@ -165,18 +190,14 @@ const CourseManagement: React.FC = () =>{
     <div className="course-management-container">
       {/* Header */}
       <div className="course-management-header">
-        
         <h1 className="course-management-title">Course Management</h1>
         <p className="course-management-subtitle">Create and manage your courses</p>
-        <button
-          onClick={() => navigate("/dashboard")}
-          className="course-manager-back-btn"
-        >
+        <button onClick={() => navigate("/dashboard")} className="course-manager-back-btn">
           ← Back to Dashboard
         </button>
       </div>
 
-      {/* Global Alert Messages */}
+      {/* Alerts */}
       {error && (
         <div className="course-alert course-alert-error">
           <div className="course-alert-icon">
@@ -185,8 +206,7 @@ const CourseManagement: React.FC = () =>{
             </svg>
           </div>
           <div className="course-alert-content">
-            <strong>Error:</strong> {formatError(error)}
-            {error.status_code && ` (Status: ${error.status_code})`}
+            <strong>Error:</strong> {formatError(error)} {error.status_code && `(Status: ${error.status_code})`}
           </div>
         </div>
       )}
@@ -198,16 +218,14 @@ const CourseManagement: React.FC = () =>{
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <div className="course-alert-content">
-            {success}
-          </div>
+          <div className="course-alert-content">{success}</div>
         </div>
       )}
 
-      {/* Create Course Form */}
+      {/* Form */}
       <div className="course-form-container">
         <div className="course-form-header">
-          <h2 className="course-form-title">Create New Course</h2>
+          <h2 className="course-form-title">{editingCourseId ? 'Update Course' : 'Create New Course'}</h2>
         </div>
         <div className="course-form-content">
           <form onSubmit={handleSubmit} className="course-form-fields">
@@ -223,7 +241,6 @@ const CourseManagement: React.FC = () =>{
                   placeholder="Enter course name"
                 />
               </div>
-              
               <div className="course-form-field">
                 <label className="course-form-label">Course Code</label>
                 <input
@@ -236,7 +253,6 @@ const CourseManagement: React.FC = () =>{
                 />
               </div>
             </div>
-            
             <div className="course-form-field">
               <label className="course-form-label">Description</label>
               <textarea
@@ -249,7 +265,6 @@ const CourseManagement: React.FC = () =>{
                 rows={4}
               />
             </div>
-            
             <div className="course-form-row">
               <div className="course-form-field">
                 <label className="course-form-label">Credit Hours</label>
@@ -266,15 +281,10 @@ const CourseManagement: React.FC = () =>{
                 />
               </div>
             </div>
-            
             <div className="course-form-buttons">
-              <button
-                type="submit"
-                disabled={loading}
-                className="course-form-submit"
-              >
-                {loading && <div className="course-form-loading-spinner"></div>}
-                {loading ? 'Creating Course...' : 'Create Course'}
+              <button type="submit" disabled={loading} className="course-form-submit">
+                {loading && <span className="course-form-loading-spinner" />}
+                {editingCourseId ? 'Update Course' : 'Create Course'}
               </button>
             </div>
           </form>
@@ -285,30 +295,25 @@ const CourseManagement: React.FC = () =>{
       <div className="course-list-container">
         <div className="course-list-header">
           <h2 className="course-list-title">Your Courses</h2>
-          <button 
-            onClick={() => fetchCourses(true)} 
-            disabled={refreshing}
+          <button
+            onClick={() => fetchCourses(true)}
             className="course-list-refresh"
+            disabled={refreshing}
           >
-            {refreshing ? 'Refreshing...' : 'Refresh'}
+            {refreshing ? 'Refreshing...' : 'Refresh List'}
           </button>
         </div>
-        
         <div className="course-list-content">
           {loading && courses.length === 0 ? (
             <div className="course-list-loading">
-              <div className="course-list-loading-spinner"></div>
-              <p className="course-list-loading-text">Loading your courses...</p>
+              <div className="course-list-loading-spinner" />
+              <p className="course-list-loading-text">Loading courses...</p>
             </div>
           ) : courses.length === 0 ? (
             <div className="course-list-empty">
-              <div className="course-list-empty-icon">
-                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
-              </div>
-              <h3 className="course-list-empty-title">No courses found</h3>
-              <p className="course-list-empty-subtitle">Create your first course using the form above</p>
+              <div className="course-list-empty-icon">📚</div>
+              <h3 className="course-list-empty-title">No Courses Found</h3>
+              <p className="course-list-empty-subtitle">Create a course to get started</p>
             </div>
           ) : (
             <div className="course-list-items">
@@ -317,9 +322,7 @@ const CourseManagement: React.FC = () =>{
                   <div className="course-item-content">
                     <div className="course-item-header">
                       <div className="course-item-info">
-                        <h3 className="course-item-title">
-                          {course.title}
-                        </h3>
+                        <h3 className="course-item-title">{course.title}</h3>
                         <div className="course-item-code">{course.code}</div>
                         <p className="course-item-description">{course.description}</p>
                       </div>
@@ -328,6 +331,21 @@ const CourseManagement: React.FC = () =>{
                           {course.credit_hours} credit{course.credit_hours !== 1 ? 's' : ''}
                         </span>
                       </div>
+                    </div>
+                    {/* Edit/Delete Buttons */}
+                    <div className="course-item-actions">
+                      <button
+                        className="course-item-button course-item-edit"
+                        onClick={() => handleEditCourse(course)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="course-item-button course-item-delete"
+                        onClick={() => handleDeleteCourse(course.id)}
+                      >
+                        Delete
+                      </button>
                     </div>
                   </div>
                 </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { toast } from 'react-toastify';
-import { Pencil, Trash2, ArrowLeft, Plus, Download } from 'lucide-react';
+import { Pencil, Trash2, ArrowLeft, Download } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/api';
 import { useNavigate } from 'react-router-dom';
 import type { StudentProfile, PaginatedResponse } from '@/types/user';
@@ -190,8 +190,15 @@ const StudentManager: React.FC = () => {
                 >
                   <option value="">All Programs</option>
                   <option value="Computer Science">Computer Science</option>
-                  <option value="Information Tech">Information Tech</option>
-                  <option value="Engineering">Engineering</option>
+                  <option value="Information Tech">Networking and Information Security</option>
+                  <option value="Engineering">Software Engineering</option>
+                  <option value="Engineering">Systems Engineering</option>
+                  <option value="Engineering">Mines Engineering</option>
+                  <option value="Engineering">Agricultural Engineering</option>
+                  <option value="Business">Business Administration</option>
+                  <option value="Arts">Arts and Humanities</option>
+                  <option value="Science">Natural Sciences</option> 
+
                 </select>
               </div>
 
@@ -204,14 +211,7 @@ const StudentManager: React.FC = () => {
                   <Download className="student-manager-icon" />
                   Export CSV
                 </button>
-                <button 
-                  className="student-manager-button student-manager-button--primary"
-                  onClick={() => openEditModal()} 
-                  disabled={isLoading}
-                >
-                  <Plus className="student-manager-icon" />
-                  Add Student
-                </button>
+
               </div>
             </div>
           </div>

@@ -200,9 +200,9 @@ const StudentManagement = () => {
                       onChange={(e) => handleFilterChange('program', e.target.value)}
                     >
                       <option value="">All Programs</option>
-                      <option value="computer_science">Computer Science</option>
-                      <option value="engineering">Engineering</option>
-                      <option value="business">Business</option>
+                      <option value="software_engineering">Software Engineering</option>
+                      <option value="networking_and_information_security">Networking and Information Security</option>
+                      <option value="systems_engineering">Systems Engineering</option>
                     </select>
                   </div>
                 </div>

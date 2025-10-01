@@ -1,6 +1,6 @@
 // src/components/admin/Courses/CourseManager.tsx
 import React, { useEffect, useState } from 'react';
-import { Plus, Search, Edit, Trash2, BookOpen } from 'lucide-react';
+import {  Search, Edit, Trash2, BookOpen } from 'lucide-react';
 import axios from 'axios';
 import './CourseManagement.css';
 
@@ -10,7 +10,7 @@ interface Course {
   title: string;
   description: string;
   credit_hours: number;
-  created_by: number;
+  created_by:string; 
   created_at: string;
 }
 
@@ -77,10 +77,7 @@ const CourseManager: React.FC = () => {
     <div className="course-manager">
       <div className="course-manager__header">
         <h2>Course Management</h2>
-        <button className="admin-button admin-button--primary">
-          <Plus size={16} />
-          Add Course
-        </button>
+
       </div>
 
       {/* Search */}
@@ -109,47 +106,48 @@ const CourseManager: React.FC = () => {
       {/* Courses Table */}
       <div className="admin-table-container">
         <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Code</th>
-              <th>Title</th>
-              <th>Credit Hours</th>
-              <th>Created</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredCourses.map((course) => (
-              <tr key={course.id}>
-                <td>
-                  <div className="course-code">
-                    <BookOpen size={16} />
-                    {course.code}
-                  </div>
-                </td>
-                <td>{course.title}</td>
-                <td>{course.credit_hours}</td>
-                <td>{new Date(course.created_at).toLocaleDateString()}</td>
-                <td>
-                  <div className="action-buttons">
-                    <button className="action-button action-button--edit" title="Edit Course">
-                      <Edit size={16} />
-                    </button>
-                    <button 
-                      className="action-button action-button--delete"
-                      onClick={() => handleDeleteCourse(course.id)}
-                      title="Delete Course"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {filteredCourses.length === 0 && !loading && (
+<thead>
+  <tr>
+    <th>Course Code</th>
+    <th>Title</th>
+    <th>Credited Hours</th>
+    <th>Created By</th>  
+    <th>Creation Date</th>
+    <th>Actions</th>
+  </tr>
+</thead>
+<tbody>
+  {filteredCourses.map((course) => (
+    <tr key={course.id}>
+      <td>
+        <div className="course-code">
+          <BookOpen size={16} />
+          {course.code}
+        </div>
+      </td>
+      <td>{course.title}</td>
+      <td>{course.credit_hours}</td>
+      <td>{course.created_by}</td>  {/* 👈 show username/email */}
+      <td>{new Date(course.created_at).toLocaleDateString()}</td>
+      <td>
+        <div className="action-buttons">
+          <button className="action-button action-button--edit" title="Edit Course">
+            <Edit size={16} />
+          </button>
+          <button 
+            className="action-button action-button--delete"
+            onClick={() => handleDeleteCourse(course.id)}
+            title="Delete Course"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
+      </td>
+    </tr>
+  ))}
+</tbody>
+</table>
+     {filteredCourses.length === 0 && !loading && (
           <div className="admin-table-empty">
             <p>No courses found</p>
           </div>

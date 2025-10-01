@@ -8,7 +8,7 @@ from .views import StudentListCreateAPIView, StudentDetailAPIView
 from .views import export_students_csv
 from .views import AbsentStudentsView
 from .views import AttendanceAIChatView
-from .views import LecturerCourseView, LecturerEnrollmentView
+from .views import LecturerCourseView,LecturerCourseDetailView, LecturerEnrollmentView
 
 # Import the admin views we created
 from .views import (
@@ -55,7 +55,7 @@ urlpatterns = [
     # Course management
     path('lecturer/courses/', LecturerCourseView.as_view(), name='lecturer-courses'),
     path('lecturer/courses/create/', LecturerCourseView.as_view(), name='create-course'),
-    path('lecturer/courses/<int:pk>/', LecturerCourseView.as_view(), name='course-detail'),
+    path('lecturer/courses/<int:pk>/', LecturerCourseDetailView.as_view(), name='lecturer-course-detail'),
     
     # Enrollment management
     path('lecturer/enrollments/', LecturerEnrollmentView.as_view(), name='lecturer-enrollments'),

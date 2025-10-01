@@ -28,19 +28,20 @@ class ProfileSerializer(serializers.ModelSerializer):
         return instance
 
 class UserSerializer(serializers.ModelSerializer):
-    student_id = serializers.CharField(write_only=True, required=False, allow_blank=True)
-    lecturer_id = serializers.CharField(write_only=True, required=False, allow_blank=True)
-    department = serializers.CharField(write_only=True, required=False, allow_blank=True)
-    admin_id = serializers.CharField(write_only=True, required=False, allow_blank=True)
-    name = serializers.CharField(write_only=True, required=False)
-    program = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    student_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)  # Remove write_only
+    lecturer_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)  # Remove write_only
+    department = serializers.CharField(required=False, allow_blank=True, allow_null=True)  # Remove write_only
+    admin_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)  # Remove write_only
+    name = serializers.CharField(required=False, allow_blank=True, allow_null=True)  # Remove write_only
+    program = serializers.CharField(required=False, allow_blank=True, allow_null=True)  # Remove write_only
+    date_joined = serializers.DateTimeField(read_only=True)
+    is_active = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = CustomUser
         fields = [
-            'id', 'username', 'email', 'role', 'password',
-            'student_id', 'lecturer_id', 'department', 'admin_id',
-            'name', 'program'
+            'id', 'username', 'email', 'role', 'password', 'is_active', 'date_joined',
+            'student_id', 'lecturer_id', 'department', 'admin_id', 'name', 'program'
         ]
         extra_kwargs = {
             'password': {'write_only': True},
@@ -66,14 +67,6 @@ class UserSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({"name": "Name is required for lecturers."})
             if not data.get('department'):
                 raise serializers.ValidationError({"department": "Department is required for lecturers."})
-        
-        # Validate admin-specific fields (if needed)
-        elif role == 'admin':
-            # Admin might not require additional fields, or you can add validation here
-            # For example, if you want to require admin_id:
-            # if not data.get('admin_id'):
-            #     raise serializers.ValidationError({"admin_id": "Admin ID is required for admins."})
-            pass
         
         return data
 
@@ -115,36 +108,31 @@ class UserSerializer(serializers.ModelSerializer):
                 department=department
             )
 
-        elif role == 'admin':
-            # Create admin profile if you have an AdminProfile model
-            # AdminProfile.objects.create(
-            #     user=user,
-            #     admin_id=admin_id or f"ADM{user.id:04d}",
-            #     name=name
-            # )
-            # For now, just create the user with admin role
-            pass
-
         return user
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         
-        # Add role-specific data to the response
-        if instance.role == 'student' and hasattr(instance, 'student'):
-            representation['student_id'] = instance.student.student_id
-            representation['name'] = instance.student.name
-            representation['program'] = instance.student.program
+        print(f"DEBUG: User {instance.id}, Role: {instance.role}")  # Debug
+        
+        # Add role-specific data to the response - FIXED RELATED NAMES
+        if instance.role == 'student' and hasattr(instance, 'student_profile'):
+            print(f"DEBUG: Found student_profile for user {instance.id}")
+            representation['student_id'] = instance.student_profile.student_id
+            representation['name'] = instance.student_profile.name
+            representation['program'] = instance.student_profile.program
             
-        elif instance.role == 'lecturer' and hasattr(instance, 'lecturer'):
-            representation['lecturer_id'] = instance.lecturer.lecturer_id
-            representation['name'] = instance.lecturer.name
-            representation['department'] = instance.lecturer.department
+        elif instance.role == 'lecturer' and hasattr(instance, 'lecturer_profile'):
+            print(f"DEBUG: Found lecturer_profile for user {instance.id}")
+            representation['lecturer_id'] = instance.lecturer_profile.lecturer_id
+            representation['name'] = instance.lecturer_profile.name
+            representation['department'] = instance.lecturer_profile.department
             
         elif instance.role == 'admin':
-            # Add admin-specific data if you have an AdminProfile model
-            # if hasattr(instance, 'admin_profile'):
-            #     representation['admin_id'] = instance.admin_profile.admin_id
-            pass
+            # For admin users, you might want to get name from first_name/last_name
+            if instance.first_name or instance.last_name:
+                representation['name'] = f"{instance.first_name} {instance.last_name}".strip()
             
-        return representation 
+        print(f"DEBUG: Final representation: {representation}")  # Debug
+        
+        return representation

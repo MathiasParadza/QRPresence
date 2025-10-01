@@ -68,8 +68,21 @@ const UserManager: React.FC = () => {
           Authorization: `Bearer ${token}`,
         },
       });
+      
+      // Debug log to see actual API response
+      console.log('API Response:', response.data);
+      
       const data = response.data as { results?: User[] } | User[];
-      setUsers(Array.isArray(data) ? data : data.results || []);
+      const usersData = Array.isArray(data) ? data : data.results || [];
+      
+      // Format dates safely
+      const formattedUsers = usersData.map(user => ({
+        ...user,
+        // Ensure date_joined is properly formatted
+        date_joined: user.date_joined || new Date().toISOString()
+      }));
+      
+      setUsers(formattedUsers);
     } catch (err) {
       setError('Failed to load users');
       console.error('Users fetch error:', err);
@@ -163,6 +176,7 @@ const UserManager: React.FC = () => {
         submitData.name = formData.name;
         submitData.department = formData.department;
       }
+      // Admin doesn't need additional fields
 
       const response = await axios.post('http://127.0.0.1:8000/api/admin/users/', submitData, {
         headers: {
@@ -209,6 +223,17 @@ const UserManager: React.FC = () => {
     const matchesRole = roleFilter ? user.role === roleFilter : true;
     return matchesSearch && matchesRole;
   });
+
+  // Safe date formatting function
+  const formatDate = (dateString: string) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      return isNaN(date.getTime()) ? 'N/A' : date.toLocaleDateString();
+    } catch {
+      return 'N/A';
+    }
+  };
 
   if (loading) {
     return (
@@ -266,12 +291,14 @@ const UserManager: React.FC = () => {
               <div className="user-filter-group">
                 <div className="user-filter-input-wrapper">
                   <Filter className="user-filter-icon" size={18} />
+                  <label htmlFor="roleFilterSelect" className="visually-hidden">Filter by role</label>
                   <select
+                    id="roleFilterSelect"
+                    aria-label="Filter by role"
+                    title="Filter by role"
                     value={roleFilter}
                     onChange={(e) => setRoleFilter(e.target.value)}
                     className="user-filter-input user-filter-select"
-                    aria-label="Filter users by role"
-                    title="Filter users by role"
                   >
                     <option value="">All Roles</option>
                     <option value="student">Students</option>
@@ -344,7 +371,7 @@ const UserManager: React.FC = () => {
                         </td>
                         <td>
                           <span className="user-table-cell--date">
-                            {new Date(user.date_joined).toLocaleDateString()}
+                            {formatDate(user.date_joined)}
                           </span>
                         </td>
                         <td>
@@ -406,13 +433,13 @@ const UserManager: React.FC = () => {
                   <label className="user-form-label">Username *</label>
                   <input
                     type="text"
-                    title="Username"
-                    placeholder='Enter username'
                     name="username"
                     value={formData.username}
                     onChange={handleInputChange}
                     className={`user-form-input ${formErrors.username ? 'user-form-input--error' : ''}`}
                     required
+                    placeholder="Enter username"
+                    title="Username"
                   />
                   {formErrors.username && (
                     <span className="user-form-error">{formErrors.username[0]}</span>
@@ -423,13 +450,13 @@ const UserManager: React.FC = () => {
                   <label className="user-form-label">Email *</label>
                   <input
                     type="email"
-                    title="Email"
-                    placeholder='Enter email'
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
                     className={`user-form-input ${formErrors.email ? 'user-form-input--error' : ''}`}
                     required
+                    title="Email"
+                    placeholder="Enter email address"
                   />
                   {formErrors.email && (
                     <span className="user-form-error">{formErrors.email[0]}</span>
@@ -440,13 +467,13 @@ const UserManager: React.FC = () => {
                   <label className="user-form-label">Password *</label>
                   <input
                     type="password"
-                    title="Password"
-                    placeholder="Enter password"
                     name="password"
                     value={formData.password}
                     onChange={handleInputChange}
                     className={`user-form-input ${formErrors.password ? 'user-form-input--error' : ''}`}
                     required
+                    title="Password"
+                    placeholder="Enter password"
                   />
                   {formErrors.password && (
                     <span className="user-form-error">{formErrors.password[0]}</span>
@@ -462,7 +489,7 @@ const UserManager: React.FC = () => {
                     onChange={handleInputChange}
                     className="user-form-input"
                     required
-                    placeholder="Confirm password"
+                    placeholder="Confirm your password"
                     title="Confirm Password"
                   />
                 </div>
@@ -475,7 +502,7 @@ const UserManager: React.FC = () => {
                     onChange={handleInputChange}
                     className="user-form-input"
                     required
-                    title="Select user role"
+                    title="Role"
                   >
                     <option value="student">Student</option>
                     <option value="lecturer">Lecturer</option>
@@ -509,11 +536,11 @@ const UserManager: React.FC = () => {
                         type="text"
                         name="name"
                         value={formData.name}
-                        title="Full Name"
-                        placeholder="Enter full name"
                         onChange={handleInputChange}
                         className={`user-form-input ${formErrors.name ? 'user-form-input--error' : ''}`}
                         required
+                        title="Full Name"
+                        placeholder="Enter full name"
                       />
                       {formErrors.name && (
                         <span className="user-form-error">{formErrors.name[0]}</span>
@@ -524,13 +551,13 @@ const UserManager: React.FC = () => {
                       <label className="user-form-label">Program *</label>
                       <input
                         type="text"
-                        title="Program"
-                        placeholder="Enter program"
                         name="program"
                         value={formData.program}
                         onChange={handleInputChange}
                         className={`user-form-input ${formErrors.program ? 'user-form-input--error' : ''}`}
                         required
+                        title="Program"
+                        placeholder="Enter program"
                       />
                       {formErrors.program && (
                         <span className="user-form-error">{formErrors.program[0]}</span>
@@ -564,11 +591,11 @@ const UserManager: React.FC = () => {
                         type="text"
                         name="name"
                         value={formData.name}
-                        title="Full Name"
-                        placeholder="Enter full name"
                         onChange={handleInputChange}
                         className={`user-form-input ${formErrors.name ? 'user-form-input--error' : ''}`}
                         required
+                        title="Full Name"
+                        placeholder="Enter full name"
                       />
                       {formErrors.name && (
                         <span className="user-form-error">{formErrors.name[0]}</span>
@@ -582,9 +609,10 @@ const UserManager: React.FC = () => {
                         name="department"
                         value={formData.department}
                         onChange={handleInputChange}
-                        title="Department"
                         className={`user-form-input ${formErrors.department ? 'user-form-input--error' : ''}`}
                         required
+                        title="Department"
+                        placeholder="Enter department"
                       />
                       {formErrors.department && (
                         <span className="user-form-error">{formErrors.department[0]}</span>
@@ -602,8 +630,8 @@ const UserManager: React.FC = () => {
                       value={formData.name}
                       onChange={handleInputChange}
                       className="user-form-input"
-                      placeholder="Optional admin name"
-                      title="Full Name (Optional)"
+                      title="Full Name"
+                      placeholder="Enter full name"
                     />
                   </div>
                 )}

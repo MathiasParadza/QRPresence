@@ -226,7 +226,6 @@
   width: 24px;
   height: 24px;
 }
-
 /* Action Buttons */
 .action-buttons {
   display: flex;
@@ -242,7 +241,7 @@
   background: rgba(255, 255, 255, 0.1);
   -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
-  color: rgba(255, 255, 255, 0.8);
+  color: white;
   cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
@@ -253,21 +252,28 @@
 
 .action-button:hover {
   transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.action-button--edit:hover {
+.action-button--edit {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   border-color: rgba(16, 185, 129, 0.4);
-  color: white;
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
 }
 
-.action-button--delete:hover {
+.action-button--edit:hover {
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+  filter: brightness(1.1);
+}
+
+.action-button--delete {
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   border-color: rgba(239, 68, 68, 0.4);
-  color: white;
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.action-button--delete:hover {
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
+  filter: brightness(1.1);
 }
 
 /* Empty State */

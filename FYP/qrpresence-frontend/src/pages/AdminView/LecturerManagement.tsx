@@ -13,15 +13,14 @@ import axios from 'axios';
 import './LecturerManagement.css';
 
 interface Lecturer {
-  id: number;
-  lecturer_id: string;
+  id?: number; // if API doesn’t send id, make it optional
+  lecturer_id: string | number;
   name: string;
   department: string;
   is_admin: boolean;
-  user?: {
-    email: string;
-  };
+  email?: string;
 }
+
 
 interface Filters {
   department: string;
@@ -326,31 +325,32 @@ const LecturerManagement = () => {
                           </td>
                           <td>
                             <span className="lecturer-table-cell--email">
-                              {lecturer.user?.email || 'N/A'}
+                               {lecturer.email || 'N/A'}
                             </span>
+
                           </td>
                           <td>
                             <div className="lecturer-action-buttons">
                               <button 
-                                key={`view-${lecturer.id}`}
+                                key={`view-${lecturer.lecturer_id}`}
                                 className="lecturer-action-button lecturer-action-button--view" 
                                 title="View"
                               >
                                 <Eye className="lecturer-icon" size={16} />
                               </button>
                               <button 
-                                key={`edit-${lecturer.id}`}
+                                key={`edit-${lecturer.lecturer_id}`}
                                 className="lecturer-action-button lecturer-action-button--edit" 
                                 title="Edit"
                               >
                                 <Edit className="lecturer-icon" size={16} />
                               </button>
                               <button 
-                                key={`delete-${lecturer.id}`}
+                                key={`delete-${lecturer.lecturer_id}`}
                                 className="lecturer-action-button lecturer-action-button--delete" 
                                 title="Delete"
-                                onClick={() => handleDeleteLecturer(lecturer.id)}
-                                disabled={deletingId === lecturer.id}
+                                onClick={() => handleDeleteLecturer(Number(lecturer.lecturer_id))}
+                                disabled={deletingId === Number(lecturer.lecturer_id)}
                               >
                                 {deletingId === lecturer.id ? (
                                   <RefreshCw className="lecturer-icon spinner" size={16} />
