@@ -247,12 +247,6 @@ const StudentView = () => {
                   <p className="profile-value">{profile.program}</p>
                 </div>
               </div>
-              <button 
-                onClick={() => setEditing(true)} 
-                className="edit-button"
-              >
-                Edit Profile
-              </button>
             </div>
           ) : (
             <div className="profile-edit-form">
