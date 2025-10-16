@@ -98,7 +98,7 @@ class Session(models.Model):
     lecturer = models.ForeignKey('Lecturer', to_field='lecturer_id', on_delete=models.CASCADE)
     gps_latitude = models.FloatField()
     gps_longitude = models.FloatField()
-    allowed_radius = models.IntegerField(default=100)
+    allowed_radius = models.IntegerField(default=100)  # in meters
     timestamp = models.DateTimeField(auto_now_add=True)
     course = models.ForeignKey('Course', on_delete=models.CASCADE, related_name='sessions')
     attendance_window = models.DurationField(default=timedelta(minutes=15)) 

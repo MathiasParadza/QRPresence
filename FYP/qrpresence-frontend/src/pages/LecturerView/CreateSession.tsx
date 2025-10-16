@@ -554,8 +554,8 @@ const CreateSession: React.FC = () => {
                 label="Allowed Radius (meters)"
                 required
                 icon={<Target className="create-session-icon" />}
-                min={10}
-                max={1000}
+                min={2}
+                max={10}
                 error={errors.allowedRadius}
               />
             </div>
@@ -580,7 +580,7 @@ const CreateSession: React.FC = () => {
                 }
                 title="Attendance Tracking"
               >
-                Students must be within the specified radius (1-2meters) of the GPS coordinates to mark their attendance.
+                Students must be within the specified radius (10-15 meters) of the GPS coordinates to mark their attendance.
               </InfoBox>
             </div>
 

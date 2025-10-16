@@ -457,7 +457,7 @@ class LecturerAttendanceViewSet(viewsets.ModelViewSet):
     serializer_class = AttendanceLecturerViewSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = AttendanceFilter
-    permission_classes = [IsAuthenticated, IsLecturerOrAdmin]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         """
